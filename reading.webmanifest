@@ -1,0 +1,14 @@
+{
+  "name": "청연국어 독서 기록",
+  "short_name": "청연 독서",
+  "description": "책갈피 · 내용 이해 · 생각하기",
+  "display": "standalone",
+  "background_color": "#FBF8F1",
+  "theme_color": "#1F499D",
+  "lang": "ko",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

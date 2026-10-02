@@ -1,0 +1,1250 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>독서 기록</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap">
+<style>
+:root{
+  --paper:#FBF8F1;--ink:#211F1B;--muted:#6E685C;--line:#E7DFCE;--card:#FFFFFF;
+  --accent:#183263;--accent-soft:#E5E9F1;--green:#324840;--beige:#F1EEE4;
+  --correct:#2E7D5B;--correct-soft:#E4F0EA;--wrong:#BF4230;--wrong-soft:#F7E7E3;--warn:#A86A12;--warn-soft:#FBF0DC;
+  --shadow:0 1px 2px rgba(33,31,27,.05),0 12px 32px -14px rgba(33,31,27,.16);--radius:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#191713;--ink:#ECE6D9;--muted:#A69D8B;--line:#38322A;--card:#242019;
+  --accent:#9DB4DE;--accent-soft:#1E2638;--green:#A9C4B6;--beige:#2A2720;
+  --correct:#71C9A0;--correct-soft:#1E2E27;--wrong:#E88C7A;--wrong-soft:#33221E;--warn:#E3B062;--warn-soft:#33291A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -14px rgba(0,0,0,.55);
+}}
+:root[data-theme="dark"]{
+  --paper:#191713;--ink:#ECE6D9;--muted:#A69D8B;--line:#38322A;--card:#242019;
+  --accent:#9DB4DE;--accent-soft:#1E2638;--green:#A9C4B6;--beige:#2A2720;
+  --correct:#71C9A0;--correct-soft:#1E2E27;--wrong:#E88C7A;--wrong-soft:#33221E;--warn:#E3B062;--warn-soft:#33291A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -14px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Gowun Dodum","Noto Sans KR",system-ui,-apple-system,sans-serif;line-height:1.7;letter-spacing:-.01em;
+  padding:clamp(1rem,4vw,3rem) 1rem 5rem}
+.wrap{max-width:48rem;margin:0 auto}
+.wrap.narrow{max-width:42rem}
+a{color:var(--accent)}
+h1,h2,h3{font-family:"Gowun Batang",serif;letter-spacing:-.02em;text-wrap:balance;margin:0}
+h1{font-size:clamp(1.9rem,6vw,2.5rem);font-weight:800;line-height:1.15}
+h2{font-size:1.35rem;font-weight:700;margin-bottom:.2rem}
+h3{font-size:1.08rem;font-weight:700}
+p{margin:.3rem 0}
+.eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--accent);
+  display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
+.eyebrow.gold{color:var(--green)}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--line)}
+.sub{color:var(--muted);font-size:.95rem}
+.small{font-size:.85rem}
+header.page{margin-bottom:1.6rem}
+.topline{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:clamp(1.2rem,4vw,1.9rem);margin-bottom:1rem}
+.field{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1rem}
+.field>label{font-size:.9rem;font-weight:700}
+.field .hint{font-size:.8rem;color:var(--muted);margin-top:-.2rem}
+input[type=text],input[type=email],input[type=password],textarea,select{
+  font-family:inherit;font-size:1rem;color:var(--ink);background:var(--paper);
+  border:1.5px solid var(--line);border-radius:10px;padding:.6rem .8rem;width:100%}
+textarea{resize:vertical;min-height:4.2rem;line-height:1.65}
+input:focus,textarea:focus,select:focus{outline:2.5px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.btn{font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;color:#fff;background:var(--accent);
+  border:none;border-radius:10px;padding:.62rem 1.25rem;transition:opacity .15s,transform .06s;display:inline-block}
+.btn:hover{opacity:.9}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--line)}
+.btn.ghost:hover{border-color:var(--accent);opacity:1}
+.btn.danger{background:transparent;color:var(--wrong);border:1.5px solid var(--line)}
+.btn.small{padding:.4rem .8rem;font-size:.85rem}
+.btn:focus-visible,.chip:focus-visible,.tab:focus-visible{outline:2.5px solid var(--accent);outline-offset:3px}
+.row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.pill{font-size:.75rem;font-weight:700;border-radius:999px;padding:.15rem .6rem;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--correct);border-color:var(--correct)}
+.pill.no{color:var(--wrong);border-color:var(--wrong)}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0}
+.chip{font-family:inherit;font-size:.85rem;border:1.5px solid var(--line);border-radius:999px;padding:.3rem .8rem;
+  background:var(--card);cursor:pointer;color:var(--muted)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tabs{display:flex;gap:.3rem;border-bottom:1.5px solid var(--line);margin:1.2rem 0 1rem;overflow-x:auto;overflow-y:hidden}
+.tab{font-family:inherit;font-size:.95rem;font-weight:700;background:none;border:none;cursor:pointer;color:var(--muted);
+  padding:.55rem .9rem;border-bottom:3px solid transparent;margin-bottom:-1.5px;white-space:nowrap}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.range{background:var(--accent-soft);border-radius:12px;padding:.75rem 1rem;font-size:.95rem;margin:.6rem 0 0}
+.range b{color:var(--accent)}
+.box-h{font-family:"Gowun Batang",serif;font-size:1.1rem;font-weight:800;display:inline-block;
+  border-bottom:3px solid var(--green);padding-bottom:.1rem;margin-bottom:.6rem}
+.story{font-size:1.02rem;line-height:2.1;white-space:pre-wrap}
+.card:has(> .story){background:var(--beige)}
+input[type=text].blank{font-family:inherit;line-height:1.4;vertical-align:baseline;font-size:.98rem;color:var(--accent);font-weight:600;background:var(--accent-soft);
+  border:none;border-bottom:2px solid var(--accent);border-radius:6px 6px 0 0;padding:.05rem .35rem;margin:0 .15rem;
+  width:auto;min-width:5.5em;max-width:100%}
+.blank:focus{outline:2px solid var(--accent);outline-offset:1px}
+.filled{display:inline;border-radius:6px;padding:.05rem .35rem;margin:0 .1rem;font-weight:600}
+.filled.ok{background:var(--correct-soft);color:var(--correct)}
+.filled.chk{background:var(--warn-soft);color:var(--warn)}
+input[type=text].blank.retry{border-bottom-color:var(--wrong);background:var(--wrong-soft);color:var(--ink)}
+.filled.none{background:var(--wrong-soft);color:var(--wrong)}
+.key{font-size:.8rem;color:var(--muted);font-weight:500;margin-left:.15rem}
+.qnum{font-size:.78rem;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.qtext{font-family:"Gowun Batang",serif;font-size:1.05rem;font-weight:700;line-height:1.55;margin:.15rem 0 .55rem}
+.model{background:var(--beige);border-left:3px solid var(--green);border-radius:0 10px 10px 0;padding:.55rem .85rem;font-size:.9rem;margin:.4rem 0 .7rem}
+.model .lab{font-size:.72rem;font-weight:700;letter-spacing:.08em;color:var(--green);display:block}
+.ans{display:grid;grid-template-columns:6.5rem 1fr;gap:.2rem .8rem;padding:.45rem 0;border-top:1px dashed var(--line);font-size:.95rem}
+.ans .who{font-weight:700}
+.ans .none{color:var(--muted);font-style:italic}
+.feedback{margin-top:.6rem;border-left:3px solid var(--green);background:var(--beige);border-radius:0 10px 10px 0;padding:.55rem .85rem;font-size:.92rem}
+.feedback .lab{font-size:.72rem;font-weight:700;letter-spacing:.08em;color:var(--green);display:block}
+.blank-stat{border-top:1px solid var(--line);padding:.8rem 0}
+.blank-stat .head{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap}
+.blank-stat .no{font-weight:800;color:var(--accent)}
+.blank-stat .rate{margin-left:auto;font-size:.85rem;font-weight:700;font-variant-numeric:tabular-nums}
+.blank-stat .rate.low{color:var(--wrong)}
+.mini{display:flex;flex-wrap:wrap;gap:.35rem .5rem;margin-top:.35rem;font-size:.88rem}
+.mini span{border-radius:7px;padding:.1rem .45rem}
+.mini .ok{background:var(--correct-soft);color:var(--correct)}
+.mini .chk{background:var(--warn-soft);color:var(--warn)}
+.mini .none{background:var(--wrong-soft);color:var(--wrong)}
+.mini button.acc{font-family:inherit;font-size:.74rem;font-weight:700;color:var(--accent);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.05rem .4rem;margin-left:.25rem;cursor:pointer}
+.legend{display:flex;gap:.8rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:.4rem 0}
+.legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:3px;vertical-align:-1px;margin-right:.25rem}
+.topic{padding:.7rem 0;border-top:1px solid var(--line)}
+.topic:first-of-type{border-top:none}
+.topic .t{font-size:1rem;font-weight:500}
+.topic .by{font-size:.8rem;color:var(--muted)}
+.quote{font-family:"Gowun Batang",serif;font-size:1rem;line-height:1.6;border-left:3px solid var(--line);padding:.1rem 0 .1rem .85rem;margin:.5rem 0 .2rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.7rem;margin:1rem 0}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:.7rem .9rem}
+.stat .n{font-family:"Gowun Batang",serif;font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .l{font-size:.76rem;color:var(--muted);font-weight:600}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{padding:.55rem .8rem;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.75rem;letter-spacing:.06em;color:var(--muted);font-weight:700}
+tbody tr:last-child td{border-bottom:none}
+.mark.ok{color:var(--correct);font-weight:700}
+.mark.no{color:var(--wrong);font-weight:700}
+.sec-edit{border:1px solid var(--line);border-radius:12px;padding:1rem;margin-bottom:1rem;background:var(--paper)}
+.box-edit{border:1px solid var(--line);border-radius:10px;padding:.9rem;margin:.7rem 0;background:var(--card)}
+.q-edit{border:1px dashed var(--line);border-radius:10px;padding:.7rem;margin:.5rem 0}
+.note{font-size:.88rem;color:var(--muted);background:var(--accent-soft);border-radius:10px;padding:.7rem .9rem;margin:.6rem 0}
+.demo-bar{background:var(--beige);color:var(--ink);border:1px solid var(--green);border-radius:10px;padding:.55rem .9rem;font-size:.85rem;margin-bottom:1.2rem}
+.err{color:var(--wrong);font-size:.88rem;margin-top:.4rem}
+.empty{text-align:center;color:var(--muted);padding:2.5rem 1rem}
+.foot{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}
+#toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%) translateY(2rem);background:var(--ink);
+  color:var(--paper);padding:.6rem 1.1rem;border-radius:10px;font-size:.9rem;font-weight:600;opacity:0;
+  transition:.25s;pointer-events:none;z-index:50;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.bad{background:var(--wrong)}
+.dlg-back{position:fixed;inset:0;background:rgba(20,18,15,.45);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:60}
+.dlg{background:var(--card);color:var(--ink);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.4rem;max-width:26rem;width:100%}
+.dlg p{margin:0 0 1.1rem;white-space:pre-wrap;font-size:1rem}
+.dlg textarea{margin-bottom:1rem}
+@media (max-width:520px){ .ans{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div id="demoBar"></div>
+  <header class="page" id="pageHeader"></header>
+  <main id="app"><div class="empty">불러오는 중…</div></main>
+  <p class="foot" id="pageFoot"></p>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ===== 설정 ===== */
+var SUPABASE_URL = "https://yqwexzzdamcpqmsqkbcg.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_Y2bK2lw2T_Wysf9WWPuDbg_eA1ZX7R0";
+
+var PARAMS = new URLSearchParams(location.search);
+// ?demo=1 이거나 파일을 더블클릭해서 열면 → Supabase 없이 이 기기 안에서만 체험
+var DEMO = PARAMS.has("demo") || location.protocol === "file:";
+
+/* ===== 공용 헬퍼 ===== */
+var app = document.getElementById("app");
+var pageHeader = document.getElementById("pageHeader");
+var pageFoot = document.getElementById("pageFoot");
+
+function el(tag, attrs, kids){
+  var n = document.createElement(tag); attrs = attrs || {};
+  Object.keys(attrs).forEach(function(k){
+    if (k === "class") n.className = attrs[k];
+    else if (k === "html") n.innerHTML = attrs[k];
+    else if (k === "text") n.textContent = attrs[k];
+    else if (k === "value") n.value = attrs[k];
+    else if (k.slice(0,2) === "on") n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  });
+  (kids || []).forEach(function(c){
+    if (c == null) return;
+    n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  });
+  return n;
+}
+var _toastT;
+function toast(msg, bad){
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(_toastT); _toastT = setTimeout(function(){ t.className = ""; }, 3200);
+}
+// 브라우저 확인 창(confirm) 대신 쓰는 앱 안 확인 창 — confirm 이 막힌 브라우저에서도 동작
+function askBox(msg, okText){
+  return new Promise(function(resolve){
+    var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+    function done(v){ back.remove(); resolve(v); }
+    var ok = el("button", { class: "btn", text: okText || "확인", onclick: function(){ done(true); } });
+    back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: msg }),
+      el("div", { class: "row", style: "justify-content:flex-end" }, [
+        el("button", { class: "btn ghost", text: "취소", onclick: function(){ done(false); } }), ok ]) ]));
+    back.addEventListener("click", function(e){ if (e.target === back) done(false); });
+    back.addEventListener("keydown", function(e){ if (e.key === "Escape") done(false); });
+    document.body.appendChild(back); ok.focus();
+  });
+}
+function showCopyBox(text){
+  var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+  var ta = el("textarea", { readonly: "readonly", style: "min-height:6rem" }); ta.value = text;
+  back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: "아래 내용을 복사하세요 (Ctrl+C)." }), ta,
+    el("div", { class: "row", style: "justify-content:flex-end" }, [ el("button", { class: "btn", text: "닫기", onclick: function(){ back.remove(); } }) ]) ]));
+  document.body.appendChild(back); ta.focus(); ta.select();
+}
+function fmtTime(iso){
+  var d = new Date(iso), p = function(x){ return String(x).padStart(2,"0"); };
+  return (d.getMonth()+1)+"/"+d.getDate()+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function lsGet(k){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function trimStr(s){ return String(s == null ? "" : s).trim(); }
+function textBlock(s){ var d = el("div", { style: "white-space:pre-wrap" }); d.textContent = s; return d; }
+function studentLink(id){ return location.href.split(/[?#]/)[0] + "?book=" + id + (DEMO ? "&demo=1" : ""); }
+function copyText(text, msg){
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(function(){ toast(msg || "복사했어요"); }, function(){ showCopyBox(text); });
+  else showCopyBox(text);
+}
+
+/* ----- 빈칸: 줄거리 안의 [정답] ----- */
+var BLANK_RE = /\[([^\]]+)\]/g;
+function keysOf(text){ var out = [], m; BLANK_RE.lastIndex = 0; while ((m = BLANK_RE.exec(text || ""))) out.push(m[1]); return out; }
+function stripKeys(text){ return String(text || "").replace(BLANK_RE, "[]"); }
+function sectionKeys(sec){ var k = []; ((sec && sec.boxes) || []).forEach(function(b){ k = k.concat(keysOf(b.text)); }); return k; }
+function sectionQuestions(sec){ var q = []; ((sec && sec.boxes) || []).forEach(function(b){ q = q.concat(b.questions || []); }); return q; }
+function blankCount(sec){ // 학생용(정답이 [] 로 바뀐) 줄거리에서 세기
+  var n = 0; ((sec && sec.boxes) || []).forEach(function(b){ n += String(b.text || "").split("[]").length - 1; }); return n;
+}
+function norm(s){ return String(s || "").replace(/[\s.,·…‘’“”'"!?~()\-]/g, ""); }
+// 빈칸 정답 형식: [정답] · [정답|다른 정답] · [정답@핵심어,핵심어·바꿔쓸말]
+//   @ 뒤 핵심어: 쉼표(,)로 나눈 말은 모두 들어가야 하고, 가운뎃점(·)으로 나눈 말은 하나만 있으면 됨
+//   (어미·시제·조사·띄어쓰기는 상관없이 책 내용이 맞는지만 봄)
+// 결과: "ok" 맞음 · "chk" 다시 쓰기 · "none" 안 씀    — reading.sql 의 blank_ok 와 같은 규칙
+function grade(ans, key){
+  var a = norm(ans);
+  if (!a) return "none";
+  key = String(key || "");
+  var at = key.indexOf("@");
+  if (at !== -1){
+    var groups = key.slice(at + 1).split(",");
+    var all = groups.every(function(g){
+      return g.split("·").some(function(alt){ alt = norm(alt); return alt && a.indexOf(alt) !== -1; });
+    });
+    return all ? "ok" : "chk";
+  }
+  var hit = key.split("|").some(function(k){
+    k = norm(k); if (!k) return false;
+    return a === k || a.indexOf(k) !== -1 || (k.indexOf(a) !== -1 && a.length >= Math.ceil(k.length * 0.6));
+  });
+  return hit ? "ok" : "chk";
+}
+// 선생님이 "인정"한 답(accept: { 빈칸번호: 정규화한 답 })이면 맞음
+function gradeA(ans, key, accept, i){
+  var a = norm(ans);
+  if (a && accept && accept[i] === a) return "ok";
+  return grade(ans, key);
+}
+function displayKey(k){ return String(k).split("@")[0].split("|")[0]; }
+
+/* ===== 샘플: 몽실언니 (초6 · 4주) — 선생님 교재 「즐거운 문학 읽기」 학생용·교사용에서 옮김 ===== */
+var MONGSIL = {
+  title: "몽실언니", author: "권정생 글 · 이철수 그림 · 창비", grade: "초등 6학년",
+  sections: [
+    { title: "1주차", range: "‘아버지를 버리고’부터 ‘까치바위골 할아버지’까지", boxes: [
+      { heading: "아버지를 버리고",
+        text: "한 달 전 돈 벌러 집을 나간 아버지를 두고 몽실의 엄마는 몽실이를 데리고 도망가듯 집을 떠나 다른 남자와 결혼을 한다.",
+        questions: [
+          { prompt: "① 밀양댁은 왜 몽실이의 아버지를 버리고 다른 남자와 결혼을 했나요? 여러분은 밀양댁의 행동에 대해 어떻게 생각하나요?", model: "굶주림을 견디다 못해서." },
+          { prompt: "② 새아버지를 본 몽실이의 마음은 어땠을까요?", model: "진짜 아버지가 있는데, 돈 많이 벌어온다고 했는데, 새아버지라고 하니 이해가 되질 않았을 것이다." } ] },
+      { heading: "다리 병신",
+        text: "영득이 태어나고 몽실이는 귀찮은 자식이 되었다. 8살이 된 몽실이에게 할머니는 [온갖 일을 시켰고@온갖,일,시키·시켰] 새아버지는 [호통을 쳤다@호통]. 새아버지와 엄마는 몽실이 일로 싸움을 하고 새아버지는 [엄마를 때렸다@엄마·어머니,때리·때렸].\n정 씨 아버지가 [댓골로 찾아왔고@댓골,찾아] 그 일로 김 씨가 화가 나 몽실이와 밀양댁을 떼밀어 몽실이는 [절름발이가 된다@절름발이].",
+        questions: [
+          { prompt: "③ 자신을 대하는 태도가 달라진 가족들의 모습에 몽실이의 마음은 어땠을까요?", model: "속상하고 슬펐을 것이다. 낯선 사람들을 가족이라고 생각하고 정을 붙이고 살았는데, 남 대하듯 하는 이들 때문에 상처를 받았을 것이다." },
+          { prompt: "④ 아픈 몽실이를 데리고 참기만 하는 밀양댁의 모습을 보고 여러분은 어떤 생각이 드나요?", model: "답답하다. 밀양댁이 몽실이에게 함부로 하는 것을 막아 줬어야 한다." } ] },
+      { heading: "어머니와 헤어지고",
+        text: "댓골로 살강에서 [몽실이를 데리러@데리러·데려가] 고모가 왔다. 엄마는 몽실이에게 고모와 함께 가라고 했다.\n고모와 함께 노루실로 온 몽실이에게 정 씨는 술만 먹으면 [화를 내고 때렸다@화,때리·때렸]. 어느 날 새어머니 북촌댁이 왔다. 몽실이는 [댓골 엄마가@댓골,엄마·어머니] 보고 싶어 밤마다 별을 세며 울었다.",
+        questions: [
+          { prompt: "⑤ 고모와 가라는 말을 들은 몽실이는 어떻게 했나요?", model: "이담에 엄마한테 놀러 와도 되냐고 묻고 순덕이와 할머니에게 인사를 하고 고모를 따라갔다. 엄마의 울음소리를 들으며 엄마의 잘못이 아니라며… (46~49쪽)" },
+          { prompt: "⑥ 정 씨 아버지와 김 주사 아버지의 공통점은?", model: "술을 먹으면 가족을 때린다." } ] },
+      { heading: "까치바위골 할아버지",
+        text: "마을에 [공비가@공비] 내려오는 일 때문에 어른들 모두 경비원 노릇을 했다. 경비 서는 아버지가 추울까 봐 숯덩이를 들고 간 몽실이는 까치바위골 앵두나무 집 할아버지 이야기를 묻는다. 공비 아들에게 [먹을 것을 준 할아버지가 잘못했다는@먹을·밥·음식,잘못] 아버지 말에 몽실이는 그렇지 않다고 이야기한다.",
+        questions: [
+          { prompt: "⑦ 몽실이가 아버지에게 한 이야기는 무엇인가요?", model: "빨갱이라도 아버지와 아들은 원수가 될 수 없어요. 나도 우리 아버지가 빨갱이가 되어 집을 나갔다면 역시 떡 해드리고 닭을 잡아 드릴 거예요. (66쪽)" },
+          { prompt: "⑧ 몽실이의 이야기에 여러분의 생각은 어떠한가요? 이유와 함께 말해 보세요.", model: "" } ] }
+    ]},
+    { title: "2주차", range: "‘인생이라는 것’부터 ‘꿈속의 두 어머니’까지", boxes: [
+      { heading: "인생이라는 것",
+        text: "새어머니와 가까워진 몽실은 함께 야학을 다니며 공부한다. 최 선생은 ‘인생의 길’에 대해 얘기하고, 몽실은 곰곰이 생각하는 아이가 되어갔다.",
+        questions: [
+          { prompt: "⑨ 최 선생이 말하는 ‘인생의 길’은 무엇인가요? (72~79쪽)", model: "자신의 인생길은 자신이 결정해서 나아가야 하는 것이다." },
+          { prompt: "⑩ 여러분도 자신의 ‘인생의 길’을 생각해 보세요. 어떤 인생을 어떻게 살아가고 싶은가요?", model: "" } ] },
+      { heading: "새어머니의 슬픔",
+        text: "북촌댁은 아기를 가졌다. 배가 불러 올수록 건강이 나빠졌다. 임신한 북촌댁이 제대로 먹지 못하자 몽실이는 왜 가난한 집에 시집을 왔냐며 고모한테 [속은 게 아니냐고@속] 한다. 그러자 북촌댁은 자신이 ‘[가슴앓이병@가슴앓이]’을 앓아 전 남편에게 버림을 받은 사실을 속이고 시집 온 거라 한다.\n몽실이는 북촌댁과 [울지 않기로@울지] 약속을 했고 친어머니와 딸처럼 사이좋게 지냈다.",
+        questions: [
+          { prompt: "⑪ 몽실이는 왜 머슴살이를 하는 아버지에게 갔나요?", model: "임신한 북촌댁이 자꾸 아프자 잉어 한 마리를 고아 드리고 싶어서." } ] },
+      { heading: "동생 난남이",
+        text: "아버지는 전쟁에 불려갔다. 전쟁이 일어난 지 스무날이 된 7월 북촌댁은 아기를 낳았고, 며칠 후 죽었다. 장골 할머니가 난리 통에 태어난 아이라며 ‘난남이’라고 이름을 지어주었고 몽실이는 난남이를 위해 젖동냥을 했다.",
+        questions: [] },
+      { heading: "이상한 인민군",
+        text: "난남이는 몽실이가 주는 암죽을 먹으며 자랐다.\n마을에는 [인민군들이 왔다@인민군]. 인민 국기를 달아야 하는데 몽실이가 [태극기]를 달았고, 이를 본 인민군 청년이 [태극기]를 찢으며 몽실에게 이제 [인민의 나라@인민,나라]가 되었다며 이러다가 끌려가 죽는다고 말했다.\n남주와 인민 해방에 방해한 사람들을 죽인다는 곳에 구경을 갔다가 너무 무서워 돌아왔다. 너무 무섭고 외로운 몽실이는 [엄마와 아빠가@엄마·어머니,아빠·아버지] 보고 싶었다.\n⑫ 장골 할머니를 보러 갔다가 [여자 인민군@여자,인민군]에게 [쌀과 미숫가루@쌀,미숫가루]를 얻었다.",
+        questions: [] },
+      { heading: "착한 사람, 나쁜 사람",
+        text: "같이 집으로 온 [인민군] 언니에게 몽실이는 왜 사람을 죽이냐고 묻는다. 그리고 왜 서로를 죽이는지, 누가 더 [나쁘고 착한지@나쁘,착하·착한] 묻는다. 그러자 인민군 언니는 정말은 다 [나쁘고 다 착하다고@나쁘,착하] 한다.\n전쟁은 계속 [인민군]이 이기고 있었다.",
+        questions: [
+          { prompt: "⑬ ‘정말은 다 나쁘고, 다 착하다’는 말은 무슨 뜻일까요?", model: "상황이 사람을 나쁘게, 착하게 만들 뿐이다." } ] },
+      { heading: "꿈속의 두 어머니",
+        text: "동네 사람들의 도움으로 몽실이는 목숨을 부지해 가고 있었다. 인민군은 쫓겨가고 있었다. 꿈속에서 두 어머니를 만났다. 꿈속에서 댓골 어머니도 북촌댁도 몽실이에게 오지 않고 사라졌다.",
+        questions: [] }
+    ]},
+    { title: "3주차", range: "‘찾아간 개암나무골’부터 ‘구걸하는 몽실이’까지", boxes: [
+      { heading: "찾아간 개암나무골",
+        text: "인민기가 자취를 감추고 [태극기]가 꽂혔다. 피난 갔던 사람들이 돌아왔다. 헤어졌던 사람들이 살아서 만났다.\n사람들의 바람과 반대로 누군가가, 무엇인가가 자꾸 불행을 만들었다.\n마을 어른들이 지서에 끌려갔다. 미군이 나타났다. 몽실이는 고모가 사는 개암나무골로 갔다. 그런데 고모네는 [불탔고@불], 고모는 [죽고@죽고·죽었·돌아가셨], 고모부는 [북으로@북] 끌려갔다. 애들은 [고아원]으로 가고…",
+        questions: [
+          { prompt: "⑭ 어렵게 찾아간 고모가 죽었다는 얘기를 들은 몽실이의 마음은 어땠을까요? 여러분이라면 어떻게 했을 것 같나요?", model: "앞길이 막막했을 것이다. 믿을 어른이라고는 고모밖에 없었는데 고모가 돌아가셨다니 무서웠을 것이다." } ] },
+      { heading: "난남이와 영순이",
+        text: "난남이를 업고 몽실이는 [댓골 어머니에게@댓골,어머니·엄마] 갔다. 밀양댁을 본 몽실이는 울었다. 할머니는 [돌아가셨고@돌아가셨·죽었], 새아버지는 보국대에 가 있었다. 싫어하는 사람이 하나도 없어서 기쁘다는 생각을 했다. 엄마는 그새 영순이를 낳았다. 난남이보다 닷새 늦게 태어난 몽실이의 동생이었다.",
+        questions: [
+          { prompt: "⑮ 밀양댁을 본 몽실이는 왜 울었나요?", model: "그동안 힘들었던 일들이 생각나면서 엄마를 보자 긴장도 풀리고, 마음도 놓여서 눈물이 나왔을 것이다." } ] },
+      { heading: "다시 헤어진 어머니",
+        text: "몽실은 농사일로 바쁜 어머니를 도와 난남이, 영순이, 영득이 셋을 데리고 집을 보고, 밥을 짓고, 빨래를 했다. [새아버지 김 주사@김 주사·새아버지]가 돌아왔다. 김 주사는 난남이가 밥상을 넘어뜨리자 [난남이를 걷어찬다@난남,걷어·발로].\n몽실이는 난남이를 업고 다시 그 집을 나온다. 밀양댁은 쌀을 판 돈을 몽실에게 준다. 노루실로 돌아온 몽실이는 남주네서 지냈다. 장골 할머니가 읍내에 [식모살이@식모]를 가는 게 어떻겠냐고 했다. 그런데 난남이를 고아원에 보내야 한단다.",
+        questions: [
+          { prompt: "⑯ 집을 나오는 몽실이를 잡지 않는 밀양댁은 어떤 마음이었을까요? 또 떠나오는 몽실이의 마음은 어땠을까요?", model: "밀양댁 – 자기 때문에 저리 힘들게 사는 것 같아 가슴이 아프고 미안했을 것이다.\n몽실이 – 난남이를 책임져야 해서 엄마와 함께 살지 못하는 것을 잘 알아서 더 마음이 좋지 않았을 것이다." } ] },
+      { heading: "검둥이 아기",
+        text: "읍내 최 씨 집으로 난남이를 데리고 식모살이를 왔다. 최 씨네 가족은 몽실이와 난남이를 무척 아껴주었다. 주인 아주머니의 심부름으로 아침 일찍 시장에 다녀오는 길에 버려진 검둥 아기를 보았다. 사람들이 욕을 하며 침을 뱉었다. 몽실이는 아기를 안고 달려왔다. 그러나 아기는 죽어 있었고 몽실이는 앓아누웠다.",
+        questions: [
+          { prompt: "⑰ 욕하는 사람들에게 몽실이는 뭐라고 했나요? 몽실이의 말에 대해 여러분은 어떻게 생각하나요? (191쪽)", model: "“그러지 말아요. 누구라도 누구라도 배고프면 화냥년도 되고, 양공주도 되는 거여요.”\n어린 몽실이가 더 어른스럽고, 어른들이 철없는 것 같다." } ] },
+      { heading: "돌아온 아버지",
+        text: "시장에 갔다가 꽃을 파는 아이에게 아껴두었던 100환을 주며 꽃을 사려 했으나 난 거지가 아니니 공으로 돈 받지 않는다는 말을 들었다. 그 아이는 [누구한테도 공으로 얻어먹으면@공으로,얻어먹] 사람이 아니라고 했다. 그 말을 들은 몽실이는 여태 얻어먹고 살아온 것만 같아 [부끄러워졌다@부끄러].\n사흘 뒤, [아버지가 오셨다@아버지,오셨·왔·돌아]. 나무지팡이를 짚고. 다리는 헝겊으로 친친 동여매고선.",
+        questions: [
+          { prompt: "⑱ 몽실이가 공으로 살았을까요?", model: "아니다. 주위 사람들의 도움을 받았으나 몽실이는 불편한 몸으로 자신이 할 수 있는 최선을 다해서 살아왔다." } ] },
+      { heading: "구걸하는 몽실이",
+        text: "아버지가 돌아왔으나 몽실이와 난남이를 위해 [아무것도 할 수 없었다@아무것도,없·못]. 오히려 화를 내고 [욕을 하며 때렸다@욕,때리·때렸]. 몽실이는 난남이에게 밥을 먹여야 한다는 생각에 [구걸을 한다@구걸].",
+        questions: [
+          { prompt: "⑲ 몽실이는 왜 차라리 아버지가 돌아오시지 않았으면 나을 뻔했다고 생각했을까요?", model: "아버지가 없을 때는 굶지도 않고 맞지도 않고 구걸도 하지 않았기 때문이다." } ] }
+    ]},
+    { title: "4주차", range: "‘영득이, 영순이’부터 ‘가파른 고갯길’까지 (끝까지)", boxes: [
+      { heading: "영득이, 영순이",
+        text: "[댓골 어머니가 위독하다며@어머니·엄마,위독] 몽실이가 보고 싶다고 전보가 왔다. 아버지가 허락을 하지 않아 사흘을 울며 보냈다. 뒤늦게 아버지가 허락하여 댓골에 갔으나 어머니는 [이미 돌아가셨다@돌아가셨·죽었]. 몽실이는 영득이와 영순이를 며칠간 보살핀 후 난남이에게로 돌아갔다.",
+        questions: [
+          { prompt: "⑳ 정 씨는 울며 후회한다. 이때 몽실이가 한 말은? 그 말의 의미는 무엇인가요?", model: "“아버지도 어머니도 모두 나쁘지 않아요. 나쁜 건 따로 있어요. …”\n이 모든 일이 누군가의 욕심에서 비롯되었고, 전쟁으로 죄 없는 사람들만 죽고 다치고 있다는 이야기다." } ] },
+      { heading: "모두 모두 내 동생",
+        text: "몽실은 정 씨 몰래 댓골에 다녀오기로 한다. 아이들을 살피고 집안일을 하고선 난남이에게로 왔다. 난남이는 울며 몽실이를 기다리고 있었다.\n영득이와 영순이에게 새엄마가 생겼다. 악독한 사람이라 몽실이는 동생들을 [더 이상 만나지 못한다@만나지 못·못 만나].\n지난 여름, [휴전 협정@휴전]이라는 것이 마무리되었다. 남과 북으로 갔던 사람들이 돌아가지도, 돌아오지도 못한 채 전쟁만 쉬게 되었다. 정 씨의 건강도 더 나빠졌고 몽실이는 고달픈 날들을 보냈다.\n봄이 온 후 장골 할머니가 부산 자선 병원을 알려주어 [아버지를 모시고 부산에 갔다@아버지,부산].",
+        questions: [] },
+      { heading: "자선 병원을 찾아서",
+        text: "병원에는 수많은 사람들이 진료를 기다리고 있었다. 줄의 끝이 보이질 않았다. 차례를 기다리며 끼니를 해결하기 위해 거지 빵을 파는 아저씨를 알게 되었고 아저씨의 도움도 받게 되었다. 길에서 죽는 사람도 많았다. 힘든 아버지는 집으로 가자고 했다. 보름을 길에서 보냈다.",
+        questions: [
+          { prompt: "㉑ 가난한 사람들을 위해 세워진 병원이 돈 있고 빽 있는 사람들을 먼저 진료해 주었다. 길에서 보름을 기다린 몽실이와 수많은 사람들의 마음은 어땠을까요?", model: "화나고, 억울했을 것이다." } ] },
+      { heading: "아버지의 죽음",
+        text: "결국 아버지는 진료는 [받지 못한 채 돌아가셨다@받지 못·못 받,돌아가셨·죽었]. 몽실이 바로 앞 목발 짚은 청년은 배근수였다. 폭격으로 다리를 다쳤고, 치료를 위해 와 있었다. 배근수에게 끼니때마다 먹을 것을 가져다주던 아주머니가 몽실이를 데리고 있고 싶어 한다는 얘기를 들었다. 몽실이는 난남이를 데리고 [부산 서금년 아줌마에게@금년] 온다. 금년이는 양공주였다.",
+        questions: [
+          { prompt: "㉒ 아버지마저 돌아가시자 몽실이는 어떤 생각을 했을까요?", model: "좋은 아버지는 아니었지만 이제 기댈 곳이 어디에도 없다는 사실이 슬프고, 난남이를 혼자 책임져야 한다는 사실에 두렵기도 했을 것이다." } ] },
+      { heading: "모두 다 떠나고",
+        text: "부산에서의 생활에 난남이는 금방 적응했고, 노루실로 가고 싶어 하지 않았다. 몽실이 혼자 노루실과 댓골에 들렀다. 영득이와 영순이는 서울로 이사 가고 없었다.\n부산으로 사흘 만에 돌아왔다. 그런데 난남이가 [부잣집에 양딸이 되어 갔다@부잣집,양딸]. 그렇게 몽실은 혼자가 되었다.",
+        questions: [
+          { prompt: "㉓ 절름발이 다리로 악착스레 버티어 온 몽실이는 허무하게 무너져 내렸다. 몽실이의 심정은 어땠을까요?", model: "하늘이 무너져 내리는 기분이었을 것이다. 이제 혼자라는 사실에 여태 버티고 살아온 삶이 서글펐을 것이다." } ] },
+      { heading: "가파른 고갯길",
+        text: "30년의 세월이 흘렀다. 몽실이는 구두 수선을 하는 꼽추와 결혼을 해 딸과 아들을 낳았고 시장에서 콩나물을 팔며 살아가고 있다.\n몽실은 가난 때문에 헤어졌던 난남과 영순을 다시 찾고 가끔씩 연락을 하며 지내고 있다. 몽실은 어머니 북촌댁을 닮은 약한 몸 때문에 고생하며 요양원에서 외롭게 지내는 난남을 안쓰럽게 여기며 가끔씩 찾아간다. 몽실은 난남이 좋아하는 음식을 싸 가지고 난남을 만나러 간다.",
+        questions: [
+          { prompt: "(교재의 마지막 칸) 난남이를 만나러 간 몽실이는 어떻게 했고, 돌아가는 몽실이를 보던 난남이는 어떻게 했나요? 책에서 찾아 써 보세요.", model: "여러 이야기를 함께 나눈 후 몽실은 집으로 돌아가기 위해 몸을 일으킨다. 절뚝거리는 다리로 힘겹게 걸어가는 몽실을 보던 난남은 조용히 눈물을 흘린다." } ] },
+      { heading: "생각 나누기",
+        text: "",
+        questions: [
+          { prompt: "1. 『몽실언니』를 통해 전쟁은 왜 일어나는 것인지, 전쟁으로 인해 사람들은, 특히 어린이들은 어떤 피해와 상처를 받는지 생각해 봅시다.", model: "전쟁은 어른들의 욕심 때문에 일어난다. 어린이는 어른들의 보호 속에서 살아가야 하는데, 전쟁 중의 어른들은 아이들을 전혀 배려하지 않는다." },
+          { prompt: "2. 몽실이는 자기를 버리고 간 어머니도, 검둥 아기를 버리고 간 여인도 나쁘다고 하지 않습니다. 여러분이었다면 어떻게 했을지, 이해가 되는 부분과 되지 않는 부분을 함께 써 보세요.", model: "" } ] }
+    ]}
+  ]
+};
+
+/* ===== 데이터 계층 =====
+   같은 함수 이름으로 Supabase(실제) / 체험(이 기기 저장) 두 가지를 제공합니다. */
+function unwrap(res){ if (res.error) throw new Error(res.error.message || "오류가 발생했습니다."); return res.data; }
+
+function supabaseApi(){
+  var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return {
+    getUser: async function(){ var r = await db.auth.getSession(); return r.data.session ? r.data.session.user : null; },
+    onAuth: function(cb){ db.auth.onAuthStateChange(function(_e, s){ cb(s ? s.user : null); }); },
+    signIn: async function(email, pw){ unwrap(await db.auth.signInWithPassword({ email: email, password: pw })); },
+    signOut: async function(){ await db.auth.signOut(); },
+    listBooks: async function(){ return unwrap(await db.from("books").select("*").order("created_at", { ascending: false })); },
+    createBook: async function(user, b){
+      return unwrap(await db.from("books").insert({ owner: user.id, title: b.title, author: b.author || "", grade: b.grade || "", sections: b.sections || [] }).select().single());
+    },
+    getBook: async function(id){ return unwrap(await db.from("books").select("*").eq("id", id).single()); },
+    updateBook: async function(id, patch){ unwrap(await db.from("books").update(patch).eq("id", id)); },
+    deleteBook: async function(id){ unwrap(await db.from("books").delete().eq("id", id)); },
+    listEntries: async function(bookId){ return unwrap(await db.from("entries").select("*").eq("book_id", bookId)); },
+    setFeedback: async function(id, feedback, checked){ unwrap(await db.from("entries").update({ feedback: feedback, checked: checked }).eq("id", id)); },
+    deleteEntry: async function(id){ unwrap(await db.from("entries").delete().eq("id", id)); },
+    setAccept: async function(id, accept){ unwrap(await db.rpc("set_blank_accept", { p_entry_id: id, p_accept: accept })); },
+    publicBook: async function(id){ return unwrap(await db.rpc("get_book", { p_book_id: id })); },
+    submitEntry: async function(bookId, section, kind, name, data){
+      return unwrap(await db.rpc("submit_entry", { p_book_id: bookId, p_section: section, p_kind: kind, p_name: name, p_data: data }));
+    },
+    myEntries: async function(bookId, name){ return unwrap(await db.rpc("get_my_entries", { p_book_id: bookId, p_name: name })); },
+    blankStatus: async function(bookId, section, name){ return unwrap(await db.rpc("get_blank_status", { p_book_id: bookId, p_section: section, p_name: name })); },
+    submitBlanks: async function(bookId, section, name, answers){ return unwrap(await db.rpc("submit_blanks", { p_book_id: bookId, p_section: section, p_name: name, p_answers: answers })); },
+    subscribe: function(bookId, cb){
+      var ch = db.channel("entries-" + bookId)
+        .on("postgres_changes", { event: "*", schema: "public", table: "entries", filter: "book_id=eq." + bookId }, function(){ cb(); })
+        .subscribe();
+      return function(){ db.removeChannel(ch); };
+    }
+  };
+}
+
+function demoApi(){
+  var KEY = "reading-demo-v4";
+  var USER = { id: "demo-teacher", email: "체험용 선생님" };
+  var S = lsGet(KEY) || seed();
+  function save(){ lsSet(KEY, S); }
+  function uid(){ return "d" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+  function now(){ return new Date().toISOString(); }
+  function seed(){
+    var book = clone(MONGSIL); book.id = "demo-mongsil"; book.owner = USER.id; book.is_open = true; book.created_at = now();
+    var st = { books: [book], entries: [] };
+    function add(kind, name, data, extra){ var e = Object.assign({ id: "e" + st.entries.length, book_id: book.id, section: 0, kind: kind, student_name: name, data: data, feedback: "", checked: false, created_at: now(), updated_at: now() }, extra || {}); st.entries.push(e); return e; }
+    var ex = "(체험용 예시) 책에서 고른 문장이 여기에 들어가요.";
+    add("bookmark", "김하늘", { sentence: "빨갱이라도 아버지와 아들은 원수가 될 수 없어요.", page: "66", why: "아버지가 틀렸다고 말하는 몽실이가 용감해 보였다.", topic: "밀양댁은 몽실이를 사랑했을까? 사랑했다면 왜 김 주사에게서 지켜 주지 못했을까?" });
+    add("bookmark", "이준서", { sentence: ex, page: "52", why: "나라면 이렇게 말할 수 있었을까 생각했다.", topic: "까치바위골 할아버지가 공비 아들에게 먹을 것을 준 건 잘못일까?" });
+    add("bookmark", "박서연", { sentence: ex, page: "38", why: "몽실이가 너무 불쌍했다.", topic: "몽실이는 새아버지를 아버지라고 불러야 했을까?" });
+    // 1주차 빈칸 10개: 온갖 일을 시켰고 / 호통을 쳤다 / 엄마를 때렸다 / 댓골로 찾아왔고 / 절름발이가 된다 / 몽실이를 데리러 / 화를 내고 때렸다 / 댓골 엄마가 / 공비가 / 먹을 것을 준 할아버지가 잘못했다는
+    // first = 처음 낸 답, second = 틀린 칸만 다시 쓴 뒤의 전체 답
+    add("blanks", "김하늘", { first: ["온갖 일을 시켰고", "호통을 쳤다", "엄마를 때렸다", "댓골로 찾아왔고", "절름발이가 된다", "몽실이를 데리러", "화를 내고 때렸다", "댓골 엄마가", "공비가", "먹을 것을 준 할아버지가 잘못했다는"] }, { checked: true, feedback: "처음부터 빈칸을 모두 맞혔어요. 꼼꼼히 읽었네요!" });
+    add("blanks", "이준서", { first: ["일을 시켰고", "화를 냈다", "엄마를 때렸다", "찾아왔고", "다리를 다친다", "데리러", "때렸다", "엄마가", "공비가", ""],
+                             second: ["일을 시켰고", "호통을 쳤다", "엄마를 때렸다", "댓골로 찾아왔고", "절름발이가 된다", "몽실이를 데리러", "화를 내고 때렸다", "댓골 엄마가", "공비가", "먹을 것을 준 할아버지가 잘못했다는"] });
+    add("blanks", "박서연", { first: ["온갖 일을 시키고", "호통을 쳤다", "엄마를 때렸다", "댓골로 찾아와서", "절름발이가 되었다", "몽실이를 데리러", "화를 내고 때렸다", "댓골 엄마가", "공비가", "먹을 걸 준 할아버지가 잘못했다는"] });
+    add("blanks", "최도윤", { first: ["온갖 일을 시켰고", "때렸다", "싸웠다", "왔고", "절름발이가 된다", "몽실이를 데리러", "화를 내고 때렸다", "아버지가", "인민군이", "밥을 줬다는"],
+                             second: ["온갖 일을 시켰고", "호통을 쳤다", "엄마를 때렸다", "왔다", "절름발이가 된다", "몽실이를 데리러", "화를 내고 때렸다", "댓골 엄마가", "공비가", "밥을 줬다는"] },
+        { feedback: "‘까치바위골 할아버지’ 부분을 다시 읽어 보자!" });
+    add("answers", "최도윤", { answers: ["먹을 게 없어서. 그래도 아빠한테 말도 안 하고 간 건 잘못이다.", "왜 아빠가 둘인지 헷갈렸을 것 같다.", "", "", "", "", "", ""] });
+    lsSet(KEY, st);
+    return st;
+  }
+  function book(id){ var b = S.books.find(function(x){ return x.id === id; }); if (!b) throw new Error("책을 찾을 수 없습니다."); return b; }
+  function stripped(b){
+    return { title: b.title, author: b.author, grade: b.grade, sections: (b.sections || []).map(function(s){
+      return { title: s.title, range: s.range, boxes: (s.boxes || []).map(function(x){
+        return { heading: x.heading, text: stripKeys(x.text), questions: (x.questions || []).map(function(q){ return { prompt: q.prompt }; }) };
+      }) };
+    }) };
+  }
+  function find(bookId, section, kind, name){ return S.entries.find(function(x){ return x.book_id === bookId && x.section === section && x.kind === kind && x.student_name === name; }); }
+  function status(bookId, section, name){ // reading.sql 의 get_blank_status 와 같은 모양
+    var e = find(bookId, section, "blanks", name);
+    if (!e) return { stage: 0 };
+    var keys = sectionKeys(book(bookId).sections[section]);
+    var fin = e.data.second || e.data.first || [];
+    var marks = keys.map(function(k, i){ return gradeA(fin[i], k, e.data.accept, i) === "ok"; });
+    var stage = (e.data.second || marks.every(Boolean)) ? 2 : 1;
+    return { stage: stage, first: e.data.first || [], second: e.data.second || null, marks: marks,
+      keys: stage === 2 ? keys.map(function(k, i){ return marks[i] ? null : displayKey(k); }) : null };
+  }
+  var listeners = [];
+  function notify(){ listeners.forEach(function(f){ f(); }); }
+  window.addEventListener("storage", function(e){ if (e.key === KEY){ S = lsGet(KEY) || S; notify(); } });
+  return {
+    getUser: async function(){ return USER; },
+    onAuth: function(){},
+    signIn: async function(){},
+    signOut: async function(){ if (await askBox("체험 데이터를 처음 상태로 되돌릴까요?", "되돌리기")){ lsDel(KEY); location.reload(); } },
+    listBooks: async function(){ return clone(S.books).sort(function(a, b){ return a.created_at < b.created_at ? 1 : -1; }); },
+    createBook: async function(_u, b){ var n = { id: uid(), owner: USER.id, title: b.title, author: b.author || "", grade: b.grade || "", sections: clone(b.sections || []), is_open: true, created_at: now() }; S.books.push(n); save(); return clone(n); },
+    getBook: async function(id){ return clone(book(id)); },
+    updateBook: async function(id, patch){ Object.assign(book(id), clone(patch)); save(); },
+    deleteBook: async function(id){ S.books = S.books.filter(function(b){ return b.id !== id; }); S.entries = S.entries.filter(function(e){ return e.book_id !== id; }); save(); },
+    listEntries: async function(bookId){ return clone(S.entries.filter(function(e){ return e.book_id === bookId; })); },
+    setFeedback: async function(id, feedback, checked){ var e = S.entries.find(function(x){ return x.id === id; }); if (e){ e.feedback = feedback; e.checked = checked; save(); } },
+    deleteEntry: async function(id){ S.entries = S.entries.filter(function(e){ return e.id !== id; }); save(); },
+    setAccept: async function(id, accept){ var e = S.entries.find(function(x){ return x.id === id; }); if (e){ e.data.accept = clone(accept); save(); } },
+    publicBook: async function(id){ var b = book(id); if (!b.is_open) throw new Error("선생님이 아직 열지 않은 책입니다."); return stripped(b); },
+    submitEntry: async function(bookId, section, kind, name, data){
+      var b = book(bookId); if (!b.is_open) throw new Error("선생님이 닫은 책입니다.");
+      name = trimStr(name); if (!name) throw new Error("이름을 입력하세요.");
+      var e = find(bookId, section, kind, name);
+      if (e && kind === "blanks") throw new Error("이미 제출했어요. 다시 풀려면 선생님께 말씀드리세요.");
+      if (e){ e.data = clone(data); e.updated_at = now(); e.checked = false; }
+      else { e = { id: uid(), book_id: bookId, section: section, kind: kind, student_name: name, data: clone(data), feedback: "", checked: false, created_at: now(), updated_at: now() }; S.entries.push(e); }
+      save(); notify(); return { id: e.id };
+    },
+    myEntries: async function(bookId, name){ name = trimStr(name); return clone(S.entries.filter(function(e){ return e.book_id === bookId && e.student_name === name; })); },
+    blankStatus: async function(bookId, section, name){ return status(bookId, section, trimStr(name)); },
+    submitBlanks: async function(bookId, section, name, answers){
+      var b = book(bookId); if (!b.is_open) throw new Error("선생님이 닫은 책입니다.");
+      name = trimStr(name); if (!name) throw new Error("이름을 입력하세요.");
+      var keys = sectionKeys(b.sections[section]);
+      var e = find(bookId, section, "blanks", name);
+      if (!e){
+        S.entries.push({ id: uid(), book_id: bookId, section: section, kind: "blanks", student_name: name, data: { first: answers.slice() }, feedback: "", checked: false, created_at: now(), updated_at: now() });
+      } else {
+        if (e.data.second) throw new Error("이미 두 번 제출했어요.");
+        e.data.second = keys.map(function(k, i){ var f = e.data.first[i] || ""; return gradeA(f, k, e.data.accept, i) === "ok" ? f : (answers[i] || ""); });
+        e.updated_at = now(); e.checked = false;
+      }
+      save(); notify();
+      return status(bookId, section, name);
+    },
+    subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; }
+  };
+}
+
+var api = DEMO ? demoApi() : supabaseApi();
+
+if (DEMO){
+  document.getElementById("demoBar").appendChild(el("div", { class: "demo-bar" }, [
+    el("b", { text: "체험 모드 · " }),
+    "기록은 이 기기의 브라우저에만 저장되고, 선생님 화면과 학생 화면도 같은 기기 안에서만 이어져요. 실제 수업은 인터넷 주소에서 ‘?demo=1’ 없이 쓰세요."
+  ]));
+}
+
+/* ===== 라우팅 ===== */
+var bookParam = PARAMS.get("book");
+if (bookParam) runStudent(bookParam);
+else runTeacher();
+
+/* ================= 학생 ================= */
+function runStudent(bookId){
+  document.getElementById("wrap").classList.add("narrow");
+  pageFoot.textContent = "내가 쓴 글은 선생님만 볼 수 있어요. 친구들의 생각은 수업 시간에 함께 들어요.";
+  if (DEMO) document.getElementById("demoBar").appendChild(el("a", { class: "btn ghost small", href: location.href.split(/[?#]/)[0] + "?demo=1#book=" + bookId, text: "← 선생님 화면으로", style: "text-decoration:none;margin-bottom:1rem" }));
+  var BOOK = null, NAME = lsGet("reading-name") || "", MY = {};
+  var SEC = lsGet("reading-sec:" + bookId) || 0, TAB = "bookmark";
+
+  init();
+
+  async function init(){
+    try { BOOK = await api.publicBook(bookId); }
+    catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "empty", text: e.message || "책을 열 수 없습니다." })); return; }
+    if (SEC >= BOOK.sections.length) SEC = 0;
+    pageHeader.innerHTML = "";
+    pageHeader.appendChild(el("div", { class: "eyebrow", text: (BOOK.grade ? BOOK.grade + " · " : "") + "독서 기록" }));
+    pageHeader.appendChild(el("h1", { text: BOOK.title }));
+    if (BOOK.author) pageHeader.appendChild(el("p", { class: "sub", text: BOOK.author }));
+    if (NAME) await loadMine();
+    render();
+  }
+
+  async function loadMine(){
+    MY = {};
+    try { (await api.myEntries(bookId, NAME)).forEach(function(e){ MY[e.section + ":" + e.kind] = e; }); }
+    catch(e){ toast(e.message, true); }
+  }
+  function draftKey(kind){ return "reading-draft:" + bookId + ":" + NAME + ":" + SEC + ":" + kind; }
+
+  function render(){
+    app.innerHTML = "";
+    if (!NAME) return renderName();
+
+    var top = el("div", { class: "card" }, []);
+    top.appendChild(el("div", { class: "spread" }, [
+      el("h2", { text: NAME + " 학생" }),
+      el("button", { class: "btn ghost small", text: "이름 바꾸기", onclick: function(){ NAME = ""; lsDel("reading-name"); render(); } })
+    ]));
+    var chips = el("div", { class: "chips", "aria-label": "주차" }, []);
+    BOOK.sections.forEach(function(s, i){
+      var done = MY[i + ":bookmark"] && MY[i + ":blanks"];
+      chips.appendChild(el("button", { class: "chip" + (i === SEC ? " on" : ""), text: s.title + (done ? " ✓" : ""),
+        onclick: function(){ SEC = i; lsSet("reading-sec:" + bookId, i); render(); } }));
+    });
+    top.appendChild(chips);
+    var sec = BOOK.sections[SEC];
+    if (sec && sec.range) top.appendChild(el("div", { class: "range" }, [ el("b", { text: "읽을 범위 " }), sec.range ]));
+    app.appendChild(top);
+
+    var tabs = el("div", { class: "tabs", role: "tablist" }, []);
+    [["bookmark", "나의 책갈피"], ["blanks", "내용 이해"], ["answers", "생각하기 (결석했을 때)"]].forEach(function(t){
+      tabs.appendChild(el("button", { class: "tab" + (TAB === t[0] ? " on" : ""), role: "tab", text: t[1], onclick: function(){ TAB = t[0]; render(); } }));
+    });
+    app.appendChild(tabs);
+
+    if (TAB === "blanks") renderBlanks();
+    else if (TAB === "bookmark") renderBookmark();
+    else renderAnswers();
+  }
+
+  function renderName(){
+    var card = el("div", { class: "card" }, []);
+    card.appendChild(el("h2", { text: "이름을 적어 주세요" }));
+    card.appendChild(el("p", { class: "sub", text: "다음에도 똑같은 이름으로 들어와야 내가 쓴 글을 다시 볼 수 있어요." }));
+    var inp = el("input", { type: "text", id: "sName", placeholder: "예) 김하늘", autocomplete: "off", maxlength: "40" });
+    var errb = el("div", { class: "err" });
+    async function go(){
+      var v = trimStr(inp.value);
+      if (!v){ errb.textContent = "이름을 입력하세요."; return; }
+      NAME = v; lsSet("reading-name", v);
+      await loadMine(); render();
+    }
+    inp.addEventListener("keydown", function(e){ if (e.key === "Enter") go(); });
+    card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ el("label", { for: "sName", text: "이름" }), inp ]));
+    card.appendChild(el("button", { class: "btn", text: "시작하기", onclick: go }));
+    card.appendChild(errb);
+    app.appendChild(card);
+    inp.focus();
+  }
+
+  function teacherNote(entry){
+    if (!entry) return null;
+    var kids = [];
+    if (entry.checked) kids.push(el("span", { class: "lab", text: "선생님 확인 완료" }));
+    else if (entry.feedback) kids.push(el("span", { class: "lab", text: "선생님 한마디" }));
+    if (entry.feedback) kids.push(textBlock(entry.feedback));
+    return kids.length ? el("div", { class: "feedback" }, kids) : null;
+  }
+
+  /* ----- 내용 이해: 박스 줄거리 속 빈칸 -----
+     0단계 처음 풀기 → 1단계 맞고 틀림만 보고 틀린 칸만 다시 쓰기 → 2단계 그래도 틀린 칸만 정답 */
+  async function renderBlanks(){
+    var sec = BOOK.sections[SEC];
+    var total = blankCount(sec);
+    if (!total){ app.appendChild(el("div", { class: "empty", text: "이 주차에는 빈칸 문제가 없어요." })); return; }
+    var holder = el("div", {}, [ el("div", { class: "empty", text: "불러오는 중…" }) ]);
+    app.appendChild(holder);
+    var ST;
+    try { ST = await api.blankStatus(bookId, SEC, NAME); }
+    catch(e){ holder.innerHTML = ""; holder.appendChild(el("div", { class: "err", text: e.message })); return; }
+    holder.innerHTML = "";
+    var saved = MY[SEC + ":blanks"];
+    var stage = ST.stage || 0;
+    var first = ST.first || [], fin = ST.second || first, marks = ST.marks || [];
+    var okN = marks.filter(Boolean).length;
+    var draft = stage === 0 ? "blanks" : "blanks2";
+    var d = lsGet(draftKey(draft)) || {};
+    var inputs = [];     // { idx, el }
+
+    // 위쪽 안내
+    var head = el("div", { class: "card" }, []);
+    if (stage === 0){
+      head.appendChild(el("p", { class: "note", style: "margin:0", text: "책을 꼼꼼히 읽고 빈칸을 채워요. 제출하면 맞았는지만 알려 줘요. 틀린 칸은 책을 다시 찾아보고 한 번 더 고칠 수 있어요." }));
+    } else if (stage === 1){
+      head.appendChild(el("h3", { text: total + "개 중 " + okN + "개 맞았어요" }));
+      head.appendChild(el("p", { class: "sub", text: "빨간 칸 " + (total - okN) + "개를 책에서 다시 찾아 고쳐 써요. 다시 냈는데도 틀리면 그때 정답을 보여 줘요." }));
+    } else {
+      var firstOk = ST.second ? null : okN;
+      head.appendChild(el("h3", { text: okN === total && !ST.second ? "처음부터 모두 맞았어요!" : "끝 · " + total + "개 중 " + okN + "개 맞음" }));
+      head.appendChild(el("p", { class: "sub", text: okN === total ? "책을 정확하게 읽었어요." : "회색 글씨가 정답이에요. 그 부분을 책에서 다시 읽어 보세요." }));
+      if (firstOk == null) head.appendChild(el("div", { class: "legend" }, [ legend("var(--correct-soft)", "맞음"), legend("var(--wrong-soft)", "틀림 → 정답") ]));
+    }
+    var note = teacherNote(saved); if (note) head.appendChild(note);
+    holder.appendChild(head);
+
+    // 줄거리 + 빈칸
+    var idx = 0;
+    (sec.boxes || []).forEach(function(b){
+      var parts = String(b.text || "").split("[]");
+      if (parts.length < 2) return;            // 빈칸 없는 박스는 내용 이해에서 생략
+      var card = el("div", { class: "card" }, []);
+      if (b.heading) card.appendChild(el("div", { class: "box-h", text: b.heading }));
+      var story = el("div", { class: "story" }, []);
+      parts.forEach(function(p, i){
+        story.appendChild(document.createTextNode(p));
+        if (i === parts.length - 1) return;
+        var n = idx++;
+        if (stage === 0 || (stage === 1 && !marks[n])){
+          var prev = d.answers ? d.answers[n] : (stage === 1 ? first[n] : "");
+          var inp = el("input", { type: "text", class: "blank" + (stage === 1 ? " retry" : ""), "aria-label": "빈칸 " + (n + 1) + (stage === 1 ? " 다시 쓰기" : ""), autocomplete: "off" });
+          inp.value = prev || "";
+          fit(inp);
+          inp.addEventListener("input", function(){ fit(inp); saveDraft(); count(); });
+          inputs.push({ idx: n, el: inp });
+          story.appendChild(inp);
+        } else if (marks[n]){
+          story.appendChild(el("span", { class: "filled ok", text: trimStr(fin[n]) }));
+        } else {
+          story.appendChild(el("span", { class: "filled none", text: trimStr(fin[n]) || "(안 씀)" }));
+          if (ST.keys && ST.keys[n]) story.appendChild(el("span", { class: "key", text: "→ " + ST.keys[n] }));
+        }
+      });
+      card.appendChild(story);
+      holder.appendChild(card);
+    });
+    if (stage === 2) return;
+
+    function saveDraft(){
+      var a = (d.answers || []).slice();
+      inputs.forEach(function(x){ a[x.idx] = x.el.value; });
+      d.answers = a; lsSet(draftKey(draft), d);
+    }
+    var bar = el("div", { class: "card" }, []);
+    var cnt = el("p", { class: "sub" });
+    function count(){ cnt.textContent = (stage === 0 ? "빈칸 " : "다시 쓸 칸 ") + inputs.length + "개 중 " + inputs.filter(function(x){ return trimStr(x.el.value); }).length + "개를 채웠어요."; }
+    count();
+    var msg = el("div", { class: "err" });
+    var btn = el("button", { class: "btn", text: stage === 0 ? "제출하기" : "고쳐서 다시 제출" });
+    btn.addEventListener("click", async function(){
+      msg.textContent = "";
+      var answers = [];
+      for (var i = 0; i < total; i++) answers.push(stage === 0 ? "" : (fin[i] || ""));
+      inputs.forEach(function(x){ answers[x.idx] = trimStr(x.el.value); });
+      var empty = inputs.filter(function(x){ return !trimStr(x.el.value); }).length;
+      var ask = stage === 0
+        ? (empty ? "빈칸 " + empty + "개를 아직 안 채웠어요. 그래도 제출할까요?" : "제출할까요?")
+        : "다시 내면 더 고칠 수 없고, 그래도 틀린 칸은 정답이 보여요. 제출할까요?";
+      if (!(await askBox(ask, stage === 0 ? "제출하기" : "다시 제출"))) return;
+      btn.disabled = true;
+      try {
+        await api.submitBlanks(bookId, SEC, NAME, answers);
+        lsDel(draftKey(draft)); await loadMine();
+        toast(stage === 0 ? "제출했어요" : "다시 냈어요"); render();
+      } catch(e){ btn.disabled = false; msg.textContent = e.message; }
+    });
+    bar.appendChild(cnt); bar.appendChild(btn); bar.appendChild(msg);
+    holder.appendChild(bar);
+  }
+  function fit(inp){ inp.style.width = Math.max(5.5, Math.min(30, (inp.value || "").length * 1.05 + 1.5)) + "em"; }
+  function legend(color, label){ return el("span", {}, [ el("i", { style: "background:" + color }), label ]); }
+
+  /* ----- 나의 책갈피 ----- */
+  function renderBookmark(){
+    var saved = MY[SEC + ":bookmark"];
+    var d = lsGet(draftKey("bookmark")) || (saved ? saved.data : {});
+    var card = el("div", { class: "card" }, []);
+    card.appendChild(el("p", { class: "note", text: "읽으면서 마음에 들어온 문장과 함께 이야기하고 싶은 것을 적어요. 수업 시간에 친구들 앞에서 발표해요." }));
+    var fields = [
+      ["sentence", "내 마음에 들어온 문장", "내 마음을 표현한, 누군가에게 들려주고 싶은, 멋있거나 색다른 표현 등…", true],
+      ["page", "쪽수", "", false],
+      ["why", "이 문장을 고른 까닭", "", true],
+      ["topic", "함께 이야기하고 싶은 것", "인물, 주제, 교훈 등…", true]
+    ];
+    var inputs = {};
+    fields.forEach(function(f){
+      var inp = f[3] ? el("textarea", { id: "bm-" + f[0] }) : el("input", { type: "text", id: "bm-" + f[0], style: "max-width:8rem", inputmode: "numeric" });
+      inp.value = d[f[0]] || "";
+      inp.addEventListener("input", function(){ var o = {}; Object.keys(inputs).forEach(function(k){ o[k] = inputs[k].value; }); lsSet(draftKey("bookmark"), o); });
+      inputs[f[0]] = inp;
+      card.appendChild(el("div", { class: "field" }, [
+        el("label", { for: "bm-" + f[0], text: f[1] }),
+        f[2] ? el("div", { class: "hint", text: f[2] }) : null,
+        inp
+      ]));
+    });
+    var msg = el("div", { class: "err" });
+    var btn = el("button", { class: "btn", text: saved ? "고쳐서 다시 저장" : "책갈피 저장하기" });
+    btn.addEventListener("click", async function(){
+      msg.textContent = "";
+      var data = {}; Object.keys(inputs).forEach(function(k){ data[k] = trimStr(inputs[k].value); });
+      if (!data.sentence){ msg.textContent = "마음에 들어온 문장을 적어 주세요."; return; }
+      if (!data.topic){ msg.textContent = "함께 이야기하고 싶은 것을 적어 주세요."; return; }
+      btn.disabled = true;
+      try {
+        await api.submitEntry(bookId, SEC, "bookmark", NAME, data);
+        lsDel(draftKey("bookmark")); await loadMine();
+        toast("책갈피를 저장했어요. 이제 내용 이해를 풀어요"); TAB = "blanks"; render();
+      } catch(e){ btn.disabled = false; msg.textContent = e.message; }
+    });
+    card.appendChild(el("div", { class: "row" }, [ btn, saved ? el("span", { class: "sub small", text: "저장함 · " + fmtTime(saved.updated_at) }) : null ]));
+    card.appendChild(msg);
+    var note = teacherNote(saved); if (note) card.appendChild(note);
+    app.appendChild(card);
+  }
+
+  /* ----- 생각하기 (결석 보강) ----- */
+  function renderAnswers(){
+    var sec = BOOK.sections[SEC];
+    var qs = sectionQuestions(sec);
+    if (!qs.length){ app.appendChild(el("div", { class: "empty", text: "이 주차에는 생각하기 문제가 없어요." })); return; }
+    app.appendChild(el("p", { class: "note", text: "생각하기는 수업 시간에 교재로 해요. 결석했을 때만 여기에 써서 내세요." }));
+    var saved = MY[SEC + ":answers"];
+    var d = lsGet(draftKey("answers")) || (saved ? saved.data : {});
+    var vals = (d.answers || []).slice();
+    var areas = [];
+    (sec.boxes || []).forEach(function(b){
+      if (!(b.questions || []).length) return;
+      var card = el("div", { class: "card" }, []);
+      if (b.heading) card.appendChild(el("div", { class: "box-h", text: b.heading }));
+      b.questions.forEach(function(q){
+        var i = areas.length;
+        card.appendChild(el("div", { class: "qtext", text: q.prompt }));
+        var ta = el("textarea", { "aria-label": q.prompt });
+        ta.value = vals[i] || "";
+        ta.addEventListener("input", function(){ lsSet(draftKey("answers"), { answers: areas.map(function(a){ return a.value; }) }); });
+        areas.push(ta);
+        card.appendChild(el("div", { style: "margin-bottom:1rem" }, [ ta ]));
+      });
+      app.appendChild(card);
+    });
+    var bar = el("div", { class: "card" }, []);
+    var msg = el("div", { class: "err" });
+    var btn = el("button", { class: "btn", text: saved ? "고쳐서 다시 내기" : "선생님께 내기" });
+    btn.addEventListener("click", async function(){
+      msg.textContent = "";
+      btn.disabled = true;
+      try {
+        await api.submitEntry(bookId, SEC, "answers", NAME, { answers: areas.map(function(a){ return trimStr(a.value); }) });
+        lsDel(draftKey("answers")); await loadMine();
+        toast("냈어요"); render();
+      } catch(e){ btn.disabled = false; msg.textContent = e.message; }
+    });
+    bar.appendChild(el("div", { class: "row" }, [ btn, saved ? el("span", { class: "sub small", text: "냄 · " + fmtTime(saved.updated_at) }) : null ]));
+    bar.appendChild(msg);
+    var note = teacherNote(saved); if (note) bar.appendChild(note);
+    app.appendChild(bar);
+  }
+}
+
+/* ================= 교사 ================= */
+function runTeacher(){
+  pageHeader.innerHTML =
+    '<div class="topline"><div>' +
+    '<div class="eyebrow gold">교사용</div>' +
+    '<h1>독서 기록</h1>' +
+    '<p class="sub">내용 이해 빈칸 · 책갈피 · 생각하기 보강</p></div>' +
+    '<div class="row" id="whoami"></div></div>';
+  pageFoot.innerHTML = "학생에게는 책마다 <b>학생 링크</b>만 보내 주세요. 빈칸 정답과 예시 답안은 학생에게 미리 보이지 않아요.";
+  var whoami = document.getElementById("whoami");
+  var USER = null, unsub = null;
+
+  api.getUser().then(function(u){ USER = u; route(); });
+  api.onAuth(function(u){ USER = u; route(); });
+
+  function go(hash){ if (location.hash.slice(1) === hash) route(); else location.hash = hash; }
+  window.addEventListener("hashchange", function(){ route(); });
+
+  function route(){
+    if (unsub){ unsub(); unsub = null; }
+    if (!USER) return renderLogin();
+    whoami.innerHTML = "";
+    whoami.appendChild(el("span", { class: "pill", text: USER.email }));
+    whoami.appendChild(el("button", { class: "btn ghost small", text: DEMO ? "체험 초기화" : "로그아웃", onclick: function(){ api.signOut(); } }));
+    var p = new URLSearchParams(location.hash.slice(1));
+    if (p.get("edit")) renderEditor(p.get("edit"));
+    else if (p.get("book")) renderDashboard(p.get("book"));
+    else renderList();
+  }
+
+  function renderLogin(){
+    whoami.innerHTML = ""; app.innerHTML = "";
+    var card = el("div", { class: "card" }, []);
+    card.appendChild(el("h2", { text: "선생님 로그인" }));
+    card.appendChild(el("p", { class: "sub", text: "품사 시험지와 같은 계정으로 로그인하세요." }));
+    var em = el("input", { type: "email", id: "em", autocomplete: "email" });
+    var pw = el("input", { type: "password", id: "pw", autocomplete: "current-password" });
+    var errb = el("div", { class: "err" });
+    var btn = el("button", { class: "btn", text: "로그인" });
+    async function doLogin(){
+      errb.textContent = "";
+      if (!trimStr(em.value) || !pw.value){ errb.textContent = "이메일과 비밀번호를 입력하세요."; return; }
+      btn.disabled = true;
+      try { await api.signIn(trimStr(em.value), pw.value); }
+      catch(e){ errb.textContent = e.message; }
+      btn.disabled = false;
+    }
+    btn.addEventListener("click", doLogin);
+    pw.addEventListener("keydown", function(e){ if (e.key === "Enter") doLogin(); });
+    card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ el("label", { for: "em", text: "이메일" }), em ]));
+    card.appendChild(el("div", { class: "field" }, [ el("label", { for: "pw", text: "비밀번호" }), pw ]));
+    card.appendChild(btn); card.appendChild(errb);
+    app.appendChild(card);
+    app.appendChild(el("div", { class: "note", html: "먼저 둘러보고 싶으면 주소 끝에 <b>?demo=1</b> 을 붙여 체험 모드로 열어 보세요." }));
+  }
+
+  /* ----- 책 목록 ----- */
+  async function renderList(){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var books;
+    try { books = await api.listBooks(); }
+    catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    app.innerHTML = "";
+    app.appendChild(el("div", { class: "spread" }, [
+      el("h2", { text: "내 책" }),
+      el("div", { class: "row" }, [
+        el("button", { class: "btn ghost small", text: "몽실언니 샘플로 만들기", onclick: function(){ create(clone(MONGSIL)); } }),
+        el("button", { class: "btn small", text: "+ 새 책", onclick: function(){ create({ title: "새 책", sections: [{ title: "1주차", range: "", boxes: [{ heading: "", text: "", questions: [] }] }] }); } })
+      ])
+    ]));
+    if (!books.length){ app.appendChild(el("div", { class: "empty", text: "아직 책이 없어요. ‘몽실언니 샘플로 만들기’로 시작해 보세요." })); return; }
+    books.forEach(function(b){
+      var card = el("div", { class: "card" }, []);
+      card.appendChild(el("div", { class: "spread" }, [
+        el("div", {}, [ el("h3", { text: b.title }), el("div", { class: "sub small", text: [b.grade, b.author].filter(Boolean).join(" · ") }) ]),
+        el("span", { class: "pill " + (b.is_open ? "ok" : "no"), text: b.is_open ? "학생에게 열림" : "닫힘" })
+      ]));
+      card.appendChild(el("div", { class: "sub small", style: "margin-top:.3rem", text: (b.sections || []).length + "주 과정" }));
+      card.appendChild(el("div", { class: "row", style: "margin-top:.8rem" }, [
+        el("button", { class: "btn small", text: "수업 보기", onclick: function(){ go("book=" + b.id); } }),
+        el("button", { class: "btn ghost small", text: "문제 편집", onclick: function(){ go("edit=" + b.id); } }),
+        el("button", { class: "btn ghost small", text: "학생 링크 복사", onclick: function(){ copyText(studentLink(b.id), "학생 링크를 복사했어요"); } })
+      ]));
+      app.appendChild(card);
+    });
+  }
+  async function create(b){
+    try { var n = await api.createBook(USER, b); go("edit=" + n.id); }
+    catch(e){ toast(e.message, true); }
+  }
+
+  /* ----- 문제 편집 ----- */
+  async function renderEditor(bookId){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var book;
+    try { book = await api.getBook(bookId); }
+    catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    var secs = clone(book.sections || []);
+    app.innerHTML = "";
+    app.appendChild(el("div", { class: "row", style: "margin-bottom:1rem" }, [
+      el("button", { class: "btn ghost small", text: "← 책 목록", onclick: function(){ go(""); } }),
+      el("button", { class: "btn ghost small", text: "수업 보기", onclick: function(){ go("book=" + bookId); } })
+    ]));
+    var head = el("div", { class: "card" }, []);
+    var tIn = el("input", { type: "text", id: "bTitle", value: book.title });
+    var aIn = el("input", { type: "text", id: "bAuthor", value: book.author || "", placeholder: "예) 권정생 글 · 창비" });
+    var gIn = el("input", { type: "text", id: "bGrade", value: book.grade || "", placeholder: "예) 초등 6학년" });
+    head.appendChild(el("div", { class: "field" }, [ el("label", { for: "bTitle", text: "책 제목" }), tIn ]));
+    head.appendChild(el("div", { class: "field" }, [ el("label", { for: "bAuthor", text: "지은이 · 출판사" }), aIn ]));
+    head.appendChild(el("div", { class: "field" }, [ el("label", { for: "bGrade", text: "학년 · 반" }), gIn ]));
+    var openChk = el("input", { type: "checkbox", id: "bOpen" }); openChk.checked = book.is_open;
+    head.appendChild(el("label", { class: "row", for: "bOpen", style: "font-weight:600" }, [ openChk, " 학생에게 열기 (끄면 학생 화면이 닫혀요)" ]));
+    app.appendChild(head);
+    app.appendChild(el("div", { class: "note", html:
+      "줄거리에서 빈칸이 될 말을 <b>[대괄호]</b>로 감싸면 빈칸이 돼요. 예) 할머니는 [온갖 일을 시켰고@온갖,일,시키·시켰] …<br>" +
+      "@ 뒤에는 <b>핵심어</b>를 써요. 쉼표(,)로 나눈 말은 모두 있어야 하고, 가운뎃점(·)으로 나눈 말은 하나만 있으면 맞음이에요. 어미·시제·조사가 달라도 책 내용이 맞으면 맞음이 돼요.<br>" + "핵심어가 없으면 정답과 거의 같을 때만 맞음이에요. 주차 수는 책마다 자유롭게 정하세요.<br>" +
+      "학생이 낸 뒤에는 빈칸·문제의 순서를 바꾸지 마세요. 답이 순서대로 저장돼요." }));
+    var list = el("div", {}, []);
+    app.appendChild(list);
+    app.appendChild(el("button", { class: "btn ghost", style: "margin-bottom:1rem", text: "+ 주차 추가", onclick: function(){
+      secs.push({ title: (secs.length + 1) + "주차", range: "", boxes: [{ heading: "", text: "", questions: [] }] }); draw();
+    }}));
+    var saveCard = el("div", { class: "card" }, []);
+    var saveErr = el("div", { class: "err" });
+    var saveBtn = el("button", { class: "btn", text: "저장하기", onclick: save });
+    saveCard.appendChild(el("div", { class: "row" }, [ saveBtn, el("button", { class: "btn danger small", text: "이 책 삭제", onclick: del }) ]));
+    saveCard.appendChild(saveErr);
+    app.appendChild(saveCard);
+    draw();
+
+    function upDown(arr, i, label){
+      return el("div", { class: "row" }, [
+        el("button", { class: "chip", text: "▲", "aria-label": label + " 위로", onclick: function(){ mv(arr, i, -1); } }),
+        el("button", { class: "chip", text: "▼", "aria-label": label + " 아래로", onclick: function(){ mv(arr, i, 1); } }),
+        el("button", { class: "chip", text: "삭제", onclick: async function(){ if (await askBox(label + "을(를) 지울까요?", "지우기")){ arr.splice(i, 1); draw(); } } })
+      ]);
+    }
+    function bind(node, obj, key){ node.value = obj[key] || ""; node.addEventListener("input", function(){ obj[key] = node.value; }); return node; }
+
+    function draw(){
+      list.innerHTML = "";
+      secs.forEach(function(s, si){
+        s.boxes = s.boxes || [];
+        var sb = el("div", { class: "sec-edit" }, []);
+        sb.appendChild(el("div", { class: "spread" }, [ el("strong", { text: (s.title || "주차") }), upDown(secs, si, "이 주차") ]));
+        sb.appendChild(el("div", { class: "row", style: "align-items:flex-start" }, [
+          el("div", { class: "field", style: "flex:1;min-width:8rem" }, [ el("label", { text: "이름" }), bind(el("input", { type: "text", placeholder: "예) 1주차" }), s, "title") ]),
+          el("div", { class: "field", style: "flex:3;min-width:14rem" }, [ el("label", { text: "읽을 범위" }), bind(el("input", { type: "text", placeholder: "예) ‘아버지를 버리고’부터 ‘까치바위골 할아버지’까지" }), s, "range") ])
+        ]));
+        s.boxes.forEach(function(b, bi){
+          b.questions = b.questions || [];
+          var bx = el("div", { class: "box-edit" }, []);
+          var n = keysOf(b.text).length;
+          bx.appendChild(el("div", { class: "spread" }, [ el("span", { class: "qnum", text: "박스 " + (bi + 1) + (n ? " · 빈칸 " + n + "개" : "") }), upDown(s.boxes, bi, "이 박스") ]));
+          bx.appendChild(el("div", { class: "field" }, [ el("label", { text: "박스 제목" }), bind(el("input", { type: "text", placeholder: "예) 아버지를 버리고" }), b, "heading") ]));
+          var ta = bind(el("textarea", { placeholder: "줄거리 — 빈칸이 될 말은 [대괄호]로", style: "min-height:6rem" }), b, "text");
+          ta.addEventListener("change", draw);
+          bx.appendChild(el("div", { class: "field" }, [ el("label", { text: "줄거리 (내용 이해 빈칸)" }), ta ]));
+          bx.appendChild(el("div", { class: "qnum", text: "생각하기 문제" }));
+          b.questions.forEach(function(q, qi){
+            var qb = el("div", { class: "q-edit" }, []);
+            qb.appendChild(el("div", { class: "spread" }, [ el("span", { class: "sub small", text: "문제 " + (qi + 1) }), upDown(b.questions, qi, "이 문제") ]));
+            qb.appendChild(bind(el("textarea", { placeholder: "예) ① 밀양댁은 왜 …" }), q, "prompt"));
+            qb.appendChild(el("div", { style: "margin-top:.4rem" }, [ bind(el("textarea", { placeholder: "예시 답안 (선생님만 봐요 · 생각을 묻는 문제는 비워도 돼요)" }), q, "model") ]));
+            bx.appendChild(qb);
+          });
+          bx.appendChild(el("button", { class: "chip", text: "+ 생각하기 문제", onclick: function(){ b.questions.push({ prompt: "", model: "" }); draw(); } }));
+          sb.appendChild(bx);
+        });
+        sb.appendChild(el("button", { class: "chip", text: "+ 박스 추가", onclick: function(){ s.boxes.push({ heading: "", text: "", questions: [] }); draw(); } }));
+        list.appendChild(sb);
+      });
+    }
+    function mv(arr, i, d){ var j = i + d; if (j < 0 || j >= arr.length) return; var t = arr[i]; arr[i] = arr[j]; arr[j] = t; draw(); }
+    async function save(){
+      saveErr.textContent = "";
+      var clean = secs.map(function(s){
+        return { title: trimStr(s.title) || "주차", range: trimStr(s.range),
+          boxes: (s.boxes || []).filter(function(b){ return trimStr(b.heading) || trimStr(b.text) || (b.questions || []).some(function(q){ return trimStr(q.prompt); }); })
+            .map(function(b){ return { heading: trimStr(b.heading), text: trimStr(b.text),
+              questions: (b.questions || []).filter(function(q){ return trimStr(q.prompt); }).map(function(q){ return { prompt: trimStr(q.prompt), model: trimStr(q.model) }; }) }; }) };
+      });
+      if (!clean.length){ saveErr.textContent = "주차를 하나 이상 만들어 주세요."; return; }
+      saveBtn.disabled = true; saveBtn.textContent = "저장 중…";
+      try {
+        await api.updateBook(bookId, { title: trimStr(tIn.value) || "제목 없는 책", author: trimStr(aIn.value), grade: trimStr(gIn.value), is_open: openChk.checked, sections: clean });
+        secs = clean; draw(); toast("저장했어요");
+      } catch(e){ saveErr.textContent = e.message; }
+      saveBtn.disabled = false; saveBtn.textContent = "저장하기";
+    }
+    async function del(){
+      if (!(await askBox("이 책과 학생들이 쓴 기록이 모두 삭제됩니다. 계속할까요?", "삭제"))) return;
+      try { await api.deleteBook(bookId); toast("삭제했어요"); go(""); }
+      catch(e){ toast(e.message, true); }
+    }
+  }
+
+  /* ----- 수업 보기 (대시보드) ----- */
+  async function renderDashboard(bookId){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var book;
+    try { book = await api.getBook(bookId); }
+    catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    var SEC = lsGet("reading-tsec:" + bookId) || 0;
+    if (SEC >= (book.sections || []).length) SEC = 0;
+    var TAB = "status", ENTRIES = [];
+
+    app.innerHTML = "";
+    var nav = el("div", { class: "row", style: "margin-bottom:1rem" }, [
+      el("button", { class: "btn ghost small", text: "← 책 목록", onclick: function(){ go(""); } }),
+      el("button", { class: "btn ghost small", text: "문제 편집", onclick: function(){ go("edit=" + bookId); } }),
+      el("button", { class: "btn ghost small", text: "학생 링크 복사", onclick: function(){ copyText(studentLink(bookId), "학생 링크를 복사했어요"); } })
+    ]);
+    if (DEMO) nav.appendChild(el("a", { class: "btn small", href: studentLink(bookId), text: "학생 화면 보기 →", style: "text-decoration:none" }));
+    app.appendChild(nav);
+    var headCard = el("div", { class: "card" }, []);
+    app.appendChild(headCard);
+    var body = el("div", {}, []);
+    app.appendChild(body);
+
+    await load();
+    var t = null;
+    unsub = api.subscribe(bookId, function(){ clearTimeout(t); t = setTimeout(load, 400); });
+
+    async function load(){
+      try { ENTRIES = await api.listEntries(bookId); }
+      catch(e){ body.innerHTML = ""; body.appendChild(el("div", { class: "err", text: e.message })); return; }
+      draw();
+    }
+    function sec(){ return book.sections[SEC] || { title: "", boxes: [] }; }
+    function inSec(kind){ return ENTRIES.filter(function(e){ return e.section === SEC && e.kind === kind; })
+      .sort(function(a, b){ return a.student_name.localeCompare(b.student_name, "ko"); }); }
+    function students(){
+      var s = {}; ENTRIES.forEach(function(e){ s[e.student_name] = 1; });
+      return Object.keys(s).sort(function(a, b){ return a.localeCompare(b, "ko"); });
+    }
+    function ansOf(e, which){ var d = e.data || {}; return which === "first" ? (d.first || []) : (d.second || d.first || []); }
+    function scoreOf(e, keys, which){ var a = ansOf(e, which); return keys.filter(function(k, i){ return gradeA(a[i], k, e.data.accept, i) === "ok"; }).length; }
+
+    function draw(){
+      var keys = sectionKeys(sec());
+      headCard.innerHTML = "";
+      headCard.appendChild(el("div", { class: "eyebrow gold", text: [book.grade, "수업 보기"].filter(Boolean).join(" · ") }));
+      headCard.appendChild(el("h2", { text: book.title }));
+      var chips = el("div", { class: "chips" }, []);
+      (book.sections || []).forEach(function(s, i){
+        chips.appendChild(el("button", { class: "chip" + (i === SEC ? " on" : ""), text: s.title, onclick: function(){ SEC = i; lsSet("reading-tsec:" + bookId, i); draw(); } }));
+      });
+      headCard.appendChild(chips);
+      if (sec().range) headCard.appendChild(el("div", { class: "range" }, [ el("b", { text: "읽을 범위 " }), sec().range ]));
+      var bl = inSec("blanks"), bm = inSec("bookmark");
+      var avg = bl.length && keys.length ? Math.round(bl.reduce(function(a, e){ return a + scoreOf(e, keys, "first"); }, 0) / bl.length / keys.length * 100) : null;
+      headCard.appendChild(el("div", { class: "stats" }, [
+        stat(students().length, "이 책의 학생"), stat(bl.length, "내용 이해 낸 학생"),
+        stat(avg == null ? "–" : avg + "%", "처음 낸 답 정답률"), stat(bm.length, "책갈피 낸 학생")
+      ]));
+      var tabs = el("div", { class: "tabs", style: "margin-bottom:0" }, []);
+      [["status", "제출 현황"], ["bookmark", "책갈피"], ["blanks", "내용 이해"], ["answers", "생각하기 (보강)"]].forEach(function(x){
+        tabs.appendChild(el("button", { class: "tab" + (TAB === x[0] ? " on" : ""), text: x[1], onclick: function(){ TAB = x[0]; draw(); } }));
+      });
+      headCard.appendChild(tabs);
+
+      body.innerHTML = "";
+      if (TAB === "status") drawStatus(keys);
+      else if (TAB === "blanks") drawBlanks(keys);
+      else if (TAB === "bookmark") drawBookmarks();
+      else drawAnswers();
+    }
+    function stat(n, l){ return el("div", { class: "stat" }, [ el("div", { class: "n", text: String(n) }), el("div", { class: "l", text: l }) ]); }
+
+    function drawStatus(keys){
+      var names = students();
+      var card = el("div", { class: "card" }, []);
+      if (!names.length){ card.appendChild(el("div", { class: "empty", text: "아직 아무도 기록하지 않았어요. 학생 링크를 보내 주세요." })); body.appendChild(card); return; }
+      var tbl = el("table", {}, [ el("thead", {}, [ el("tr", {}, [
+        el("th", { text: "이름" }), el("th", { text: "내용 이해" }), el("th", { text: "책갈피" }), el("th", { text: "생각하기(보강)" }), el("th", { text: "마지막 기록" })
+      ]) ]) ]);
+      var tb = el("tbody", {}, []);
+      names.forEach(function(n){
+        var mine = ENTRIES.filter(function(e){ return e.section === SEC && e.student_name === n; });
+        var bl = mine.find(function(e){ return e.kind === "blanks"; });
+        var bm = mine.find(function(e){ return e.kind === "bookmark"; });
+        var an = mine.find(function(e){ return e.kind === "answers"; });
+        var last = mine.map(function(e){ return e.updated_at; }).sort().pop();
+        var sc = bl ? scoreOf(bl, keys, "first") : 0, sc2 = bl && bl.data.second ? scoreOf(bl, keys, "final") : null;
+        tb.appendChild(el("tr", {}, [
+          el("td", { text: n }),
+          el("td", {}, [ bl ? el("span", { class: "mark " + (sc === keys.length ? "ok" : ""), text: "처음 " + sc + "/" + keys.length + (sc2 != null ? " → 다시 " + sc2 + "/" + keys.length : (sc < keys.length ? " (다시 쓰기 전)" : "")) }) : el("span", { class: "mark no", text: "아직" }) ]),
+          el("td", {}, [ el("span", { class: "mark " + (bm ? "ok" : "no"), text: bm ? "냄" : "아직" }) ]),
+          el("td", { class: "sub small", text: an ? "냄" : "–" }),
+          el("td", { class: "sub small", text: last ? fmtTime(last) : "" })
+        ]));
+      });
+      tbl.appendChild(tb);
+      card.appendChild(el("div", { class: "table-wrap" }, [tbl]));
+      card.appendChild(el("p", { class: "sub small", style: "margin-top:.6rem", text: "‘처음’은 처음 낸 답, ‘다시’는 틀린 칸을 고쳐 낸 뒤예요. 맞음은 표현이 정답과 같거나 거의 같을 때만 세요." }));
+      body.appendChild(card);
+    }
+
+    function drawBlanks(keys){
+      var bl = inSec("blanks");
+      if (!keys.length){ body.appendChild(el("div", { class: "empty", text: "이 주차에는 빈칸이 없어요." })); return; }
+      body.appendChild(el("div", { class: "legend", style: "margin:.2rem 0 .8rem" }, [
+        legend("var(--correct-soft)", "맞음"), legend("var(--warn-soft)", "표현이 다름 · 확인"), legend("var(--wrong-soft)", "안 씀"),
+        el("span", { text: "· 이름: 처음 답 → 다시 쓴 답 · 정답률(처음 기준)이 낮은 빈칸 = 대충 읽은 부분" })
+      ]));
+      var idx = 0;
+      (sec().boxes || []).forEach(function(b){
+        var bk = keysOf(b.text);
+        if (!bk.length) return;
+        var card = el("div", { class: "card" }, []);
+        card.appendChild(el("div", { class: "box-h", text: b.heading || "박스" }));
+        bk.forEach(function(k){
+          var i = idx++;
+          var gs = bl.map(function(e){
+            var acc = e.data.accept || {}, f = ansOf(e, "first")[i], s = e.data.second ? e.data.second[i] : null;
+            var g1 = gradeA(f, k, acc, i), retried = s != null && g1 !== "ok";
+            var latest = retried ? s : f;
+            return { e: e, acc: acc, name: e.student_name, a: f, g: g1, a2: retried ? s : null, g2: retried ? gradeA(s, k, acc, i) : null,
+              latest: latest, ruleOk: grade(latest, k) === "ok", accepted: !!norm(latest) && acc[i] === norm(latest) };
+          });
+          var okN = gs.filter(function(x){ return x.g === "ok"; }).length;
+          var rate = bl.length ? Math.round(okN / bl.length * 100) : null;
+          var row = el("div", { class: "blank-stat" }, [
+            el("div", { class: "head" }, [
+              el("span", { class: "no", text: "빈칸 " + (i + 1) }),
+              el("span", { text: displayKey(k) }),
+              el("span", { class: "rate" + (rate != null && rate < 60 ? " low" : ""), text: rate == null ? "" : "처음 " + okN + " / " + bl.length + " 맞음" })
+            ])
+          ]);
+          var mini = el("div", { class: "mini" }, []);
+          gs.forEach(function(x){
+            var mark = x.accepted ? " (인정)" : "";
+            var sp = el("span", { class: x.g, text: x.name + ": " + (trimStr(x.a) || "안 씀") + (x.a2 == null ? mark : "") });
+            var kids = [ sp ];
+            if (x.a2 != null) kids.push(el("span", { class: x.g2, text: "→ " + (trimStr(x.a2) || "안 씀") + mark }));
+            if (!x.ruleOk && norm(x.latest)) kids.push(el("button", { class: "acc", text: x.accepted ? "인정 취소" : "인정",
+              title: "이 답을 맞음으로 인정해요", onclick: async function(){
+                var next = clone(x.acc);
+                if (x.accepted) delete next[i]; else next[i] = norm(x.latest);
+                try { await api.setAccept(x.e.id, next); x.e.data.accept = next; toast(x.name + (x.accepted ? " 인정을 취소했어요" : " 답을 인정했어요")); draw(); }
+                catch(err){ toast(err.message, true); }
+              } }));
+            mini.appendChild(kids.length === 1 ? sp : el("span", { style: "padding:0" }, kids));
+          });
+          if (gs.length) row.appendChild(mini);
+          card.appendChild(row);
+        });
+        body.appendChild(card);
+      });
+      body.appendChild(feedbackCard(bl, "내용 이해 한마디 · 다시 풀게 하기", true));
+    }
+    function legend(color, label){ return el("span", {}, [ el("i", { style: "background:" + color }), label ]); }
+
+    function drawBookmarks(){
+      var bm = inSec("bookmark");
+      var card = el("div", { class: "card" }, []);
+      card.appendChild(el("div", { class: "spread" }, [
+        el("h3", { text: "함께 이야기하고 싶은 것" }),
+        el("button", { class: "btn ghost small", text: "질문 목록 복사", onclick: function(){
+          var lines = bm.filter(function(e){ return trimStr(e.data.topic); }).map(function(e, i){ return (i + 1) + ". " + e.data.topic + " (" + e.student_name + ")"; });
+          copyText(book.title + " " + sec().title + " 함께 이야기하고 싶은 것\n" + lines.join("\n"), "질문 목록을 복사했어요");
+        }})
+      ]));
+      card.appendChild(el("p", { class: "sub small", text: "학생들은 서로의 책갈피를 볼 수 없어요. 수업 전에 보고 발표 순서나 두 모둠에 줄 질문을 골라 두세요." }));
+      if (!bm.length) card.appendChild(el("div", { class: "empty", text: "아직 낸 학생이 없어요." }));
+      bm.forEach(function(e){
+        if (!trimStr(e.data.topic)) return;
+        card.appendChild(el("div", { class: "topic" }, [ el("div", { class: "t", text: e.data.topic }), el("div", { class: "by", text: e.student_name }) ]));
+      });
+      body.appendChild(card);
+
+      var qcard = el("div", { class: "card" }, [ el("h3", { text: "내 마음에 들어온 문장" }) ]);
+      if (!bm.length) qcard.appendChild(el("div", { class: "empty", text: "아직 없어요." }));
+      bm.forEach(function(e){
+        qcard.appendChild(el("div", { style: "margin-top:.8rem" }, [
+          el("div", { class: "quote", text: e.data.sentence }),
+          el("div", { class: "by sub small", text: e.student_name + (e.data.page ? " · " + e.data.page + "쪽" : "") + (e.data.why ? " — " + e.data.why : "") })
+        ]));
+      });
+      body.appendChild(qcard);
+    }
+
+    function drawAnswers(){
+      var an = inSec("answers");
+      var qs = sectionQuestions(sec());
+      body.appendChild(el("p", { class: "note", text: "결석한 학생이 앱으로 낸 생각하기 답이에요. 보통 생각하기는 수업 시간에 교재로 해요." }));
+      if (!qs.length){ body.appendChild(el("div", { class: "empty", text: "이 주차에는 생각하기 문제가 없어요." })); return; }
+      if (!an.length){ body.appendChild(el("div", { class: "empty", text: "보강으로 낸 학생이 없어요." })); return; }
+      qs.forEach(function(q, i){
+        var card = el("div", { class: "card" }, []);
+        card.appendChild(el("div", { class: "qtext", text: q.prompt }));
+        if (q.model) card.appendChild(el("div", { class: "model" }, [ el("span", { class: "lab", text: "예시 답안" }), textBlock(q.model) ]));
+        an.forEach(function(e){
+          var v = trimStr((e.data.answers || [])[i]);
+          card.appendChild(el("div", { class: "ans" }, [ el("span", { class: "who", text: e.student_name }), v ? textBlock(v) : el("span", { class: "none", text: "안 씀" }) ]));
+        });
+        body.appendChild(card);
+      });
+      body.appendChild(feedbackCard(an, "생각하기 한마디 · 확인", false));
+    }
+
+    function feedbackCard(list, title, allowRetry){
+      var fc = el("div", { class: "card" }, [ el("h3", { text: title }),
+        el("p", { class: "sub small", text: "여기 쓴 한마디는 학생 화면에 보여요." + (allowRetry ? " ‘다시 풀게 하기’를 누르면 그 학생의 빈칸 답(처음·다시 모두)이 지워지고 처음부터 다시 풀어요." : "") }) ]);
+      if (!list.length) fc.appendChild(el("div", { class: "empty", text: "아직 낸 학생이 없어요." }));
+      list.forEach(function(e){
+        var ta = el("textarea", { placeholder: "칭찬이나 보충할 점" }); ta.value = e.feedback || "";
+        var ck = el("input", { type: "checkbox", id: "ck-" + e.id }); ck.checked = !!e.checked;
+        var sv = el("button", { class: "btn small", text: "저장" });
+        sv.addEventListener("click", async function(){
+          sv.disabled = true;
+          try { await api.setFeedback(e.id, trimStr(ta.value), ck.checked); e.feedback = trimStr(ta.value); e.checked = ck.checked; toast(e.student_name + " 저장했어요"); }
+          catch(err){ toast(err.message, true); }
+          sv.disabled = false;
+        });
+        var ctr = [ el("label", { class: "row", for: "ck-" + e.id, style: "font-weight:600;gap:.35rem" }, [ ck, "확인 완료" ]), sv ];
+        if (allowRetry) ctr.push(el("button", { class: "btn danger small", text: "다시 풀게 하기", onclick: async function(){
+          if (!(await askBox(e.student_name + " 학생의 빈칸 답을 지우고 다시 풀게 할까요?", "다시 풀게 하기"))) return;
+          try { await api.deleteEntry(e.id); toast("지웠어요"); load(); } catch(err){ toast(err.message, true); }
+        }}));
+        fc.appendChild(el("div", { style: "border-top:1px solid var(--line);padding-top:.8rem;margin-top:.8rem" }, [
+          el("div", { class: "spread" }, [ el("strong", { text: e.student_name }), el("span", { class: "sub small", text: "제출 " + fmtTime(e.updated_at) }) ]),
+          el("div", { style: "margin:.4rem 0" }, [ ta ]),
+          el("div", { class: "row" }, ctr)
+        ]));
+      });
+      return fc;
+    }
+  }
+}
+</script>
+</body>
+</html>

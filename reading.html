@@ -102,6 +102,9 @@ input[type=text].blank{font-family:inherit;line-height:1.4;vertical-align:baseli
 .filled{display:inline;border-radius:6px;padding:.05rem .35rem;margin:0 .1rem;font-weight:600}
 .filled.ok{background:var(--correct-soft);color:var(--correct)}
 .filled.chk{background:var(--warn-soft);color:var(--warn)}
+textarea.blank.long{display:block;width:100%;min-height:4.5rem;margin:.45rem 0;font-family:inherit;font-size:.98rem;line-height:1.6;
+  color:var(--accent);font-weight:600;background:var(--accent-soft);border:none;border-bottom:2px solid var(--accent);border-radius:8px 8px 0 0;padding:.5rem .7rem}
+textarea.blank.long.retry{border-bottom-color:var(--wrong);background:var(--wrong-soft);color:var(--ink)}
 input[type=text].blank.retry{border-bottom-color:var(--wrong);background:var(--wrong-soft);color:var(--ink)}
 .filled.none{background:var(--wrong-soft);color:var(--wrong)}
 .key{font-size:.8rem;color:var(--muted);font-weight:500;margin-left:.15rem}
@@ -248,13 +251,15 @@ function copyText(text, msg){
 }
 
 /* ----- 빈칸: 줄거리 안의 [정답] ----- */
+//   [+정답] 처럼 앞에 + 를 붙이면 문장으로 쓰는 긴 빈칸 (학생 화면에 여러 줄 칸)
 var BLANK_RE = /\[([^\]]+)\]/g;
-function keysOf(text){ var out = [], m; BLANK_RE.lastIndex = 0; while ((m = BLANK_RE.exec(text || ""))) out.push(m[1]); return out; }
-function stripKeys(text){ return String(text || "").replace(BLANK_RE, "[]"); }
+var BLANK_SLOT = /\[\+?\]/g;     // 학생용 줄거리 속 빈칸 자리: [] 또는 [+]
+function keysOf(text){ var out = [], m; BLANK_RE.lastIndex = 0; while ((m = BLANK_RE.exec(text || ""))) out.push(m[1].replace(/^\+/, "")); return out; }
+function stripKeys(text){ return String(text || "").replace(BLANK_RE, function(_m, k){ return k.charAt(0) === "+" ? "[+]" : "[]"; }); }
 function sectionKeys(sec){ var k = []; ((sec && sec.boxes) || []).forEach(function(b){ k = k.concat(keysOf(b.text)); }); return k; }
 function sectionQuestions(sec){ var q = []; ((sec && sec.boxes) || []).forEach(function(b){ q = q.concat(b.questions || []); }); return q; }
 function blankCount(sec){ // 학생용(정답이 [] 로 바뀐) 줄거리에서 세기
-  var n = 0; ((sec && sec.boxes) || []).forEach(function(b){ n += String(b.text || "").split("[]").length - 1; }); return n;
+  var n = 0; ((sec && sec.boxes) || []).forEach(function(b){ n += (String(b.text || "").match(BLANK_SLOT) || []).length; }); return n;
 }
 function norm(s){ return String(s || "").replace(/[\s.,·…‘’“”'"!?~()\-]/g, ""); }
 // 빈칸 정답 형식: [정답] · [정답|다른 정답] · [정답@핵심어,핵심어·바꿔쓸말]
@@ -395,6 +400,60 @@ var MONGSIL = {
     ]}
   ]
 };
+
+/* ===== 샘플: 톰 소여의 모험 (초6 명작 읽기) — 「세계 명작 읽기 2018」 내용 이해 + 2015 답지
+   교재는 장소별로 정리되어 있고, 주차는 책에 나오는 순서대로 나눔 ===== */
+var TOM = {
+  title: "톰 소여의 모험", author: "마크 트웨인 지음 · 도널드 매케이 그림 · 지혜연 옮김 · 시공주니어", grade: "초등 6학년 · 명작 읽기",
+  sections: [
+    { title: "1주차", range: "처음부터 공동묘지 사건까지", boxes: [
+      { heading: "집 울타리에서",
+        text: "폴리 이모는 장난꾸러기인 톰에게 벌을 주려고 울타리에 페인트칠을 시킨다. 톰은 [+페인트칠을 하기 싫어서 꾀를 내어, 친구들에게 물건을 받는 조건으로 울타리를 칠하게 해 준다@친구,물건·사과·딱지·대가·받,칠]. 결국 톰에게 속은 친구들은 톰 대신 페인트칠을 한다.",
+        questions: [] },
+      { heading: "공동묘지에서",
+        text: "〈보기〉 머프 · 머프 포터 · 젊은 의사 · 인디언 조\n톰과 허크는 몰래 마을을 빠져나와 밤에 공동묘지에 간다. [+그곳에서 우연히 인디언 조가 젊은 의사 로빈슨을 죽이고 머프 포터 영감에게 죄를 뒤집어씌우는 것을 목격하고, 겁에 질려 비밀로 하기로 약속한다@인디언,의사·로빈슨,죽·살해,머프·포터,뒤집어·누명·덮어,비밀]",
+        questions: [] }
+    ]},
+    { title: "2주차", range: "잭슨 섬 해적 생활부터 베키 대신 매를 맞는 장면까지", boxes: [
+      { heading: "잭슨 섬 & 교회에서",
+        text: "〈보기〉 장례식 · 교회\n톰, 조 하퍼, 허크는 어른들 몰래 잭슨 섬으로 가서 즐겁게 해적 생활을 한다. 그러나 점차 가족들에 대한 걱정도 되고 집도 그리워진다. 몰래 집을 찾은 톰은 [+어른들이 자기들이 죽은 줄 알고 장례식을 치르려 한다는 것을 알고, 장례식 날 교회에 나타나 사람들을 깜짝 놀라게 한다@죽은·죽었,장례식,교회]",
+        questions: [] },
+      { heading: "학교에서",
+        text: "톰은 자신이 유명해졌지만 베키와의 사이는 좋아지지 않아서 속상했다. 그러던 중 베키가 선생님의 책을 실수로 찢는 것을 보았지만 자신이 했다며 베키를 대신해서 매를 맞는다.",
+        questions: [] }
+    ]},
+    { title: "3주차", range: "머프 포터의 재판부터 유령의 집 보물 찾기까지", boxes: [
+      { heading: "재판에서",
+        text: "〈보기〉 재판 · 진실 · 칭찬\n포터 영감이 사형 위기에 처하자 톰과 허크는 양심의 가책을 느낀다. [+결국 톰은 재판에서 의사를 죽인 범인은 머프 포터가 아니라 인디언 조라고 진실을 밝힌다. 인디언 조는 도망치고, 톰은 마을 사람들에게 칭찬을 받는다@인디언,범인·죽인·진실·자백·밝,도망·달아,칭찬]",
+        questions: [] },
+      { heading: "유령의 집에서",
+        text: "〈보기〉 귀머거리 · 벙어리\n톰과 허크는 보물을 찾기 위해 [+유령의 집에 갔다가, 스페인 사람(귀머거리 벙어리)으로 변장한 인디언 조가 친구와 함께 있는 것@유령,인디언,스페인·변장·귀머거리·벙어리]을(를) 목격한다. 톰은 인디언 조가 보물을 ‘십자가 아래 2호’로 옮기자는 말을 듣는다. 그 후 2호라는 곳을 찾기 위해 여관을 찾아가 잠자고 있던 인디언 조를 확인한다.",
+        questions: [] }
+    ]},
+    { title: "4주차", range: "동굴 소풍부터 끝까지", boxes: [
+      { heading: "동굴에서",
+        text: "톰과 베키는 배를 타고 동굴이 있는 숲까지 소풍을 갔다가 배가 떠나는 신호를 듣지 못하고 동굴에 갇힌다. 톰은 [+멀리서 들려오는 소리를 따라 걷다가 인디언 조를 보지만, 두려움을 떨치고 빛이 들어오는 곳을 찾아 베키와 함께 간신히 동굴을@빛·구멍·틈,베키]빠져나온다.",
+        questions: [] },
+      { heading: "더글러스 부인 집으로",
+        text: "〈보기〉 충고\n더글러스 부인은 허크를 양자로 삼는다. 허크는 답답한 생활이 싫어 더글러스 부인의 집을 나오지만 [+톰의 충고를 듣고 한 달 동안 노력해 보겠다는 조건을 달@충고·설득,한 달](하)며 다시 부인의 집으로 돌아간다.",
+        questions: [] },
+      { heading: "주제 이해 · 탐구 (교재의 제시문을 보고)",
+        text: "",
+        questions: [
+          { prompt: "[주제 이해 1] 1. 페인트칠 장면이나 주일 학교 장면처럼 재미있었던 장면을 이야기해 보세요.", model: "" },
+          { prompt: "[주제 이해 1] 2. 우리가 말썽꾸러기 톰의 모습을 보며 즐거움을 느끼는 이유는 무엇일까요?", model: "사고는 많이 치지만 거짓말은 안 하고 순수한 아이라서. 어디에도 얽매이지 않는 자유분방함, 페인트칠을 친구들에게 시키는 기발한 꾀, 스릴 넘치는 모험에서 대리만족을 느낀다." },
+          { prompt: "[주제 이해 1] 3. 마크 트웨인은 “이 책은 주로 소년 소녀들을 위해 쓰여지기는 했지만, 그렇다고 어른들이 이 책을 멀리하기를 바라지는 않는다.”라고 했습니다. 그 이유가 무엇일지 생각해 보세요.", model: "어른들이 동심의 세계로 돌아가, 잊고 살아온 어린 시절의 꿈과 자신의 모습을 되돌아보기를 바랐기 때문이다." },
+          { prompt: "[주제 이해 2] 1. 당시 어른들이 아이들에게 중요하다고 강조한 교육은 무엇이었는지 써 보세요. (읽기 전 학습 – 배경을 다시 보세요)", model: "청교도식 신앙 교육. 하나님을 두려워하는 신앙인으로 기르는 것이 목표였고, 성경을 읽고 외우게 했으며 매를 들어 가르쳤다." },
+          { prompt: "[주제 이해 2] 2. 작가가 허클베리 핀을 소설에 등장시킨 이유는 무엇일지 짐작해 보세요.", model: "허크를 통해 어른들의 위선과 사회의 인습을 풍자하고, 자연 속에서 자유롭게 사는 삶의 소중함을 이야기하고 싶었을 것이다." },
+          { prompt: "[주제 탐구 1] 폴리 이모와 마을 어른들의 공통된 문제점을 ‘편견’의 뜻을 참고하여 써 보세요.", model: "이모는 시드는 모범생, 톰은 말썽꾸러기라고 미리 정해 놓고 잘못을 인정하지 않는다. 마을 어른들도 허크를 근거 없이 나쁜 아이로 여긴다. 공통된 문제점은 편견을 갖고 있다는 것이다." },
+          { prompt: "[주제 탐구 2] 1. 톰은 위험을 무릅쓰고 재판에서 진실을 밝힙니다. 그 이유가 무엇일지 생각해 보세요.", model: "진실을 알면서 침묵하는 것은 비겁하기 때문이다. 자신만이 머프 포터의 결백을 밝힐 수 있었고, 말하지 않으면 평생 죄책감에 시달렸을 것이다." },
+          { prompt: "[주제 탐구 2] 2. 신문 기사의 배심원들은 짐머먼을 무죄로 판결합니다. 그 이유는 무엇일까요? 톰이 배심원이라면 어떤 판결을 내렸을까요?", model: "흑인에 대한 인종 차별과 편견, 백인 위주로 구성된 배심원단 때문이다. 톰이라면 진실을 따라 판결했을 것이다." },
+          { prompt: "[주제 탐구 2] 3. 기사 속 배심원들의 판결에 대해 평가해 보세요.", model: "무기를 갖지 않은 미성년자를 쏜 사람을 무죄로 한 것은 옳지 않다. 배심원 구성도 공정하지 않았다." }
+        ] }
+    ]}
+  ]
+};
+var SAMPLES = [ { label: "몽실언니", data: MONGSIL }, { label: "톰 소여의 모험", data: TOM } ];
 
 /* ===== 데이터 계층 =====
    같은 함수 이름으로 Supabase(실제) / 체험(이 기기 저장) 두 가지를 제공합니다. */
@@ -671,7 +730,8 @@ function runStudent(bookId){
     // 줄거리 + 빈칸
     var idx = 0;
     (sec.boxes || []).forEach(function(b){
-      var parts = String(b.text || "").split("[]");
+      var text = String(b.text || "");
+      var parts = text.split(BLANK_SLOT), slots = text.match(BLANK_SLOT) || [];
       if (parts.length < 2) return;            // 빈칸 없는 박스는 내용 이해에서 생략
       var card = el("div", { class: "card" }, []);
       if (b.heading) card.appendChild(el("div", { class: "box-h", text: b.heading }));
@@ -679,13 +739,16 @@ function runStudent(bookId){
       parts.forEach(function(p, i){
         story.appendChild(document.createTextNode(p));
         if (i === parts.length - 1) return;
-        var n = idx++;
+        var n = idx++, long = slots[i] === "[+]";
         if (stage === 0 || (stage === 1 && !marks[n])){
           var prev = d.answers ? d.answers[n] : (stage === 1 ? first[n] : "");
-          var inp = el("input", { type: "text", class: "blank" + (stage === 1 ? " retry" : ""), "aria-label": "빈칸 " + (n + 1) + (stage === 1 ? " 다시 쓰기" : ""), autocomplete: "off" });
+          var cls = "blank" + (long ? " long" : "") + (stage === 1 ? " retry" : "");
+          var lab = "빈칸 " + (n + 1) + (stage === 1 ? " 다시 쓰기" : "");
+          var inp = long ? el("textarea", { class: cls, "aria-label": lab, placeholder: "여기에 문장으로 써요", rows: "3" })
+                         : el("input", { type: "text", class: cls, "aria-label": lab, autocomplete: "off" });
           inp.value = prev || "";
-          fit(inp);
-          inp.addEventListener("input", function(){ fit(inp); saveDraft(); count(); });
+          if (!long) fit(inp);
+          inp.addEventListener("input", function(){ if (!long) fit(inp); saveDraft(); count(); });
           inputs.push({ idx: n, el: inp });
           story.appendChild(inp);
         } else if (marks[n]){
@@ -888,11 +951,11 @@ function runTeacher(){
     app.appendChild(el("div", { class: "spread" }, [
       el("h2", { text: "내 책" }),
       el("div", { class: "row" }, [
-        el("button", { class: "btn ghost small", text: "몽실언니 샘플로 만들기", onclick: function(){ create(clone(MONGSIL)); } }),
+        sampleSelect(),
         el("button", { class: "btn small", text: "+ 새 책", onclick: function(){ create({ title: "새 책", sections: [{ title: "1주차", range: "", boxes: [{ heading: "", text: "", questions: [] }] }] }); } })
       ])
     ]));
-    if (!books.length){ app.appendChild(el("div", { class: "empty", text: "아직 책이 없어요. ‘몽실언니 샘플로 만들기’로 시작해 보세요." })); return; }
+    if (!books.length){ app.appendChild(el("div", { class: "empty", text: "아직 책이 없어요. ‘샘플 책 넣기’에서 몽실언니나 톰 소여의 모험을 골라 시작해 보세요." })); return; }
     books.forEach(function(b){
       var card = el("div", { class: "card" }, []);
       card.appendChild(el("div", { class: "spread" }, [
@@ -907,6 +970,12 @@ function runTeacher(){
       ]));
       app.appendChild(card);
     });
+  }
+  function sampleSelect(){
+    var sel = el("select", { "aria-label": "샘플 책 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" },
+      [ el("option", { value: "", text: "샘플 책 넣기 ▾" }) ].concat(SAMPLES.map(function(s, i){ return el("option", { value: String(i), text: s.label }); })));
+    sel.addEventListener("change", function(){ if (sel.value !== "") create(clone(SAMPLES[+sel.value].data)); });
+    return sel;
   }
   async function create(b){
     try { var n = await api.createBook(USER, b); go("edit=" + n.id); }
@@ -937,7 +1006,7 @@ function runTeacher(){
     app.appendChild(head);
     app.appendChild(el("div", { class: "note", html:
       "줄거리에서 빈칸이 될 말을 <b>[대괄호]</b>로 감싸면 빈칸이 돼요. 예) 할머니는 [온갖 일을 시켰고@온갖,일,시키·시켰] …<br>" +
-      "@ 뒤에는 <b>핵심어</b>를 써요. 쉼표(,)로 나눈 말은 모두 있어야 하고, 가운뎃점(·)으로 나눈 말은 하나만 있으면 맞음이에요. 어미·시제·조사가 달라도 책 내용이 맞으면 맞음이 돼요.<br>" + "핵심어가 없으면 정답과 거의 같을 때만 맞음이에요. 주차 수는 책마다 자유롭게 정하세요.<br>" +
+      "@ 뒤에는 <b>핵심어</b>를 써요. 쉼표(,)로 나눈 말은 모두 있어야 하고, 가운뎃점(·)으로 나눈 말은 하나만 있으면 맞음이에요. 어미·시제·조사가 달라도 책 내용이 맞으면 맞음이 돼요.<br>" + "핵심어가 없으면 정답과 거의 같을 때만 맞음이에요. 문장으로 쓰는 긴 빈칸은 <b>[+정답@핵심어]</b>처럼 앞에 + 를 붙여요. 주차 수는 책마다 자유롭게 정하세요.<br>" +
       "학생이 낸 뒤에는 빈칸·문제의 순서를 바꾸지 마세요. 답이 순서대로 저장돼요." }));
     var list = el("div", {}, []);
     app.appendChild(list);

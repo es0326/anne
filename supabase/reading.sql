@@ -104,7 +104,10 @@ begin
                select coalesce(jsonb_agg(
                         jsonb_build_object(
                           'heading', coalesce(x->>'heading', ''),
-                          'text', regexp_replace(coalesce(x->>'text', ''), '\[[^]]+\]', '[]', 'g'),
+                          -- [정답] → [] , [+긴 정답] → [+]  (정답은 학생에게 가지 않음)
+                          'text', regexp_replace(
+                                    regexp_replace(coalesce(x->>'text', ''), '\[[^]+][^]]*\]', '[]', 'g'),
+                                    '\[\+[^]]+\]', '[+]', 'g'),
                           'questions', (
                             select coalesce(jsonb_agg(jsonb_build_object('prompt', q->>'prompt') order by qn), '[]'::jsonb)
                               from jsonb_array_elements(coalesce(x->'questions', '[]'::jsonb)) with ordinality as qq(q, qn))
@@ -205,7 +208,7 @@ $$;
 -- 주차 안 빈칸 정답 목록 (줄거리 순서)
 create or replace function public.section_keys(p_sections jsonb, p_section int) returns text[]
 language sql immutable as $$
-  select coalesce(array_agg(m[1] order by xn, mn), '{}')
+  select coalesce(array_agg(ltrim(m[1], '+') order by xn, mn), '{}')
     from jsonb_array_elements(coalesce(p_sections -> p_section -> 'boxes', '[]'::jsonb)) with ordinality as xx(x, xn),
          lateral regexp_matches(coalesce(x->>'text', ''), '\[([^]]+)\]', 'g') with ordinality as mm(m, mn);
 $$;

@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>청연국어 문학 되새김</title>
+<!-- 휴대폰 홈 화면에 추가했을 때의 아이콘·이름 (start_url 을 비워 두어 학생 링크 그대로 열림) -->
+<link rel="manifest" href="test.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="문학 되새김">
+<meta name="theme-color" content="#1F499D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap">
+<style>
+:root{
+  --paper:#FBF8F1;--ink:#211F1B;--muted:#6E685C;--line:#E7DFCE;--card:#FFFFFF;
+  --accent:#183263;--accent-soft:#E5E9F1;--green:#324840;--beige:#F1EEE4;
+  --correct:#2E7D5B;--correct-soft:#E4F0EA;--wrong:#BF4230;--wrong-soft:#F7E7E3;--warn:#A86A12;--warn-soft:#FBF0DC;
+  --shadow:0 1px 2px rgba(33,31,27,.05),0 12px 32px -14px rgba(33,31,27,.16);--radius:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#191713;--ink:#ECE6D9;--muted:#A69D8B;--line:#38322A;--card:#242019;
+  --accent:#9DB4DE;--accent-soft:#1E2638;--green:#A9C4B6;--beige:#2A2720;
+  --correct:#71C9A0;--correct-soft:#1E2E27;--wrong:#E88C7A;--wrong-soft:#33221E;--warn:#E3B062;--warn-soft:#33291A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -14px rgba(0,0,0,.55);
+}}
+:root[data-theme="dark"]{
+  --paper:#191713;--ink:#ECE6D9;--muted:#A69D8B;--line:#38322A;--card:#242019;
+  --accent:#9DB4DE;--accent-soft:#1E2638;--green:#A9C4B6;--beige:#2A2720;
+  --correct:#71C9A0;--correct-soft:#1E2E27;--wrong:#E88C7A;--wrong-soft:#33221E;--warn:#E3B062;--warn-soft:#33291A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -14px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Gowun Dodum","Noto Sans KR",system-ui,-apple-system,sans-serif;line-height:1.7;letter-spacing:-.01em;
+  padding:clamp(1rem,4vw,3rem) 1rem 5rem}
+.wrap{max-width:48rem;margin:0 auto}
+.wrap.narrow{max-width:42rem}
+a{color:var(--accent)}
+h1,h2,h3{font-family:"Gowun Batang",serif;letter-spacing:-.02em;text-wrap:balance;margin:0}
+h1{font-size:clamp(1.9rem,6vw,2.5rem);font-weight:800;line-height:1.15}
+h2{font-size:1.35rem;font-weight:700;margin-bottom:.2rem}
+h3{font-size:1.08rem;font-weight:700}
+p{margin:.3rem 0}
+.eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--accent);
+  display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
+.eyebrow.gold{color:var(--green)}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--line)}
+.sub{color:var(--muted);font-size:.95rem}
+.small{font-size:.85rem}
+header.page{margin-bottom:1.6rem}
+.topline{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:clamp(1.2rem,4vw,1.9rem);margin-bottom:1rem}
+.field{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1rem}
+.field>label{font-size:.9rem;font-weight:700}
+.field .hint{font-size:.8rem;color:var(--muted);margin-top:-.2rem}
+input[type=text],input[type=email],input[type=password],textarea,select{
+  font-family:inherit;font-size:1rem;color:var(--ink);background:var(--paper);
+  border:1.5px solid var(--line);border-radius:10px;padding:.6rem .8rem;width:100%}
+textarea{resize:vertical;min-height:4.2rem;line-height:1.65}
+input:focus,textarea:focus,select:focus{outline:2.5px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.btn{font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;color:#fff;background:var(--accent);
+  border:none;border-radius:10px;padding:.62rem 1.25rem;transition:opacity .15s,transform .06s;display:inline-block}
+.btn:hover{opacity:.9}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--line)}
+.btn.ghost:hover{border-color:var(--accent);opacity:1}
+.btn.danger{background:transparent;color:var(--wrong);border:1.5px solid var(--line)}
+.btn.small{padding:.4rem .8rem;font-size:.85rem}
+.btn:focus-visible,.chip:focus-visible,.tab:focus-visible{outline:2.5px solid var(--accent);outline-offset:3px}
+.row{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.pill{font-size:.75rem;font-weight:700;border-radius:999px;padding:.15rem .6rem;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--correct);border-color:var(--correct)}
+.pill.no{color:var(--wrong);border-color:var(--wrong)}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem;margin:.4rem 0}
+.chip{font-family:inherit;font-size:.85rem;border:1.5px solid var(--line);border-radius:999px;padding:.3rem .8rem;
+  background:var(--card);cursor:pointer;color:var(--muted)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tabs{display:flex;gap:.3rem;border-bottom:1.5px solid var(--line);margin:1.2rem 0 1rem;overflow-x:auto;overflow-y:hidden}
+.tab{font-family:inherit;font-size:.95rem;font-weight:700;background:none;border:none;cursor:pointer;color:var(--muted);
+  padding:.55rem .9rem;border-bottom:3px solid transparent;margin-bottom:-1.5px;white-space:nowrap}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.range{background:var(--accent-soft);border-radius:12px;padding:.75rem 1rem;font-size:.95rem;margin:.6rem 0 0}
+.range b{color:var(--accent)}
+.box-h{font-family:"Gowun Batang",serif;font-size:1.1rem;font-weight:800;display:inline-block;
+  border-bottom:3px solid var(--green);padding-bottom:.1rem;margin-bottom:.6rem}
+.story{font-size:1.02rem;line-height:2.1;white-space:pre-wrap}
+.card:has(> .story){background:var(--beige)}
+input[type=text].blank{font-family:inherit;line-height:1.4;vertical-align:baseline;font-size:.98rem;color:var(--accent);font-weight:600;background:var(--accent-soft);
+  border:none;border-bottom:2px solid var(--accent);border-radius:6px 6px 0 0;padding:.05rem .35rem;margin:0 .15rem;
+  width:auto;min-width:5.5em;max-width:100%}
+.blank:focus{outline:2px solid var(--accent);outline-offset:1px}
+.filled{display:inline;border-radius:6px;padding:.05rem .35rem;margin:0 .1rem;font-weight:600}
+.filled.ok{background:var(--correct-soft);color:var(--correct)}
+.filled.chk{background:var(--warn-soft);color:var(--warn)}
+textarea.blank.long{display:block;width:100%;min-height:4.5rem;margin:.45rem 0;font-family:inherit;font-size:.98rem;line-height:1.6;
+  color:var(--accent);font-weight:600;background:var(--accent-soft);border:none;border-bottom:2px solid var(--accent);border-radius:8px 8px 0 0;padding:.5rem .7rem}
+textarea.blank.long.retry{border-bottom-color:var(--wrong);background:var(--wrong-soft);color:var(--ink)}
+input[type=text].blank.retry{border-bottom-color:var(--wrong);background:var(--wrong-soft);color:var(--ink)}
+.filled.none{background:var(--wrong-soft);color:var(--wrong)}
+.key{font-size:.8rem;color:var(--muted);font-weight:500;margin-left:.15rem}
+.qnum{font-size:.78rem;font-weight:700;letter-spacing:.08em;color:var(--muted)}
+.qtext{font-family:"Gowun Batang",serif;font-size:1.05rem;font-weight:700;line-height:1.55;margin:.15rem 0 .55rem}
+.model{background:var(--beige);border-left:3px solid var(--green);border-radius:0 10px 10px 0;padding:.55rem .85rem;font-size:.9rem;margin:.4rem 0 .7rem}
+.model .lab{font-size:.72rem;font-weight:700;letter-spacing:.08em;color:var(--green);display:block}
+.ans{display:grid;grid-template-columns:6.5rem 1fr;gap:.2rem .8rem;padding:.45rem 0;border-top:1px dashed var(--line);font-size:.95rem}
+.ans .who{font-weight:700}
+.ans .none{color:var(--muted);font-style:italic}
+.feedback{margin-top:.6rem;border-left:3px solid var(--green);background:var(--beige);border-radius:0 10px 10px 0;padding:.55rem .85rem;font-size:.92rem}
+.feedback .lab{font-size:.72rem;font-weight:700;letter-spacing:.08em;color:var(--green);display:block}
+.blank-stat{border-top:1px solid var(--line);padding:.8rem 0}
+.blank-stat .head{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap}
+.blank-stat .no{font-weight:800;color:var(--accent)}
+.blank-stat .rate{margin-left:auto;font-size:.85rem;font-weight:700;font-variant-numeric:tabular-nums}
+.blank-stat .rate.low{color:var(--wrong)}
+.mini{display:flex;flex-wrap:wrap;gap:.35rem .5rem;margin-top:.35rem;font-size:.88rem}
+.mini span{border-radius:7px;padding:.1rem .45rem}
+.mini .ok{background:var(--correct-soft);color:var(--correct)}
+.mini .chk{background:var(--warn-soft);color:var(--warn)}
+.mini .none{background:var(--wrong-soft);color:var(--wrong)}
+.mini button.acc{font-family:inherit;font-size:.74rem;font-weight:700;color:var(--accent);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.05rem .4rem;margin-left:.25rem;cursor:pointer}
+.legend{display:flex;gap:.8rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:.4rem 0}
+.legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:3px;vertical-align:-1px;margin-right:.25rem}
+.topic{padding:.7rem 0;border-top:1px solid var(--line)}
+.topic:first-of-type{border-top:none}
+.topic .t{font-size:1rem;font-weight:500}
+.topic .by{font-size:.8rem;color:var(--muted)}
+.quote{font-family:"Gowun Batang",serif;font-size:1rem;line-height:1.6;border-left:3px solid var(--line);padding:.1rem 0 .1rem .85rem;margin:.5rem 0 .2rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.7rem;margin:1rem 0}
+.stat{background:var(--paper);border:1px solid var(--line);border-radius:11px;padding:.7rem .9rem}
+.stat .n{font-family:"Gowun Batang",serif;font-size:1.6rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.stat .l{font-size:.76rem;color:var(--muted);font-weight:600}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:11px}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{padding:.55rem .8rem;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:.75rem;letter-spacing:.06em;color:var(--muted);font-weight:700}
+tbody tr:last-child td{border-bottom:none}
+.mark.ok{color:var(--correct);font-weight:700}
+.mark.no{color:var(--wrong);font-weight:700}
+.sec-edit{border:1px solid var(--line);border-radius:12px;padding:1rem;margin-bottom:1rem;background:var(--paper)}
+.box-edit{border:1px solid var(--line);border-radius:10px;padding:.9rem;margin:.7rem 0;background:var(--card)}
+.q-edit{border:1px dashed var(--line);border-radius:10px;padding:.7rem;margin:.5rem 0}
+.note{font-size:.88rem;color:var(--muted);background:var(--accent-soft);border-radius:10px;padding:.7rem .9rem;margin:.6rem 0}
+.demo-bar{background:var(--beige);color:var(--ink);border:1px solid var(--green);border-radius:10px;padding:.55rem .9rem;font-size:.85rem;margin-bottom:1.2rem}
+.err{color:var(--wrong);font-size:.88rem;margin-top:.4rem}
+.empty{text-align:center;color:var(--muted);padding:2.5rem 1rem}
+.foot{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}
+#toast{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%) translateY(2rem);background:var(--ink);
+  color:var(--paper);padding:.6rem 1.1rem;border-radius:10px;font-size:.9rem;font-weight:600;opacity:0;
+  transition:.25s;pointer-events:none;z-index:50;max-width:90vw}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.bad{background:var(--wrong)}
+.dlg-back{position:fixed;inset:0;background:rgba(20,18,15,.45);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:60}
+.dlg{background:var(--card);color:var(--ink);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.4rem;max-width:26rem;width:100%}
+.dlg p{margin:0 0 1.1rem;white-space:pre-wrap;font-size:1rem}
+.dlg textarea{margin-bottom:1rem}
+@media (max-width:520px){ .ans{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>
+/* ---- 청연 문학 되새김 전용 ---- */
+.item{border-top:1px solid var(--line);padding:.9rem 0}
+.item:first-of-type{border-top:none}
+.item .no{font-weight:800;color:var(--accent);margin-right:.35rem}
+.item .q{font-size:1.02rem;line-height:1.65}
+.oxrow{display:flex;gap:.6rem;margin-top:.55rem}
+.oxbtn{font-family:"Gowun Batang",serif;font-size:1.25rem;font-weight:700;width:3.2rem;height:2.6rem;border-radius:10px;
+  border:1.5px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer}
+.oxbtn:hover{border-color:var(--accent);color:var(--accent)}
+.oxbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.retry .oxbtn{border-color:var(--wrong)}
+.retry .oxbtn.on{background:var(--wrong);border-color:var(--wrong)}
+.item textarea{margin-top:.5rem;min-height:3.2rem}
+.item.retry textarea{border-color:var(--wrong);background:var(--wrong-soft)}
+.res{display:inline-block;margin-top:.45rem;border-radius:7px;padding:.15rem .55rem;font-weight:600}
+.res.ok{background:var(--correct-soft);color:var(--correct)}
+.res.no{background:var(--wrong-soft);color:var(--wrong)}
+.explain{margin-top:.5rem;background:var(--beige);border-left:3px solid var(--green);border-radius:0 10px 10px 0;padding:.55rem .8rem;font-size:.93rem}
+.explain .lab{font-size:.72rem;font-weight:700;letter-spacing:.06em;color:var(--green);display:block}
+.bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:.35rem}
+.bar span{display:block;height:100%;background:var(--accent)}
+.bar.low span{background:var(--wrong)}
+.kwline{font-size:.8rem;color:var(--muted);margin-top:.2rem}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div id="demoBar"></div>
+  <header class="page" id="pageHeader"></header>
+  <main id="app"><div class="empty">불러오는 중…</div></main>
+  <p class="foot" id="pageFoot"></p>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="classic-samples.js"></script>
+<script>
+/* ===== 설정 ===== */
+var SUPABASE_URL = "https://yqwexzzdamcpqmsqkbcg.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_Y2bK2lw2T_Wysf9WWPuDbg_eA1ZX7R0";
+var PARAMS = new URLSearchParams(location.search);
+// ?demo=1 이거나 파일을 더블클릭해서 열면 → Supabase 없이 이 기기 안에서만 체험
+var DEMO = PARAMS.has("demo") || location.protocol === "file:";
+var app = document.getElementById("app");
+var pageHeader = document.getElementById("pageHeader");
+var pageFoot = document.getElementById("pageFoot");
+function el(tag, attrs, kids){
+  var n = document.createElement(tag); attrs = attrs || {};
+  Object.keys(attrs).forEach(function(k){
+    if (k === "class") n.className = attrs[k];
+    else if (k === "html") n.innerHTML = attrs[k];
+    else if (k === "text") n.textContent = attrs[k];
+    else if (k === "value") n.value = attrs[k];
+    else if (k.slice(0,2) === "on") n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  });
+  (kids || []).forEach(function(c){
+    if (c == null) return;
+    n.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  });
+  return n;
+}
+var _toastT;
+function toast(msg, bad){
+  var t = document.getElementById("toast");
+  t.textContent = msg; t.className = "show" + (bad ? " bad" : "");
+  clearTimeout(_toastT); _toastT = setTimeout(function(){ t.className = ""; }, 3200);
+}
+// 브라우저 확인 창(confirm) 대신 쓰는 앱 안 확인 창 — confirm 이 막힌 브라우저에서도 동작
+function askBox(msg, okText){
+  return new Promise(function(resolve){
+    var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+    function done(v){ back.remove(); resolve(v); }
+    var ok = el("button", { class: "btn", text: okText || "확인", onclick: function(){ done(true); } });
+    back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: msg }),
+      el("div", { class: "row", style: "justify-content:flex-end" }, [
+        el("button", { class: "btn ghost", text: "취소", onclick: function(){ done(false); } }), ok ]) ]));
+    back.addEventListener("click", function(e){ if (e.target === back) done(false); });
+    back.addEventListener("keydown", function(e){ if (e.key === "Escape") done(false); });
+    document.body.appendChild(back); ok.focus();
+  });
+}
+function showCopyBox(text){
+  var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+  var ta = el("textarea", { readonly: "readonly", style: "min-height:6rem" }); ta.value = text;
+  back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: "아래 내용을 복사하세요 (Ctrl+C)." }), ta,
+    el("div", { class: "row", style: "justify-content:flex-end" }, [ el("button", { class: "btn", text: "닫기", onclick: function(){ back.remove(); } }) ]) ]));
+  document.body.appendChild(back); ta.focus(); ta.select();
+}
+function fmtTime(iso){
+  var d = new Date(iso), p = function(x){ return String(x).padStart(2,"0"); };
+  return (d.getMonth()+1)+"/"+d.getDate()+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function lsGet(k){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function trimStr(s){ return String(s == null ? "" : s).trim(); }
+function textBlock(s){ var d = el("div", { style: "white-space:pre-wrap" }); d.textContent = s; return d; }
+function studentLink(id){ return location.href.split(/[?#]/)[0] + "?test=" + id + (DEMO ? "&demo=1" : ""); }
+function copyText(text, msg){
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(function(){ toast(msg || "복사했어요"); }, function(){ showCopyBox(text); });
+  else showCopyBox(text);
+}
+
+/* ----- 빈칸: 줄거리 안의 [정답] ----- */
+//   [+정답] 처럼 앞에 + 를 붙이면 문장으로 쓰는 긴 빈칸 (학생 화면에 여러 줄 칸)
+var BLANK_RE = /\[([^\]]+)\]/g;
+var BLANK_SLOT = /\[\+?\]/g;     // 학생용 줄거리 속 빈칸 자리: [] 또는 [+]
+function keysOf(text){ var out = [], m; BLANK_RE.lastIndex = 0; while ((m = BLANK_RE.exec(text || ""))) out.push(m[1].replace(/^\+/, "")); return out; }
+function stripKeys(text){ return String(text || "").replace(BLANK_RE, function(_m, k){ return k.charAt(0) === "+" ? "[+]" : "[]"; }); }
+function sectionKeys(sec){ var k = []; ((sec && sec.boxes) || []).forEach(function(b){ k = k.concat(keysOf(b.text)); }); return k; }
+function sectionQuestions(sec){ var q = []; ((sec && sec.boxes) || []).forEach(function(b){ q = q.concat(b.questions || []); }); return q; }
+function blankCount(sec){ // 학생용(정답이 [] 로 바뀐) 줄거리에서 세기
+  var n = 0; ((sec && sec.boxes) || []).forEach(function(b){ n += (String(b.text || "").match(BLANK_SLOT) || []).length; }); return n;
+}
+function norm(s){ return String(s || "").replace(/[\s.,·…‘’“”'"!?~()\-]/g, ""); }
+// 빈칸 정답 형식: [정답] · [정답|다른 정답] · [정답@핵심어,핵심어·바꿔쓸말]
+//   @ 뒤 핵심어: 쉼표(,)로 나눈 말은 모두 들어가야 하고, 가운뎃점(·)으로 나눈 말은 하나만 있으면 됨
+//   (어미·시제·조사·띄어쓰기는 상관없이 책 내용이 맞는지만 봄)
+// 결과: "ok" 맞음 · "chk" 다시 쓰기 · "none" 안 씀    — reading.sql 의 blank_ok 와 같은 규칙
+function grade(ans, key){
+  var a = norm(ans);
+  if (!a) return "none";
+  key = String(key || "");
+  var at = key.indexOf("@");
+  if (at !== -1){
+    var groups = key.slice(at + 1).split(",");
+    var all = groups.every(function(g){
+      return g.split("·").some(function(alt){ alt = norm(alt); return alt && a.indexOf(alt) !== -1; });
+    });
+    return all ? "ok" : "chk";
+  }
+  var hit = key.split("|").some(function(k){
+    k = norm(k); if (!k) return false;
+    return a === k || a.indexOf(k) !== -1 || (k.indexOf(a) !== -1 && a.length >= Math.ceil(k.length * 0.6));
+  });
+  return hit ? "ok" : "chk";
+}
+// 선생님이 "인정"한 답(accept: { 빈칸번호: 정규화한 답 })이면 맞음
+function gradeA(ans, key, accept, i){
+  var a = norm(ans);
+  if (a && accept && accept[i] === a) return "ok";
+  return grade(ans, key);
+}
+function displayKey(k){ return String(k).split("@")[0].split("|")[0]; }
+
+/* ===== 되새김 도우미 ===== */
+// 모든 part 의 문항을 순서대로 펼친 목록: [{ n, kind, part, i, item }]
+function flatItems(parts){
+  var out = [];
+  (parts || []).forEach(function(p, pi){ (p.items || []).forEach(function(it, i){ out.push({ n: out.length, kind: p.type, part: pi, i: i, item: it }); }); });
+  return out;
+}
+// 한 문항 채점 (reading.sql / test.sql 의 test_item_ok 와 같은 규칙)
+function itemOk(kind, item, ans, accept, n){
+  if (kind === "ox") return trimStr(ans).toUpperCase() !== "" && trimStr(ans).toUpperCase() === trimStr(item.a).toUpperCase();
+  return gradeA(ans, "@" + (item.kw || ""), accept, n) === "ok";
+}
+function partLabel(kind){ return kind === "ox" ? "O·X" : "현대어 풀이"; }
+
+/* ===== 데이터 계층 (Supabase / 체험) ===== */
+function unwrap(res){ if (res.error) throw new Error(res.error.message || "오류가 발생했습니다."); return res.data; }
+
+function supabaseApi(){
+  var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return {
+    getUser: async function(){ var r = await db.auth.getSession(); return r.data.session ? r.data.session.user : null; },
+    onAuth: function(cb){ db.auth.onAuthStateChange(function(_e, s){ cb(s ? s.user : null); }); },
+    signIn: async function(email, pw){ unwrap(await db.auth.signInWithPassword({ email: email, password: pw })); },
+    signOut: async function(){ await db.auth.signOut(); },
+    listTests: async function(){ return unwrap(await db.from("tests").select("*").order("created_at", { ascending: false })); },
+    createTest: async function(user, t){ return unwrap(await db.from("tests").insert({ owner: user.id, title: t.title, work: t.work || "", author: t.author || "", series: t.series || "", parts: t.parts || [] }).select().single()); },
+    getTest: async function(id){ return unwrap(await db.from("tests").select("*").eq("id", id).single()); },
+    updateTest: async function(id, patch){ unwrap(await db.from("tests").update(patch).eq("id", id)); },
+    deleteTest: async function(id){ unwrap(await db.from("tests").delete().eq("id", id)); },
+    listEntries: async function(id){ return unwrap(await db.from("test_entries").select("*").eq("test_id", id)); },
+    deleteEntry: async function(id){ unwrap(await db.from("test_entries").delete().eq("id", id)); },
+    setAccept: async function(id, accept){ unwrap(await db.rpc("set_test_accept", { p_entry_id: id, p_accept: accept })); },
+    publicTest: async function(id){ return unwrap(await db.rpc("get_test", { p_test_id: id })); },
+    status: async function(id, name){ return unwrap(await db.rpc("get_test_status", { p_test_id: id, p_name: name })); },
+    submit: async function(id, name, answers){ return unwrap(await db.rpc("submit_test", { p_test_id: id, p_name: name, p_answers: answers })); },
+    subscribe: function(id, cb){
+      var ch = db.channel("test-" + id).on("postgres_changes", { event: "*", schema: "public", table: "test_entries", filter: "test_id=eq." + id }, function(){ cb(); }).subscribe();
+      return function(){ db.removeChannel(ch); };
+    }
+  };
+}
+
+function demoApi(){
+  var KEY = "test-demo-v1";
+  var USER = { id: "demo-teacher", email: "체험용 선생님" };
+  var S = lsGet(KEY) || seed();
+  function save(){ lsSet(KEY, S); }
+  function uid(){ return "d" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
+  function now(){ return new Date().toISOString(); }
+  function seed(){
+    var t = clone(CLASSIC_SAMPLES[0]); t.id = "demo-gangho"; t.owner = USER.id; t.is_open = true; t.created_at = now();
+    var items = flatItems(t.parts);
+    function answers(fn){ return items.map(fn); }
+    var right = answers(function(x){ return x.kind === "ox" ? x.item.a : x.item.model; });
+    var st = { tests: [t], entries: [] };
+    st.entries.push({ id: "e0", test_id: t.id, student_name: "김하늘", data: { first: right }, created_at: now(), updated_at: now() });
+    var j1 = right.slice(); j1[1] = j1[1] === "O" ? "X" : "O"; j1[4] = j1[4] === "O" ? "X" : "O"; j1[20 + 7] = "작은 그물을 던지고"; j1[20 + 17] = "소정";
+    var j2 = right.slice(); j2[20 + 7] = "작은 배에 그물을 실어 흘러가게 던져두고"; j2[20 + 17] = "작은 배";
+    st.entries.push({ id: "e1", test_id: t.id, student_name: "이준서", data: { first: j1, second: j2 }, created_at: now(), updated_at: now() });
+    var p1 = right.slice(); p1[14] = "O"; p1[20 + 0] = "자연에 봄이 와서 신이 난다"; p1[20 + 10] = "삿갓을 쓰고 비옷을 입고";
+    st.entries.push({ id: "e2", test_id: t.id, student_name: "박서연", data: { first: p1 }, created_at: now(), updated_at: now() });
+    lsSet(KEY, st);
+    return st;
+  }
+  function test(id){ var t = S.tests.find(function(x){ return x.id === id; }); if (!t) throw new Error("문제를 찾을 수 없습니다."); return t; }
+  function entry(id, name){ return S.entries.find(function(e){ return e.test_id === id && e.student_name === name; }); }
+  function status(id, name){
+    var e = entry(id, name); if (!e) return { stage: 0 };
+    var items = flatItems(test(id).parts), fin = e.data.second || e.data.first || [];
+    var marks = items.map(function(x){ return itemOk(x.kind, x.item, fin[x.n], e.data.accept, x.n); });
+    var stage = (e.data.second || marks.every(Boolean)) ? 2 : 1;
+    return { stage: stage, first: e.data.first, second: e.data.second || null, marks: marks,
+      keys: stage === 2 ? items.map(function(x){ return x.kind === "ox" ? { a: x.item.a, exp: x.item.exp } : { model: x.item.model, point: x.item.point }; }) : null };
+  }
+  var listeners = [];
+  function notify(){ listeners.forEach(function(f){ f(); }); }
+  window.addEventListener("storage", function(ev){ if (ev.key === KEY){ S = lsGet(KEY) || S; notify(); } });
+  return {
+    getUser: async function(){ return USER; }, onAuth: function(){}, signIn: async function(){},
+    signOut: async function(){ if (await askBox("체험 데이터를 처음 상태로 되돌릴까요?", "되돌리기")){ lsDel(KEY); location.reload(); } },
+    listTests: async function(){ return clone(S.tests).sort(function(a, b){ return a.created_at < b.created_at ? 1 : -1; }); },
+    createTest: async function(_u, t){ var n = Object.assign(clone(t), { id: uid(), owner: USER.id, is_open: true, created_at: now() }); S.tests.push(n); save(); return clone(n); },
+    getTest: async function(id){ return clone(test(id)); },
+    updateTest: async function(id, patch){ Object.assign(test(id), clone(patch)); save(); },
+    deleteTest: async function(id){ S.tests = S.tests.filter(function(t){ return t.id !== id; }); S.entries = S.entries.filter(function(e){ return e.test_id !== id; }); save(); },
+    listEntries: async function(id){ return clone(S.entries.filter(function(e){ return e.test_id === id; })); },
+    deleteEntry: async function(id){ S.entries = S.entries.filter(function(e){ return e.id !== id; }); save(); },
+    setAccept: async function(id, accept){ var e = S.entries.find(function(x){ return x.id === id; }); if (e){ e.data.accept = clone(accept); save(); } },
+    publicTest: async function(id){
+      var t = test(id); if (!t.is_open) throw new Error("선생님이 아직 열지 않은 문제입니다.");
+      return { title: t.title, work: t.work, author: t.author, series: t.series,
+        parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ return { q: it.q }; }) }; }) };
+    },
+    status: async function(id, name){ return status(id, trimStr(name)); },
+    submit: async function(id, name, answers){
+      var t = test(id); if (!t.is_open) throw new Error("선생님이 닫은 문제입니다.");
+      name = trimStr(name); if (!name) throw new Error("이름을 입력하세요.");
+      var e = entry(id, name), items = flatItems(t.parts);
+      if (!e) S.entries.push({ id: uid(), test_id: id, student_name: name, data: { first: answers.slice() }, created_at: now(), updated_at: now() });
+      else {
+        if (e.data.second) throw new Error("이미 두 번 제출했어요.");
+        e.data.second = items.map(function(x){ var f = e.data.first[x.n] || ""; return itemOk(x.kind, x.item, f, e.data.accept, x.n) ? f : (answers[x.n] || ""); });
+        e.updated_at = now();
+      }
+      save(); notify(); return status(id, name);
+    },
+    subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; }
+  };
+}
+
+var api = DEMO ? demoApi() : supabaseApi();
+if (DEMO){
+  document.getElementById("demoBar").appendChild(el("div", { class: "demo-bar" }, [ el("b", { text: "체험 모드 · " }),
+    "기록은 이 기기의 브라우저에만 저장돼요. 실제 수업은 인터넷 주소에서 ‘?demo=1’ 없이 쓰세요." ]));
+}
+
+var testParam = PARAMS.get("test");
+if (testParam) runStudent(testParam); else runTeacher();
+
+/* ================= 학생 ================= */
+function runStudent(testId){
+  document.getElementById("wrap").classList.add("narrow");
+  pageFoot.textContent = "내가 쓴 답은 선생님만 볼 수 있어요.";
+  if (DEMO) document.getElementById("demoBar").appendChild(el("a", { class: "btn ghost small", href: location.href.split(/[?#]/)[0] + "?demo=1#test=" + testId, text: "← 선생님 화면으로", style: "text-decoration:none;margin-bottom:1rem" }));
+  var T = null, NAME = lsGet("reading-name") || "";
+  init();
+
+  async function init(){
+    try { T = await api.publicTest(testId); }
+    catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "empty", text: e.message })); return; }
+    pageHeader.innerHTML = "";
+    pageHeader.appendChild(el("div", { class: "eyebrow", text: (T.series ? T.series + " · " : "") + "청연 문학 되새김" }));
+    pageHeader.appendChild(el("h1", { text: T.work || T.title }));
+    if (T.author) pageHeader.appendChild(el("p", { class: "sub", text: T.author }));
+    render();
+  }
+
+  function render(){
+    app.innerHTML = "";
+    if (!NAME) return renderName();
+    app.appendChild(el("div", { class: "card spread" }, [ el("h2", { text: NAME + " 학생" }),
+      el("button", { class: "btn ghost small", text: "이름 바꾸기", onclick: function(){ NAME = ""; lsDel("reading-name"); render(); } }) ]));
+    renderTest();
+  }
+
+  function renderName(){
+    var card = el("div", { class: "card" }, [ el("h2", { text: "이름을 적어 주세요" }), el("p", { class: "sub", text: "다음에도 똑같은 이름으로 들어와야 내 기록을 다시 볼 수 있어요." }) ]);
+    var inp = el("input", { type: "text", placeholder: "예) 김하늘", autocomplete: "off", maxlength: "40" });
+    var errb = el("div", { class: "err" });
+    function go(){ var v = trimStr(inp.value); if (!v){ errb.textContent = "이름을 입력하세요."; return; } NAME = v; lsSet("reading-name", v); render(); }
+    inp.addEventListener("keydown", function(e){ if (e.key === "Enter") go(); });
+    card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ inp ]));
+    card.appendChild(el("button", { class: "btn", text: "시작하기", onclick: go })); card.appendChild(errb);
+    app.appendChild(card); inp.focus();
+  }
+
+  async function renderTest(){
+    var holder = el("div", {}, [ el("div", { class: "empty", text: "불러오는 중…" }) ]);
+    app.appendChild(holder);
+    var ST;
+    try { ST = await api.status(testId, NAME); } catch(e){ holder.innerHTML = ""; holder.appendChild(el("div", { class: "err", text: e.message })); return; }
+    holder.innerHTML = "";
+    var items = flatItems(T.parts), N = items.length;
+    var stage = ST.stage || 0, first = ST.first || [], fin = ST.second || first, marks = ST.marks || [];
+    var dkey = "test-draft:" + testId + ":" + NAME + ":" + stage;
+    var cur = lsGet(dkey) || (stage === 1 ? first.slice() : []);
+    function saveDraft(){ lsSet(dkey, cur); }
+    var editable = items.filter(function(x){ return stage === 0 || (stage === 1 && !marks[x.n]); });
+
+    // 안내
+    var okN = marks.filter(Boolean).length;
+    var head = el("div", { class: "card" }, []);
+    if (stage === 0) head.appendChild(el("p", { class: "note", style: "margin:0", text: "모두 풀고 제출하면 맞았는지만 알려 줘요. 틀린 문제는 한 번 더 고칠 수 있고, 그래도 틀리면 그때 정답과 해설이 나와요." }));
+    else if (stage === 1) { head.appendChild(el("h3", { text: N + "문제 중 " + okN + "문제 맞았어요" })); head.appendChild(el("p", { class: "sub", text: "빨간 문제 " + (N - okN) + "개를 다시 생각해서 고쳐 내세요." })); }
+    else { head.appendChild(el("h3", { text: okN === N && !ST.second ? "처음부터 모두 맞았어요!" : "끝 · " + N + "문제 중 " + okN + "문제 맞음" })); head.appendChild(el("p", { class: "sub", text: "아래에서 정답과 해설을 꼭 읽어 보세요." })); }
+    holder.appendChild(head);
+
+    T.parts.forEach(function(p, pi){
+      var card = el("div", { class: "card" }, [ el("div", { class: "box-h", text: p.title || partLabel(p.type) }) ]);
+      if (p.guide) card.appendChild(el("p", { class: "sub small", text: p.guide }));
+      items.filter(function(x){ return x.part === pi; }).forEach(function(x){
+        var canEdit = stage === 0 || (stage === 1 && !marks[x.n]);
+        var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
+        if (x.kind === "ox"){
+          if (canEdit){
+            var row = el("div", { class: "oxrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
+            ["O", "X"].forEach(function(v){
+              var b = el("button", { class: "oxbtn" + (cur[x.n] === v ? " on" : ""), text: v, "aria-pressed": cur[x.n] === v ? "true" : "false" });
+              b.addEventListener("click", function(){ cur[x.n] = v; saveDraft(); Array.prototype.forEach.call(row.children, function(c){ c.classList.toggle("on", c.textContent === v); c.setAttribute("aria-pressed", c.textContent === v ? "true" : "false"); }); count(); });
+              row.appendChild(b);
+            });
+            box.appendChild(row);
+          } else {
+            box.appendChild(el("span", { class: "res " + (marks[x.n] ? "ok" : "no"), text: "내 답: " + (fin[x.n] || "안 고름") + (marks[x.n] ? " ✓" : " ✗") }));
+          }
+        } else {
+          if (canEdit){
+            var ta = el("textarea", { placeholder: "현대어로 풀이해 써요", "aria-label": (x.i + 1) + "번 풀이" });
+            ta.value = cur[x.n] || "";
+            ta.addEventListener("input", function(){ cur[x.n] = ta.value; saveDraft(); count(); });
+            box.appendChild(ta);
+          } else {
+            box.appendChild(el("div", { class: "res " + (marks[x.n] ? "ok" : "no"), style: "white-space:pre-wrap", text: (trimStr(fin[x.n]) || "(안 씀)") + (marks[x.n] ? " ✓" : " ✗") }));
+          }
+        }
+        if (stage === 2 && ST.keys){
+          var k = ST.keys[x.n] || {};
+          box.appendChild(x.kind === "ox"
+            ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답 " + (k.a || "") }), textBlock(k.exp || "") ])
+            : el("div", { class: "explain" }, [ el("span", { class: "lab", text: "풀이" }), textBlock(k.model || ""), k.point ? el("div", { class: "kwline", text: "핵심: " + k.point }) : null ]));
+        }
+        card.appendChild(box);
+      });
+      holder.appendChild(card);
+    });
+    if (stage === 2) return;
+
+    var bar = el("div", { class: "card" }, []);
+    var cnt = el("p", { class: "sub" });
+    function count(){ cnt.textContent = (stage === 0 ? "" : "다시 풀 문제 ") + editable.length + "문제 중 " + editable.filter(function(x){ return trimStr(cur[x.n]); }).length + "문제를 풀었어요."; }
+    count();
+    var msg = el("div", { class: "err" });
+    var btn = el("button", { class: "btn", text: stage === 0 ? "제출하기" : "고쳐서 다시 제출" });
+    btn.addEventListener("click", async function(){
+      msg.textContent = "";
+      var answers = items.map(function(x){ return (stage === 1 && marks[x.n]) ? (fin[x.n] || "") : trimStr(cur[x.n]); });
+      var empty = editable.filter(function(x){ return !trimStr(cur[x.n]); }).length;
+      var ask = stage === 0 ? (empty ? "안 푼 문제가 " + empty + "개 있어요. 그래도 제출할까요?" : "제출할까요?") : "다시 내면 더 고칠 수 없고, 정답과 해설이 나와요. 제출할까요?";
+      if (!(await askBox(ask, stage === 0 ? "제출하기" : "다시 제출"))) return;
+      btn.disabled = true;
+      try { await api.submit(testId, NAME, answers); lsDel(dkey); toast(stage === 0 ? "제출했어요" : "다시 냈어요"); render(); window.scrollTo(0, 0); }
+      catch(e){ btn.disabled = false; msg.textContent = e.message; }
+    });
+    bar.appendChild(cnt); bar.appendChild(btn); bar.appendChild(msg);
+    holder.appendChild(bar);
+  }
+}
+
+/* ================= 교사 ================= */
+function runTeacher(){
+  pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold">교사용</div><h1>청연 문학 되새김</h1><p class="sub">O·X · 현대어 풀이</p></div><div class="row" id="whoami"></div></div>';
+  pageFoot.innerHTML = "학생에게는 작품마다 <b>학생 링크</b>만 보내 주세요. 정답과 해설은 학생이 다 풀 때까지 보이지 않아요.";
+  var whoami = document.getElementById("whoami");
+  var USER = null, unsub = null;
+  api.getUser().then(function(u){ USER = u; route(); });
+  api.onAuth(function(u){ USER = u; route(); });
+  function go(h){ if (location.hash.slice(1) === h) route(); else location.hash = h; }
+  window.addEventListener("hashchange", route);
+
+  function route(){
+    if (unsub){ unsub(); unsub = null; }
+    if (!USER) return renderLogin();
+    whoami.innerHTML = "";
+    whoami.appendChild(el("span", { class: "pill", text: USER.email }));
+    whoami.appendChild(el("button", { class: "btn ghost small", text: DEMO ? "체험 초기화" : "로그아웃", onclick: function(){ api.signOut(); } }));
+    var p = new URLSearchParams(location.hash.slice(1));
+    if (p.get("edit")) renderEditor(p.get("edit")); else if (p.get("test")) renderDashboard(p.get("test")); else renderList();
+  }
+
+  function renderLogin(){
+    whoami.innerHTML = ""; app.innerHTML = "";
+    var card = el("div", { class: "card" }, [ el("h2", { text: "선생님 로그인" }), el("p", { class: "sub", text: "독서 기록 앱과 같은 계정으로 로그인하세요." }) ]);
+    var em = el("input", { type: "email", autocomplete: "email", placeholder: "이메일" });
+    var pw = el("input", { type: "password", autocomplete: "current-password", placeholder: "비밀번호" });
+    var errb = el("div", { class: "err" }), btn = el("button", { class: "btn", text: "로그인" });
+    async function doLogin(){ errb.textContent = ""; btn.disabled = true; try { await api.signIn(trimStr(em.value), pw.value); } catch(e){ errb.textContent = e.message; } btn.disabled = false; }
+    btn.addEventListener("click", doLogin); pw.addEventListener("keydown", function(e){ if (e.key === "Enter") doLogin(); });
+    card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ em ])); card.appendChild(el("div", { class: "field" }, [ pw ]));
+    card.appendChild(btn); card.appendChild(errb); app.appendChild(card);
+  }
+
+  async function renderList(){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var tests; try { tests = await api.listTests(); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    app.innerHTML = "";
+    var sel = el("select", { "aria-label": "샘플 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" },
+      [ el("option", { value: "", text: "고전문학 샘플 넣기 ▾" }) ].concat(CLASSIC_SAMPLES.map(function(s, i){ return el("option", { value: String(i), text: s.work }); })));
+    sel.addEventListener("change", function(){ if (sel.value !== "") create(clone(CLASSIC_SAMPLES[+sel.value])); });
+    app.appendChild(el("div", { class: "spread" }, [ el("h2", { text: "내 되새김" }), sel ]));
+    if (!tests.length){ app.appendChild(el("div", { class: "empty", text: "아직 만든 문제가 없어요. ‘고전문학 샘플 넣기’에서 작품을 골라 보세요." })); return; }
+    tests.forEach(function(t){
+      var n = flatItems(t.parts).length;
+      app.appendChild(el("div", { class: "card" }, [
+        el("div", { class: "spread" }, [ el("div", {}, [ el("h3", { text: t.work || t.title }), el("div", { class: "sub small", text: [t.series, t.author].filter(Boolean).join(" · ") }) ]),
+          el("span", { class: "pill " + (t.is_open ? "ok" : "no"), text: t.is_open ? "학생에게 열림" : "닫힘" }) ]),
+        el("div", { class: "sub small", style: "margin-top:.3rem", text: (t.parts || []).map(function(p){ return partLabel(p.type) + " " + (p.items || []).length; }).join(" · ") + " · 모두 " + n + "문제" }),
+        el("div", { class: "row", style: "margin-top:.8rem" }, [
+          el("button", { class: "btn small", text: "결과 보기", onclick: function(){ go("test=" + t.id); } }),
+          el("button", { class: "btn ghost small", text: "문제 편집", onclick: function(){ go("edit=" + t.id); } }),
+          el("button", { class: "btn ghost small", text: "학생 링크 복사", onclick: function(){ copyText(studentLink(t.id), "학생 링크를 복사했어요"); } }) ])
+      ]));
+    });
+  }
+  async function create(t){ try { var n = await api.createTest(USER, t); go("test=" + n.id); toast((t.work || "되새김") + " 문제를 만들었어요"); } catch(e){ toast(e.message, true); } }
+
+  /* ----- 문제 편집 ----- */
+  async function renderEditor(id){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var t; try { t = await api.getTest(id); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    var parts = clone(t.parts || []);
+    app.innerHTML = "";
+    app.appendChild(el("div", { class: "row", style: "margin-bottom:1rem" }, [ el("button", { class: "btn ghost small", text: "← 목록", onclick: function(){ go(""); } }), el("button", { class: "btn ghost small", text: "결과 보기", onclick: function(){ go("test=" + id); } }) ]));
+    function bind(node, obj, key){ node.value = obj[key] || ""; node.addEventListener("input", function(){ obj[key] = node.value; }); return node; }
+    var meta = el("div", { class: "card" }, []);
+    var m = { title: t.title, work: t.work, author: t.author, series: t.series };
+    [["work", "작품"], ["author", "지은이 · 갈래"], ["series", "교재"], ["title", "제목"]].forEach(function(f){ meta.appendChild(el("div", { class: "field" }, [ el("label", { text: f[1] }), bind(el("input", { type: "text" }), m, f[0]) ])); });
+    var open = el("input", { type: "checkbox", id: "tOpen" }); open.checked = t.is_open;
+    meta.appendChild(el("label", { class: "row", for: "tOpen", style: "font-weight:600" }, [ open, " 학생에게 열기" ]));
+    app.appendChild(meta);
+    app.appendChild(el("div", { class: "note", html: "현대어 풀이의 <b>핵심어</b>: 쉼표(,)로 나눈 말은 모두 들어가야 하고, 가운뎃점(·)으로 나눈 말은 하나만 있으면 맞음이에요. 학생이 푼 뒤에는 문제 순서를 바꾸지 마세요." }));
+    var list = el("div", {}, []); app.appendChild(list);
+    function draw(){
+      list.innerHTML = "";
+      parts.forEach(function(p){
+        var card = el("div", { class: "card" }, [ el("div", { class: "box-h", text: p.title || partLabel(p.type) }) ]);
+        p.items.forEach(function(it, i){
+          var box = el("div", { class: "item" }, [ el("div", { class: "spread" }, [ el("strong", { text: (i + 1) + "번" }), el("button", { class: "chip", text: "삭제", onclick: async function(){ if (await askBox((i + 1) + "번을 지울까요?", "지우기")){ p.items.splice(i, 1); draw(); } } }) ]) ]);
+          box.appendChild(bind(el("textarea", { placeholder: p.type === "ox" ? "문제" : "구절" }), it, "q"));
+          if (p.type === "ox"){
+            var s = el("select", { style: "width:auto;margin-top:.4rem" }, [ el("option", { value: "O", text: "정답 O" }), el("option", { value: "X", text: "정답 X" }) ]);
+            s.value = it.a || "O"; s.addEventListener("change", function(){ it.a = s.value; });
+            box.appendChild(s);
+            box.appendChild(bind(el("textarea", { placeholder: "해설", style: "margin-top:.4rem" }), it, "exp"));
+          } else {
+            box.appendChild(bind(el("textarea", { placeholder: "모범 풀이", style: "margin-top:.4rem" }), it, "model"));
+            box.appendChild(bind(el("input", { type: "text", placeholder: "핵심 포인트", style: "margin-top:.4rem" }), it, "point"));
+            box.appendChild(bind(el("input", { type: "text", placeholder: "핵심어 (예: 작은 배·조각배,그물)", style: "margin-top:.4rem" }), it, "kw"));
+          }
+          card.appendChild(box);
+        });
+        card.appendChild(el("button", { class: "chip", text: "+ 문제 추가", onclick: function(){ p.items.push(p.type === "ox" ? { q: "", a: "O", exp: "" } : { q: "", model: "", point: "", kw: "" }); draw(); } }));
+        list.appendChild(card);
+      });
+    }
+    draw();
+    var errb = el("div", { class: "err" });
+    var save = el("button", { class: "btn", text: "저장하기", onclick: async function(){
+      save.disabled = true;
+      try { await api.updateTest(id, { title: trimStr(m.title) || trimStr(m.work) || "문학 되새김", work: trimStr(m.work), author: trimStr(m.author), series: trimStr(m.series), is_open: open.checked, parts: parts }); toast("저장했어요"); }
+      catch(e){ errb.textContent = e.message; }
+      save.disabled = false;
+    } });
+    var del = el("button", { class: "btn danger small", text: "이 작품 삭제", onclick: async function(){
+      if (!(await askBox("이 작품의 문제와 학생 기록이 모두 삭제됩니다. 계속할까요?", "삭제"))) return;
+      try { await api.deleteTest(id); toast("삭제했어요"); go(""); } catch(e){ toast(e.message, true); }
+    } });
+    app.appendChild(el("div", { class: "card" }, [ el("div", { class: "row" }, [ save, del ]), errb ]));
+  }
+
+  /* ----- 결과 보기 ----- */
+  async function renderDashboard(id){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var t; try { t = await api.getTest(id); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    var items = flatItems(t.parts), TAB = "status", E = [];
+    app.innerHTML = "";
+    var nav = el("div", { class: "row", style: "margin-bottom:1rem" }, [
+      el("button", { class: "btn ghost small", text: "← 목록", onclick: function(){ go(""); } }),
+      el("button", { class: "btn ghost small", text: "문제 편집", onclick: function(){ go("edit=" + id); } }),
+      el("button", { class: "btn ghost small", text: "학생 링크 복사", onclick: function(){ copyText(studentLink(id), "학생 링크를 복사했어요"); } }) ]);
+    if (DEMO) nav.appendChild(el("a", { class: "btn small", href: studentLink(id), text: "학생 화면 보기 →", style: "text-decoration:none" }));
+    app.appendChild(nav);
+    var head = el("div", { class: "card" }, []), body = el("div", {}, []);
+    app.appendChild(head); app.appendChild(body);
+    await load();
+    var tm = null; unsub = api.subscribe(id, function(){ clearTimeout(tm); tm = setTimeout(load, 400); });
+
+    async function load(){ try { E = (await api.listEntries(id)).sort(function(a, b){ return a.student_name.localeCompare(b.student_name, "ko"); }); } catch(e){ body.innerHTML = ""; body.appendChild(el("div", { class: "err", text: e.message })); return; } draw(); }
+    function ans(e, which){ return which === "first" ? (e.data.first || []) : (e.data.second || e.data.first || []); }
+    function ok(e, x, which){ return itemOk(x.kind, x.item, ans(e, which)[x.n], e.data.accept, x.n); }
+    function score(e, kind, which){ return items.filter(function(x){ return x.kind === kind && ok(e, x, which); }).length; }
+    function countKind(kind){ return items.filter(function(x){ return x.kind === kind; }).length; }
+
+    function draw(){
+      head.innerHTML = "";
+      head.appendChild(el("div", { class: "eyebrow gold", text: [t.series, "결과 보기"].filter(Boolean).join(" · ") }));
+      head.appendChild(el("h2", { text: t.work || t.title }));
+      var kinds = (t.parts || []).map(function(p){ return p.type; });
+      var stats = [ statBox(E.length, "응시 학생") ];
+      kinds.forEach(function(k){
+        var tot = countKind(k);
+        var avg = E.length ? Math.round(E.reduce(function(a, e){ return a + score(e, k, "first"); }, 0) / E.length / tot * 100) : null;
+        stats.push(statBox(avg == null ? "–" : avg + "%", partLabel(k) + " 처음 정답률"));
+      });
+      head.appendChild(el("div", { class: "stats" }, stats));
+      var tabs = el("div", { class: "tabs", style: "margin-bottom:0" }, []);
+      [["status", "학생별"]].concat(kinds.map(function(k){ return [k, partLabel(k) + " 문항별"]; })).forEach(function(x){
+        tabs.appendChild(el("button", { class: "tab" + (TAB === x[0] ? " on" : ""), text: x[1], onclick: function(){ TAB = x[0]; draw(); } }));
+      });
+      head.appendChild(tabs);
+      body.innerHTML = "";
+      if (TAB === "status") drawStatus(kinds); else drawItems(TAB);
+    }
+    function statBox(n, l){ return el("div", { class: "stat" }, [ el("div", { class: "n", text: String(n) }), el("div", { class: "l", text: l }) ]); }
+
+    function drawStatus(kinds){
+      var card = el("div", { class: "card" }, []);
+      if (!E.length){ card.appendChild(el("div", { class: "empty", text: "아직 응시한 학생이 없어요. 학생 링크를 보내 주세요." })); body.appendChild(card); return; }
+      var hr = [ el("th", { text: "이름" }) ].concat(kinds.map(function(k){ return el("th", { text: partLabel(k) }); })).concat([ el("th", { text: "제출" }), el("th", { text: "" }) ]);
+      var tb = el("tbody", {}, []);
+      E.forEach(function(e){
+        var cells = [ el("td", { text: e.student_name }) ];
+        kinds.forEach(function(k){
+          var tot = countKind(k), f = score(e, k, "first"), s = e.data.second ? score(e, k, "final") : null;
+          cells.push(el("td", {}, [ el("span", { class: "mark " + (f === tot ? "ok" : ""), text: "처음 " + f + "/" + tot + (s != null ? " → 다시 " + s + "/" + tot : (f < tot ? " (다시 풀기 전)" : "")) }) ]));
+        });
+        cells.push(el("td", { class: "sub small", text: fmtTime(e.updated_at) }));
+        cells.push(el("td", {}, [ el("button", { class: "chip", text: "다시 풀게 하기", onclick: async function(){
+          if (!(await askBox(e.student_name + " 학생의 답을 모두 지우고 처음부터 다시 풀게 할까요?", "다시 풀게 하기"))) return;
+          try { await api.deleteEntry(e.id); load(); } catch(err){ toast(err.message, true); }
+        } }) ]));
+        tb.appendChild(el("tr", {}, cells));
+      });
+      card.appendChild(el("div", { class: "table-wrap" }, [ el("table", {}, [ el("thead", {}, [ el("tr", {}, hr) ]), tb ]) ]));
+      card.appendChild(el("p", { class: "sub small", style: "margin-top:.6rem", text: "‘처음’은 처음 낸 답, ‘다시’는 틀린 문제를 고친 뒤예요. 정답률이 낮은 문항은 ‘문항별’ 탭에서 보세요." }));
+      body.appendChild(card);
+    }
+
+    function drawItems(kind){
+      var card = el("div", { class: "card" }, []);
+      if (kind === "write") card.appendChild(el("div", { class: "legend" }, [ el("span", {}, [ el("i", { style: "background:var(--correct-soft)" }), "맞음" ]), el("span", {}, [ el("i", { style: "background:var(--warn-soft)" }), "다시 쓰기" ]), el("span", {}, [ el("i", { style: "background:var(--wrong-soft)" }), "안 씀" ]), el("span", { text: "· 이름: 처음 답 → 다시 쓴 답" }) ]));
+      items.filter(function(x){ return x.kind === kind; }).forEach(function(x){
+        var okN = E.filter(function(e){ return ok(e, x, "first"); }).length;
+        var rate = E.length ? Math.round(okN / E.length * 100) : null;
+        var box = el("div", { class: "item" }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
+        box.appendChild(el("div", { class: "kwline", text: kind === "ox" ? "정답 " + x.item.a : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
+        if (rate != null){
+          box.appendChild(el("div", { class: "bar" + (rate < 60 ? " low" : "") }, [ el("span", { style: "width:" + rate + "%" }) ]));
+          box.appendChild(el("div", { class: "kwline", text: "처음 " + okN + " / " + E.length + " 맞음" }));
+        }
+        if (kind === "ox"){
+          var wrong = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name; });
+          if (wrong.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrong.join(", ") }));
+        } else {
+          var mini = el("div", { class: "mini" }, []);
+          E.forEach(function(e){
+            var acc = e.data.accept || {}, f = ans(e, "first")[x.n], s = e.data.second ? e.data.second[x.n] : null;
+            var g1 = gradeA(f, "@" + x.item.kw, acc, x.n), retried = s != null && g1 !== "ok";
+            var latest = retried ? s : f, ruleOk = grade(latest, "@" + x.item.kw) === "ok", accepted = !!norm(latest) && acc[x.n] === norm(latest);
+            var kids = [ el("span", { class: g1, text: e.student_name + ": " + (trimStr(f) || "안 씀") + (!retried && accepted ? " (인정)" : "") }) ];
+            if (retried) kids.push(el("span", { class: gradeA(s, "@" + x.item.kw, acc, x.n), text: "→ " + (trimStr(s) || "안 씀") + (accepted ? " (인정)" : "") }));
+            if (!ruleOk && norm(latest)) kids.push(el("button", { class: "acc", text: accepted ? "인정 취소" : "인정", onclick: async function(){
+              var next = clone(acc); if (accepted) delete next[x.n]; else next[x.n] = norm(latest);
+              try { await api.setAccept(e.id, next); e.data.accept = next; draw(); } catch(err){ toast(err.message, true); }
+            } }));
+            mini.appendChild(el("span", { style: "padding:0" }, kids));
+          });
+          if (E.length) box.appendChild(mini);
+        }
+        card.appendChild(box);
+      });
+      body.appendChild(card);
+    }
+  }
+}
+</script>
+</body>
+</html>

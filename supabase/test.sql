@@ -1,5 +1,5 @@
 -- ============================================================
---  청연 문학 되새김 (O·X + 현대어 풀이 등) · Supabase 스키마
+--  청연 되새김 (O·X + 현대어 풀이 등) · Supabase 스키마
 --  실행 위치: Supabase 대시보드 → SQL Editor → New query → 붙여넣고 Run
 --  reading.sql 을 먼저 실행해 두어야 함 (blank_norm · blank_ok 를 같이 씀)
 --  (다시 실행해도 안전하도록 작성됨)
@@ -67,7 +67,15 @@ create or replace function public.test_item_ok(p_kind text, p_item jsonb, p_answ
 returns boolean
 language sql immutable as $$
   select case
-    when p_kind = 'ox' then upper(trim(coalesce(p_answer, ''))) = upper(trim(coalesce(p_item->>'a', '')))
+    -- O·X 답은 'O' 또는 'X||고친 문장'. X 문항은 고친 문장의 핵심어(fkw)까지 맞아야 맞음
+    when p_kind = 'ox' then
+      upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) <> ''
+      and upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) = upper(trim(coalesce(p_item->>'a', '')))
+      and ( upper(trim(coalesce(p_item->>'a', ''))) <> 'X'
+            or trim(coalesce(p_item->>'fkw', '')) = ''
+            or (blank_norm(split_part(p_answer, '||', 2)) <> ''
+                and coalesce(p_accept ->> p_n::text, '') = blank_norm(split_part(p_answer, '||', 2)))
+            or blank_ok(split_part(p_answer, '||', 2), '@' || (p_item->>'fkw')) )
     else (blank_norm(p_answer) <> '' and coalesce(p_accept ->> p_n::text, '') = blank_norm(p_answer))
          or blank_ok(p_answer, '@' || coalesce(p_item->>'kw', ''))
   end;
@@ -113,7 +121,7 @@ begin
     v_all := v_all and v_ok;
     v_marks := v_marks || to_jsonb(v_ok);
     v_keys := v_keys || case when r.kind = 'ox'
-                then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''))
+                then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''), 'fix', coalesce(r.item->>'fix', ''))
                 else jsonb_build_object('model', coalesce(r.item->>'model', ''), 'point', coalesce(r.item->>'point', '')) end;
   end loop;
   v_stage := case when v_data ? 'second' or v_all then 2 else 1 end;

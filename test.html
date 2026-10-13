@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>청연국어 문학 되새김</title>
+<title>청연국어 되새김</title>
 <!-- 휴대폰 홈 화면에 추가했을 때의 아이콘·이름 (start_url 을 비워 두어 학생 링크 그대로 열림) -->
 <link rel="manifest" href="test.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="문학 되새김">
+<meta name="apple-mobile-web-app-title" content="청연 되새김">
 <meta name="theme-color" content="#1F499D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -167,7 +167,7 @@ tbody tr:last-child td{border-bottom:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 <style>
-/* ---- 청연 문학 되새김 전용 ---- */
+/* ---- 청연 되새김 전용 ---- */
 .item{border-top:1px solid var(--line);padding:.9rem 0}
 .item:first-of-type{border-top:none}
 .item .no{font-weight:800;color:var(--accent);margin-right:.35rem}
@@ -180,6 +180,8 @@ tbody tr:last-child td{border-bottom:none}
 .retry .oxbtn{border-color:var(--wrong)}
 .retry .oxbtn.on{background:var(--wrong);border-color:var(--wrong)}
 .item textarea{margin-top:.5rem;min-height:3.2rem}
+.item input.fixin{margin-top:.5rem}
+.item.retry input.fixin{border-color:var(--wrong);background:var(--wrong-soft)}
 .item.retry textarea{border-color:var(--wrong);background:var(--wrong-soft)}
 .res{display:inline-block;margin-top:.45rem;border-radius:7px;padding:.15rem .55rem;font-weight:600}
 .res.ok{background:var(--correct-soft);color:var(--correct)}
@@ -322,10 +324,18 @@ function flatItems(parts){
   return out;
 }
 // 한 문항 채점 (reading.sql / test.sql 의 test_item_ok 와 같은 규칙)
+//   O·X 답은 "O" 또는 "X||고친 문장". X 문항은 X를 고르고 고친 문장의 핵심어(fkw)까지 맞아야 맞음
+function splitOX(ans){ var s = String(ans == null ? "" : ans), i = s.indexOf("||"); return { c: trimStr(i < 0 ? s : s.slice(0, i)).toUpperCase(), fix: i < 0 ? "" : s.slice(i + 2) }; }
 function itemOk(kind, item, ans, accept, n){
-  if (kind === "ox") return trimStr(ans).toUpperCase() !== "" && trimStr(ans).toUpperCase() === trimStr(item.a).toUpperCase();
+  if (kind === "ox"){
+    var p = splitOX(ans), a = trimStr(item.a).toUpperCase();
+    if (!p.c || p.c !== a) return false;
+    if (a === "X" && trimStr(item.fkw)) return gradeA(p.fix, "@" + item.fkw, accept, n) === "ok";
+    return true;
+  }
   return gradeA(ans, "@" + (item.kw || ""), accept, n) === "ok";
 }
+function oxText(ans){ var p = splitOX(ans); return p.c ? p.c + (p.c === "X" && trimStr(p.fix) ? " — " + trimStr(p.fix) : "") : "안 고름"; }
 function partLabel(kind){ return kind === "ox" ? "O·X" : "현대어 풀이"; }
 
 /* ===== 데이터 계층 (Supabase / 체험) ===== */
@@ -357,7 +367,7 @@ function supabaseApi(){
 }
 
 function demoApi(){
-  var KEY = "test-demo-v1";
+  var KEY = "test-demo-v2";
   var USER = { id: "demo-teacher", email: "체험용 선생님" };
   var S = lsGet(KEY) || seed();
   function save(){ lsSet(KEY, S); }
@@ -367,7 +377,7 @@ function demoApi(){
     var t = clone(CLASSIC_SAMPLES[0]); t.id = "demo-gangho"; t.owner = USER.id; t.is_open = true; t.created_at = now();
     var items = flatItems(t.parts);
     function answers(fn){ return items.map(fn); }
-    var right = answers(function(x){ return x.kind === "ox" ? x.item.a : x.item.model; });
+    var right = answers(function(x){ return x.kind === "ox" ? (x.item.a === "X" ? "X||" + (x.item.fix || "") : x.item.a) : x.item.model; });
     var st = { tests: [t], entries: [] };
     st.entries.push({ id: "e0", test_id: t.id, student_name: "김하늘", data: { first: right }, created_at: now(), updated_at: now() });
     var j1 = right.slice(); j1[1] = j1[1] === "O" ? "X" : "O"; j1[4] = j1[4] === "O" ? "X" : "O"; j1[20 + 7] = "작은 그물을 던지고"; j1[20 + 17] = "소정";
@@ -386,7 +396,7 @@ function demoApi(){
     var marks = items.map(function(x){ return itemOk(x.kind, x.item, fin[x.n], e.data.accept, x.n); });
     var stage = (e.data.second || marks.every(Boolean)) ? 2 : 1;
     return { stage: stage, first: e.data.first, second: e.data.second || null, marks: marks,
-      keys: stage === 2 ? items.map(function(x){ return x.kind === "ox" ? { a: x.item.a, exp: x.item.exp } : { model: x.item.model, point: x.item.point }; }) : null };
+      keys: stage === 2 ? items.map(function(x){ return x.kind === "ox" ? { a: x.item.a, exp: x.item.exp, fix: x.item.fix || "" } : { model: x.item.model, point: x.item.point }; }) : null };
   }
   var listeners = [];
   function notify(){ listeners.forEach(function(f){ f(); }); }
@@ -445,7 +455,7 @@ function runStudent(testId){
     try { T = await api.publicTest(testId); }
     catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "empty", text: e.message })); return; }
     pageHeader.innerHTML = "";
-    pageHeader.appendChild(el("div", { class: "eyebrow", text: (T.series ? T.series + " · " : "") + "청연 문학 되새김" }));
+    pageHeader.appendChild(el("div", { class: "eyebrow", text: (T.series ? T.series + " · " : "") + "청연 되새김" }));
     pageHeader.appendChild(el("h1", { text: T.work || T.title }));
     if (T.author) pageHeader.appendChild(el("p", { class: "sub", text: T.author }));
     render();
@@ -500,14 +510,25 @@ function runStudent(testId){
         if (x.kind === "ox"){
           if (canEdit){
             var row = el("div", { class: "oxrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
+            var pc = splitOX(cur[x.n]);
+            var fixIn = el("input", { type: "text", class: "fixin", placeholder: "틀린 부분을 바르게 고쳐 쓰세요", "aria-label": (x.i + 1) + "번 고쳐 쓰기" });
+            fixIn.value = pc.fix; fixIn.hidden = pc.c !== "X";
+            function store(){ var c = splitOX(cur[x.n]).c; cur[x.n] = c === "X" ? "X||" + fixIn.value : c; saveDraft(); count(); }
+            fixIn.addEventListener("input", store);
             ["O", "X"].forEach(function(v){
-              var b = el("button", { class: "oxbtn" + (cur[x.n] === v ? " on" : ""), text: v, "aria-pressed": cur[x.n] === v ? "true" : "false" });
-              b.addEventListener("click", function(){ cur[x.n] = v; saveDraft(); Array.prototype.forEach.call(row.children, function(c){ c.classList.toggle("on", c.textContent === v); c.setAttribute("aria-pressed", c.textContent === v ? "true" : "false"); }); count(); });
+              var b = el("button", { class: "oxbtn" + (pc.c === v ? " on" : ""), text: v, "aria-pressed": pc.c === v ? "true" : "false" });
+              b.addEventListener("click", function(){
+                cur[x.n] = v === "X" ? "X||" + fixIn.value : "O";
+                fixIn.hidden = v !== "X"; if (v === "X") fixIn.focus();
+                Array.prototype.forEach.call(row.children, function(c){ c.classList.toggle("on", c.textContent === v); c.setAttribute("aria-pressed", c.textContent === v ? "true" : "false"); });
+                saveDraft(); count();
+              });
               row.appendChild(b);
             });
             box.appendChild(row);
+            box.appendChild(fixIn);
           } else {
-            box.appendChild(el("span", { class: "res " + (marks[x.n] ? "ok" : "no"), text: "내 답: " + (fin[x.n] || "안 고름") + (marks[x.n] ? " ✓" : " ✗") }));
+            box.appendChild(el("div", { class: "res " + (marks[x.n] ? "ok" : "no"), text: "내 답: " + oxText(fin[x.n]) + (marks[x.n] ? " ✓" : " ✗") }));
           }
         } else {
           if (canEdit){
@@ -522,7 +543,7 @@ function runStudent(testId){
         if (stage === 2 && ST.keys){
           var k = ST.keys[x.n] || {};
           box.appendChild(x.kind === "ox"
-            ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답 " + (k.a || "") }), textBlock(k.exp || "") ])
+            ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답 " + (k.a || "") }), textBlock(k.exp || ""), k.fix ? el("div", { class: "kwline", text: "바르게 고친 예: " + k.fix }) : null ])
             : el("div", { class: "explain" }, [ el("span", { class: "lab", text: "풀이" }), textBlock(k.model || ""), k.point ? el("div", { class: "kwline", text: "핵심: " + k.point }) : null ]));
         }
         card.appendChild(box);
@@ -554,7 +575,7 @@ function runStudent(testId){
 
 /* ================= 교사 ================= */
 function runTeacher(){
-  pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold">교사용</div><h1>청연 문학 되새김</h1><p class="sub">O·X · 현대어 풀이</p></div><div class="row" id="whoami"></div></div>';
+  pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold">교사용</div><h1>청연 되새김</h1><p class="sub">O·X · 현대어 풀이</p></div><div class="row" id="whoami"></div></div>';
   pageFoot.innerHTML = "학생에게는 작품마다 <b>학생 링크</b>만 보내 주세요. 정답과 해설은 학생이 다 풀 때까지 보이지 않아요.";
   var whoami = document.getElementById("whoami");
   var USER = null, unsub = null;
@@ -637,6 +658,8 @@ function runTeacher(){
             s.value = it.a || "O"; s.addEventListener("change", function(){ it.a = s.value; });
             box.appendChild(s);
             box.appendChild(bind(el("textarea", { placeholder: "해설", style: "margin-top:.4rem" }), it, "exp"));
+            box.appendChild(bind(el("input", { type: "text", placeholder: "정답이 X일 때: 바르게 고친 예", style: "margin-top:.4rem" }), it, "fix"));
+            box.appendChild(bind(el("input", { type: "text", placeholder: "정답이 X일 때: 고친 문장의 핵심어 (틀린 원래 문장의 낱말은 빼기)", style: "margin-top:.4rem" }), it, "fkw"));
           } else {
             box.appendChild(bind(el("textarea", { placeholder: "모범 풀이", style: "margin-top:.4rem" }), it, "model"));
             box.appendChild(bind(el("input", { type: "text", placeholder: "핵심 포인트", style: "margin-top:.4rem" }), it, "point"));
@@ -652,7 +675,7 @@ function runTeacher(){
     var errb = el("div", { class: "err" });
     var save = el("button", { class: "btn", text: "저장하기", onclick: async function(){
       save.disabled = true;
-      try { await api.updateTest(id, { title: trimStr(m.title) || trimStr(m.work) || "문학 되새김", work: trimStr(m.work), author: trimStr(m.author), series: trimStr(m.series), is_open: open.checked, parts: parts }); toast("저장했어요"); }
+      try { await api.updateTest(id, { title: trimStr(m.title) || trimStr(m.work) || "되새김", work: trimStr(m.work), author: trimStr(m.author), series: trimStr(m.series), is_open: open.checked, parts: parts }); toast("저장했어요"); }
       catch(e){ errb.textContent = e.message; }
       save.disabled = false;
     } });
@@ -738,14 +761,31 @@ function runTeacher(){
         var okN = E.filter(function(e){ return ok(e, x, "first"); }).length;
         var rate = E.length ? Math.round(okN / E.length * 100) : null;
         var box = el("div", { class: "item" }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
-        box.appendChild(el("div", { class: "kwline", text: kind === "ox" ? "정답 " + x.item.a : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
+        box.appendChild(el("div", { class: "kwline", text: kind === "ox" ? "정답 " + x.item.a + (x.item.fix ? "  ·  고친 예: " + x.item.fix + "  ·  핵심어: " + (x.item.fkw || "") : "") : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
         if (rate != null){
           box.appendChild(el("div", { class: "bar" + (rate < 60 ? " low" : "") }, [ el("span", { style: "width:" + rate + "%" }) ]));
           box.appendChild(el("div", { class: "kwline", text: "처음 " + okN + " / " + E.length + " 맞음" }));
         }
         if (kind === "ox"){
-          var wrong = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name; });
+          var wrong = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + oxText(ans(e, "first")[x.n]).split(" — ")[0] + ")"; });
           if (wrong.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrong.join(", ") }));
+          if (trimStr(x.item.a).toUpperCase() === "X" && trimStr(x.item.fkw)){
+            // X를 고른 학생들의 고친 문장 + 인정
+            var omini = el("div", { class: "mini" }, []);
+            E.forEach(function(e){
+              var acc = e.data.accept || {}, fin2 = ans(e, "final")[x.n], p = splitOX(fin2);
+              if (p.c !== "X") return;
+              var g = itemOk("ox", x.item, fin2, acc, x.n) ? "ok" : (trimStr(p.fix) ? "chk" : "none");
+              var ruleOk = grade(p.fix, "@" + x.item.fkw) === "ok", accepted = !!norm(p.fix) && acc[x.n] === norm(p.fix);
+              var kids = [ el("span", { class: g, text: e.student_name + ": " + (trimStr(p.fix) || "고친 문장 없음") + (accepted ? " (인정)" : "") }) ];
+              if (!ruleOk && norm(p.fix)) kids.push(el("button", { class: "acc", text: accepted ? "인정 취소" : "인정", onclick: async function(){
+                var next = clone(acc); if (accepted) delete next[x.n]; else next[x.n] = norm(p.fix);
+                try { await api.setAccept(e.id, next); e.data.accept = next; draw(); } catch(err){ toast(err.message, true); }
+              } }));
+              omini.appendChild(el("span", { style: "padding:0" }, kids));
+            });
+            if (omini.children.length) box.appendChild(omini);
+          }
         } else {
           var mini = el("div", { class: "mini" }, []);
           E.forEach(function(e){

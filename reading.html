@@ -91,6 +91,10 @@ input:focus,textarea:focus,select:focus{outline:2.5px solid var(--accent);outlin
 .tab.on{color:var(--accent);border-bottom-color:var(--accent)}
 .range{background:var(--accent-soft);border-radius:12px;padding:.75rem 1rem;font-size:.95rem;margin:.6rem 0 0}
 .range b{color:var(--accent)}
+.bm-item{border-top:1px dashed var(--line);padding-top:.9rem;margin-top:.9rem}
+.bm-item:first-child{border-top:none;margin-top:0;padding-top:0}
+.bm-item h3{color:var(--green)}
+.bm-topic{border-top:1.5px solid var(--line);padding-top:1rem}
 .due{font-size:.9rem;font-weight:700;color:var(--accent);margin:.5rem 0 0}
 .due.soon{color:var(--warn)}
 .due.over{color:var(--wrong)}
@@ -243,6 +247,13 @@ function fmtTime(iso){
   return (d.getMonth()+1)+"/"+d.getDate()+" "+p(d.getHours())+":"+p(d.getMinutes());
 }
 // 제출 마감: 회차(section)의 due = "YYYY-MM-DD", 그날 밤 23:59 까지. 늦어도 낼 수 있고 선생님 화면에 '늦음'으로 표시
+// 책갈피: 마음에 들어온 문장은 모든 책에서 5개 이상. data = { items:[{sentence,page,why}], topic } (예전 기록은 sentence/page/why 하나)
+var BM_MIN = 5;
+function bmItems(data){
+  data = data || {};
+  if (Array.isArray(data.items)) return data.items;
+  return trimStr(data.sentence) || trimStr(data.why) ? [{ sentence: data.sentence || "", page: data.page || "", why: data.why || "" }] : [];
+}
 function dueDate(due){ var d = due ? new Date(due + "T00:00:00") : null; return d && !isNaN(d) ? d : null; }
 function fmtDue(due){ var d = dueDate(due); return d ? (d.getMonth()+1) + "월 " + d.getDate() + "일(" + "일월화수목금토".charAt(d.getDay()) + ")" : ""; }
 function daysLeft(due){ var d = dueDate(due), t = new Date(); t.setHours(0,0,0,0); return d ? Math.round((d - t) / 864e5) : null; }
@@ -928,36 +939,63 @@ function runStudent(bookId){
   function legend(color, label){ return el("span", {}, [ el("i", { style: "background:" + color }), label ]); }
 
   /* ----- 나의 책갈피 ----- */
+  // 문장은 BM_MIN(5)개 이상, 문장마다 쪽수와 고른 까닭. "+ 문장 더 쓰기"로 더 쓸 수 있음
   function renderBookmark(){
     var saved = MY[SEC + ":bookmark"];
     var d = lsGet(draftKey("bookmark")) || (saved ? saved.data : {});
+    var items = bmItems(d).map(function(x){ return { sentence: x.sentence || "", page: x.page || "", why: x.why || "" }; });
+    while (items.length < BM_MIN) items.push({ sentence: "", page: "", why: "" });
+    var topic = d.topic || "";
+    function saveDraft(){ lsSet(draftKey("bookmark"), { items: items, topic: topic }); count(); }
     var card = el("div", { class: "card" }, []);
-    card.appendChild(el("p", { class: "note", text: "읽으면서 마음에 들어온 문장과 함께 이야기하고 싶은 것을 적어요. 수업 시간에 친구들 앞에서 발표해요." }));
-    var fields = [
-      ["sentence", "내 마음에 들어온 문장", "내 마음을 표현한, 누군가에게 들려주고 싶은, 멋있거나 색다른 표현 등…", true],
-      ["page", "쪽수", "", false],
-      ["why", "이 문장을 고른 까닭", "", true],
-      ["topic", "함께 이야기하고 싶은 것", "인물, 주제, 교훈 등…", true]
-    ];
-    var inputs = {};
-    fields.forEach(function(f){
-      var inp = f[3] ? el("textarea", { id: "bm-" + f[0] }) : el("input", { type: "text", id: "bm-" + f[0], style: "max-width:8rem", inputmode: "numeric" });
-      inp.value = d[f[0]] || "";
-      inp.addEventListener("input", function(){ var o = {}; Object.keys(inputs).forEach(function(k){ o[k] = inputs[k].value; }); lsSet(draftKey("bookmark"), o); });
-      inputs[f[0]] = inp;
-      card.appendChild(el("div", { class: "field" }, [
-        el("label", { for: "bm-" + f[0], text: f[1] }),
-        f[2] ? el("div", { class: "hint", text: f[2] }) : null,
-        inp
-      ]));
-    });
+    card.appendChild(el("p", { class: "note", text: "읽으면서 마음에 들어온 문장을 " + BM_MIN + "개 이상 옮겨 쓰고, 쪽수와 고른 까닭을 함께 적어요. 함께 이야기하고 싶은 것도 적어요. 수업 시간에 친구들 앞에서 발표해요." }));
+    var list = el("div", {}, []);
+    card.appendChild(list);
+    function drawItems(){
+      list.innerHTML = "";
+      items.forEach(function(it, i){
+        var id = "bm-" + i;
+        function bindIt(node, key){ node.value = it[key]; node.addEventListener("input", function(){ it[key] = node.value; saveDraft(); }); return node; }
+        list.appendChild(el("div", { class: "bm-item" }, [
+          el("div", { class: "spread" }, [ el("h3", { text: "문장 " + (i + 1) }),
+            i >= BM_MIN ? el("button", { class: "chip", text: "이 문장 빼기", onclick: function(){ items.splice(i, 1); saveDraft(); drawItems(); } }) : null ]),
+          el("div", { class: "field" }, [ el("label", { for: id + "-s", text: "내 마음에 들어온 문장" }),
+            i === 0 ? el("div", { class: "hint", text: "내 마음을 표현한, 누군가에게 들려주고 싶은, 멋있거나 색다른 표현 등…" }) : null,
+            bindIt(el("textarea", { id: id + "-s" }), "sentence") ]),
+          el("div", { class: "field" }, [ el("label", { for: id + "-p", text: "쪽수" }), bindIt(el("input", { type: "text", id: id + "-p", style: "max-width:8rem", inputmode: "numeric" }), "page") ]),
+          el("div", { class: "field" }, [ el("label", { for: id + "-w", text: "고른 까닭" }), bindIt(el("textarea", { id: id + "-w" }), "why") ])
+        ]));
+      });
+    }
+    drawItems();
+    card.appendChild(el("button", { class: "chip", style: "margin:.4rem 0 1rem", text: "+ 문장 더 쓰기", onclick: function(){ items.push({ sentence: "", page: "", why: "" }); saveDraft(); drawItems(); } }));
+    var tIn = el("textarea", { id: "bm-topic" }); tIn.value = topic;
+    tIn.addEventListener("input", function(){ topic = tIn.value; saveDraft(); });
+    card.appendChild(el("div", { class: "field bm-topic" }, [ el("label", { for: "bm-topic", text: "함께 이야기하고 싶은 것" }),
+      el("div", { class: "hint", text: "궁금했던 점, 이해가 안 되는 장면, 친구들과 토론해 보고 싶은 질문" }), tIn ]));
+    var cnt = el("p", { class: "sub small" });
+    function count(){
+      var n = items.filter(function(x){ return trimStr(x.sentence); }).length;
+      cnt.textContent = "문장 " + n + "개를 썼어요 (" + BM_MIN + "개 이상)";
+    }
+    count();
     var msg = el("div", { class: "err" });
     var btn = el("button", { class: "btn", text: saved ? "고쳐서 다시 저장" : "책갈피 저장하기" });
     btn.addEventListener("click", async function(){
       msg.textContent = "";
-      var data = {}; Object.keys(inputs).forEach(function(k){ data[k] = trimStr(inputs[k].value); });
-      if (!data.sentence){ msg.textContent = "마음에 들어온 문장을 적어 주세요."; return; }
-      if (!data.topic){ msg.textContent = "함께 이야기하고 싶은 것을 적어 주세요."; return; }
+      var filled = [];
+      for (var i = 0; i < items.length; i++){
+        var x = { sentence: trimStr(items[i].sentence), page: trimStr(items[i].page), why: trimStr(items[i].why) };
+        if (!x.sentence && !x.page && !x.why) continue;
+        if (!x.sentence){ msg.textContent = "문장 " + (i + 1) + "의 문장을 적어 주세요."; return; }
+        if (!x.page){ msg.textContent = "문장 " + (i + 1) + "의 쪽수를 적어 주세요."; return; }
+        if (!x.why){ msg.textContent = "문장 " + (i + 1) + "을 고른 까닭을 적어 주세요."; return; }
+        filled.push(x);
+      }
+      if (filled.length < BM_MIN){ msg.textContent = "마음에 들어온 문장을 " + BM_MIN + "개 이상 적어 주세요. (지금 " + filled.length + "개)"; return; }
+      if (!trimStr(topic)){ msg.textContent = "함께 이야기하고 싶은 것을 적어 주세요."; return; }
+      // sentence/page/why 는 첫 문장 (예전 화면과 맞추려고 함께 저장)
+      var data = { items: filled, topic: trimStr(topic), sentence: filled[0].sentence, page: filled[0].page, why: filled[0].why };
       btn.disabled = true;
       try {
         await api.submitEntry(bookId, SEC, "bookmark", NAME, data, CLASS);
@@ -965,6 +1003,7 @@ function runStudent(bookId){
         toast("책갈피를 저장했어요. 이제 내용 이해를 풀어요"); TAB = "blanks"; render();
       } catch(e){ btn.disabled = false; msg.textContent = e.message; }
     });
+    card.appendChild(cnt);
     card.appendChild(el("div", { class: "row" }, [ btn, saved ? el("span", { class: "sub small", text: "저장함 · " + fmtTime(saved.updated_at) }) : null ]));
     card.appendChild(msg);
     var note = teacherNote(saved); if (note) card.appendChild(note);
@@ -1358,7 +1397,7 @@ function runTeacher(){
           el("td", { text: n }),
           showCls ? el("td", { class: "sub small", text: className(book, cid) || "–" }) : null,
           el("td", {}, [ bl ? el("span", { class: "mark " + (sc === keys.length ? "ok" : ""), text: "처음 " + sc + "/" + keys.length + (sc2 != null ? " → 다시 " + sc2 + "/" + keys.length + (sc3 != null ? " → " + sc3 + "/" + keys.length : "") : (sc < keys.length ? " (다시 쓰기 전)" : "")) }) : el("span", { class: "mark no", text: "아직" }), sentAt(bl) ]),
-          el("td", {}, [ el("span", { class: "mark " + (bm ? "ok" : "no"), text: bm ? "냄" : "아직" }), sentAt(bm) ]),
+          el("td", {}, [ el("span", { class: "mark " + (bm && bmItems(bm.data).length >= BM_MIN ? "ok" : "no"), text: bm ? "냄 · 문장 " + bmItems(bm.data).length + "개" : "아직" }), sentAt(bm) ]),
           el("td", { class: "sub small", text: an ? "냄" : "–" }),
           el("td", { class: "sub small", text: last ? fmtTime(last) : "" })
         ]));
@@ -1447,10 +1486,16 @@ function runTeacher(){
       var qcard = el("div", { class: "card" }, [ el("h3", { text: "내 마음에 들어온 문장" }) ]);
       if (!bm.length) qcard.appendChild(el("div", { class: "empty", text: "아직 없어요." }));
       bm.forEach(function(e){
-        qcard.appendChild(el("div", { style: "margin-top:.8rem" }, [
-          el("div", { class: "quote", text: e.data.sentence }),
-          el("div", { class: "by sub small", text: e.student_name + (e.data.page ? " · " + e.data.page + "쪽" : "") + (e.data.why ? " — " + e.data.why : "") })
-        ]));
+        var its = bmItems(e.data);
+        var box = el("div", { style: "margin-top:1rem" }, [ el("div", { class: "spread" }, [ el("strong", { text: e.student_name }),
+          el("span", { class: "mark " + (its.length >= BM_MIN ? "ok" : "no"), text: "문장 " + its.length + "개" }) ]) ]);
+        its.forEach(function(x){
+          box.appendChild(el("div", { style: "margin-top:.5rem" }, [
+            el("div", { class: "quote", text: x.sentence }),
+            el("div", { class: "by sub small", text: (x.page ? x.page + "쪽" : "쪽수 없음") + (x.why ? " — " + x.why : "") })
+          ]));
+        });
+        qcard.appendChild(box);
       });
       body.appendChild(qcard);
     }

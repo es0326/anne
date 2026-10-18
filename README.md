@@ -1,10 +1,24 @@
+# 청연국어
+
+선생님용 첫 화면은 `index.html`(청연국어 메뉴)입니다. 휴대폰에는 이 화면을 홈 화면에 추가해 **청연국어 아이콘 하나**로 씁니다(`cheongyeon.webmanifest`).
+
+| 도구 | 파일 |
+|---|---|
+| 청연 독서 (독서논술 숙제) | `reading.html` |
+| 청연 되새김 (고전문학) | `test.html` |
+| 품사 시험지 | `quiz.html` (2026-10-19 `index.html`에서 옮김. 예전 `…/?quiz=` 학생 링크는 첫 화면이 자동으로 넘겨 줌) |
+
+학생은 첫 화면을 쓰지 않고, 숙제마다 받은 학생 링크로 바로 들어갑니다. 세 도구는 같은 Supabase 로그인을 씁니다.
+
+---
+
 # 품사 시험지 (중학교 1학년 국어)
 
 교사가 문항을 출제하고, 학생이 링크로 응시하면 결과가 Supabase에 쌓이는 웹앱입니다.
-**모든 코드가 `index.html` 한 파일**에 들어 있습니다. (빌드 도구 없음)
+**모든 코드가 `quiz.html` 한 파일**에 들어 있습니다. (빌드 도구 없음)
 
 ```
-index.html            앱 전체 (교사 화면 + 학생 화면)
+quiz.html             앱 전체 (교사 화면 + 학생 화면)
 supabase/schema.sql   DB 준비용 SQL — Supabase SQL Editor 에서 한 번 실행
 ```
 
@@ -15,14 +29,14 @@ supabase/schema.sql   DB 준비용 SQL — Supabase SQL Editor 에서 한 번 �
 
 ## 설정
 1. **DB**: Supabase 대시보드 → SQL Editor → `supabase/schema.sql` 붙여넣고 Run (한 번만).
-2. **키**: `index.html` 상단 `<script>` 안의 `SUPABASE_URL` / `SUPABASE_ANON_KEY` 확인.
+2. **키**: `quiz.html` 상단 `<script>` 안의 `SUPABASE_URL` / `SUPABASE_ANON_KEY` 확인.
    (publishable/anon 키만. secret 키 금지.)
 3. **교사 계정**: Supabase → Authentication → Users → Add user → 이메일·비밀번호,
    "Auto Confirm User" 체크.
 4. **배포**: 이 저장소를 GitHub Pages 로 켜면 끝. (Settings → Pages → Deploy from a branch → main / root)
 
 ## 배포 후 주소
-- 교사: `https://<아이디>.github.io/<저장소>/`
+- 교사: `https://<아이디>.github.io/<저장소>/quiz.html` (첫 화면의 청연국어 메뉴에서도 열림)
 - 학생: 교사 화면에서 링크 복사
 
 ---

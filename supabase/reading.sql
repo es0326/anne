@@ -26,8 +26,8 @@ create table if not exists public.books (
 
 -- 학생 기록. 학생·주차·종류마다 한 줄
 --   kind = 'bookmark' → data: { sentence, page, why, topic }      (다시 저장 가능)
---   kind = 'blanks'   → data: { first: ["…", …], second: ["…", …] }  주차 안 빈칸 순서
---                       (처음 제출 → 틀린 칸만 한 번 더. 처음 답이 그대로 남음)
+--   kind = 'blanks'   → data: { first: [...], second: [...], third: [...] }  주차 안 빈칸 순서
+--                       (처음 제출 → 틀린 칸만 두 번까지 다시. 처음 답이 그대로 남음)
 --   kind = 'answers'  → data: { answers: ["…", …] }  주차 안 생각하기 순서 (결석 보강용, 다시 저장 가능)
 create table if not exists public.entries (
   id           uuid primary key default gen_random_uuid(),
@@ -43,6 +43,13 @@ create table if not exists public.entries (
   unique (book_id, section, kind, student_name)
 );
 create index if not exists entries_book_idx on public.entries (book_id, section);
+
+-- 반 (2026-10-19): 같은 책을 여러 반에 내줄 때. 반마다 학생 링크(?class=)와 제출 마감이 따로
+--   books.classes: [{ "id": "c1a2b", "name": "목요일반" }]
+--   sections[].dues: { "c1a2b": "2026-10-21" }  (반이 없으면 sections[].due 하나)
+--   entries.class_id: 학생이 어느 반 링크로 냈는지 ('' = 반 없음)
+alter table public.books   add column if not exists classes  jsonb not null default '[]'::jsonb;
+alter table public.entries add column if not exists class_id text  not null default '';
 
 -- 종류 제약 (이전 버전에서 넘어와도 맞도록 다시 만듦)
 alter table public.entries drop constraint if exists entries_kind_check;
@@ -100,6 +107,8 @@ begin
            jsonb_build_object(
              'title', coalesce(s->>'title', ''),
              'range', coalesce(s->>'range', ''),
+             'due',   coalesce(s->>'due', ''),        -- 제출 마감 (YYYY-MM-DD)
+             'dues',  coalesce(s->'dues', '{}'::jsonb), -- 반별 제출 마감
              'boxes', (
                select coalesce(jsonb_agg(
                         jsonb_build_object(
@@ -117,14 +126,17 @@ begin
     into v_sections
     from jsonb_array_elements(b.sections) with ordinality as ss(s, sn);
 
-  return jsonb_build_object('title', b.title, 'author', b.author, 'grade', b.grade, 'sections', v_sections);
+  return jsonb_build_object('title', b.title, 'author', b.author, 'grade', b.grade, 'sections', v_sections,
+    'classes', (select coalesce(jsonb_agg(jsonb_build_object('id', c->>'id', 'name', c->>'name') order by cn), '[]'::jsonb)
+                  from jsonb_array_elements(coalesce(b.classes, '[]'::jsonb)) with ordinality as cc(c, cn)));
 end;
 $$;
 
 -- ---------- 학생용 RPC: 기록 저장 ----------------------------------
---   책갈피·생각하기용. 빈칸(blanks)은 아래 submit_blanks 로만 냄
+--   책갈피·생각하기용. 빈칸(blanks)은 아래 submit_blanks 로만 냄. p_class = 반 링크의 반 id
+drop function if exists public.submit_entry(uuid, int, text, text, jsonb);
 create or replace function public.submit_entry(
-  p_book_id uuid, p_section int, p_kind text, p_name text, p_data jsonb
+  p_book_id uuid, p_section int, p_kind text, p_name text, p_data jsonb, p_class text default ''
 ) returns jsonb
 language plpgsql
 security definer
@@ -144,10 +156,11 @@ begin
   if length(trim(p_name)) > 40 then raise exception '이름이 너무 깁니다.'; end if;
   if length(coalesce(p_data, '{}'::jsonb)::text) > 20000 then raise exception '글이 너무 깁니다.'; end if;
 
-  insert into entries (book_id, section, kind, student_name, data)
-  values (p_book_id, p_section, p_kind, trim(p_name), coalesce(p_data, '{}'::jsonb))
+  insert into entries (book_id, section, kind, student_name, data, class_id)
+  values (p_book_id, p_section, p_kind, trim(p_name), coalesce(p_data, '{}'::jsonb), left(coalesce(trim(p_class), ''), 40))
   on conflict (book_id, section, kind, student_name)
-  do update set data = excluded.data, updated_at = now(), checked = false
+  do update set data = excluded.data, updated_at = now(), checked = false,
+                class_id = case when excluded.class_id <> '' then excluded.class_id else entries.class_id end
   returning id into v_id;
 
   return jsonb_build_object('id', v_id);
@@ -180,6 +193,7 @@ language sql immutable as $$
   select regexp_replace(coalesce(s, ''), '[[:space:].,·…‘’“”''"!?~()-]', '', 'g');
 $$;
 
+-- '정답@' 처럼 @ 뒤가 비면 핵심어 그룹이 없으므로(빈 배열) 무엇이든 쓰면 맞음 = '내 생각' 칸 (reading.html grade 와 같음)
 create or replace function public.blank_ok(p_answer text, p_key text) returns boolean
 language sql immutable as $$
   select blank_norm(p_answer) <> '' and case
@@ -214,7 +228,8 @@ language sql immutable as $$
 $$;
 
 -- ---------- 학생용 RPC: 빈칸 상태 -----------------------------------
---   stage 0 = 아직 안 냄 / 1 = 처음 냄 (맞고 틀림만, 정답 없음) / 2 = 다시 냄 (그래도 틀린 칸만 정답)
+--   stage 0 = 아직 안 냄 / 1 = 틀린 칸 다시 쓰는 중 (맞고 틀림만, 정답 없음, retry = 몇 번째 다시 쓰기)
+--   2 = 두 번 다시 냄 (그래도 틀린 칸만 정답)
 --   처음에 모두 맞으면 바로 stage 2
 create or replace function public.get_blank_status(p_book_id uuid, p_section int, p_name text)
 returns jsonb
@@ -241,7 +256,7 @@ begin
   if v_data is null then return jsonb_build_object('stage', 0); end if;
 
   v_keys  := section_keys(v_sections, p_section);
-  v_final := coalesce(v_data->'second', v_data->'first', '[]'::jsonb);
+  v_final := coalesce(v_data->'third', v_data->'second', v_data->'first', '[]'::jsonb);
   for i in 1 .. coalesce(array_length(v_keys, 1), 0) loop
     v_ok := blank_ok_acc(v_final ->> (i - 1), v_keys[i], v_data->'accept', i - 1);
     v_all := v_all and v_ok;
@@ -249,19 +264,22 @@ begin
     v_show  := v_show  || case when v_ok then 'null'::jsonb else to_jsonb(split_part(split_part(v_keys[i], '@', 1), '|', 1)) end;
   end loop;
 
-  v_stage := case when v_data ? 'second' or v_all then 2 else 1 end;
+  v_stage := case when v_data ? 'third' or v_all then 2 else 1 end;
   return jsonb_build_object(
     'stage',  v_stage,
     'first',  coalesce(v_data->'first', '[]'::jsonb),
     'second', v_data->'second',
+    'third',  v_data->'third',
+    'retry',  case when v_data ? 'second' then 2 else 1 end,
     'marks',  v_marks,
     'keys',   case when v_stage = 2 then v_show else null end);
 end;
 $$;
 
--- ---------- 학생용 RPC: 빈칸 제출 (처음 → 틀린 칸만 한 번 더) ---------
---   다시 낼 때는 처음에 맞은 칸은 그대로 두고 틀린 칸만 바뀜
-create or replace function public.submit_blanks(p_book_id uuid, p_section int, p_name text, p_answers jsonb)
+-- ---------- 학생용 RPC: 빈칸 제출 (처음 → 틀린 칸만 다시, 두 번까지) ---------
+--   다시 낼 때는 앞에서 맞은 칸은 그대로 두고 틀린 칸만 바뀜 (second → third)
+drop function if exists public.submit_blanks(uuid, int, text, jsonb);
+create or replace function public.submit_blanks(p_book_id uuid, p_section int, p_name text, p_answers jsonb, p_class text default '')
 returns jsonb
 language plpgsql
 security definer
@@ -271,8 +289,8 @@ declare
   v_sections jsonb;
   v_keys     text[];
   v_data     jsonb;
-  v_first    jsonb;
-  v_second   jsonb := '[]'::jsonb;
+  v_prev     jsonb;
+  v_next     jsonb := '[]'::jsonb;
   i          int;
 begin
   select sections into v_sections from books where id = p_book_id and is_open;
@@ -288,19 +306,20 @@ begin
    where book_id = p_book_id and section = p_section and kind = 'blanks' and student_name = trim(p_name);
 
   if v_data is null then
-    insert into entries (book_id, section, kind, student_name, data)
-    values (p_book_id, p_section, 'blanks', trim(p_name), jsonb_build_object('first', p_answers));
+    insert into entries (book_id, section, kind, student_name, data, class_id)
+    values (p_book_id, p_section, 'blanks', trim(p_name), jsonb_build_object('first', p_answers), left(coalesce(trim(p_class), ''), 40));
   else
-    if v_data ? 'second' then raise exception '이미 두 번 제출했어요.'; end if;
-    v_first := coalesce(v_data->'first', '[]'::jsonb);
+    if v_data ? 'third' then raise exception '이미 세 번 제출했어요.'; end if;
+    v_prev := coalesce(v_data->'second', v_data->'first', '[]'::jsonb);
     for i in 1 .. coalesce(array_length(v_keys, 1), 0) loop
-      if blank_ok_acc(v_first ->> (i - 1), v_keys[i], v_data->'accept', i - 1) then
-        v_second := v_second || to_jsonb(coalesce(v_first ->> (i - 1), ''));
+      if blank_ok_acc(v_prev ->> (i - 1), v_keys[i], v_data->'accept', i - 1) then
+        v_next := v_next || to_jsonb(coalesce(v_prev ->> (i - 1), ''));
       else
-        v_second := v_second || to_jsonb(coalesce(p_answers ->> (i - 1), ''));
+        v_next := v_next || to_jsonb(coalesce(p_answers ->> (i - 1), ''));
       end if;
     end loop;
-    update entries set data = v_data || jsonb_build_object('second', v_second), updated_at = now(), checked = false
+    update entries set data = v_data || jsonb_build_object(case when v_data ? 'second' then 'third' else 'second' end, v_next),
+           updated_at = now(), checked = false
      where book_id = p_book_id and section = p_section and kind = 'blanks' and student_name = trim(p_name);
   end if;
 
@@ -328,15 +347,15 @@ revoke all on function public.set_blank_accept(uuid, jsonb) from public;
 grant execute on function public.set_blank_accept(uuid, jsonb) to authenticated;
 
 revoke all on function public.get_book(uuid)                        from public;
-revoke all on function public.submit_entry(uuid, int, text, text, jsonb) from public;
+revoke all on function public.submit_entry(uuid, int, text, text, jsonb, text) from public;
 revoke all on function public.get_my_entries(uuid, text)            from public;
 revoke all on function public.get_blank_status(uuid, int, text)     from public;
-revoke all on function public.submit_blanks(uuid, int, text, jsonb) from public;
+revoke all on function public.submit_blanks(uuid, int, text, jsonb, text) from public;
 grant execute on function public.get_book(uuid)                        to anon, authenticated;
-grant execute on function public.submit_entry(uuid, int, text, text, jsonb) to anon, authenticated;
+grant execute on function public.submit_entry(uuid, int, text, text, jsonb, text) to anon, authenticated;
 grant execute on function public.get_my_entries(uuid, text)            to anon, authenticated;
 grant execute on function public.get_blank_status(uuid, int, text)     to anon, authenticated;
-grant execute on function public.submit_blanks(uuid, int, text, jsonb) to anon, authenticated;
+grant execute on function public.submit_blanks(uuid, int, text, jsonb, text) to anon, authenticated;
 
 -- ---------- 테이블 권한 ---------------------------------------------
 grant usage on schema public to anon, authenticated;

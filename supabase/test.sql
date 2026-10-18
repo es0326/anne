@@ -81,6 +81,26 @@ language sql immutable as $$
   end;
 $$;
 
+-- 틀린 까닭 (2026-10-19): 학생에게 어느 부분이 틀렸는지 알려 주기
+--   null 맞음 · 'none' 안 풂 · 'ox' O·X를 잘못 고름 · 'fix' X는 맞고 고쳐 쓴 부분이 틀림 · 'write' 풀이가 틀림
+create or replace function public.test_item_why(p_kind text, p_item jsonb, p_answer text, p_accept jsonb, p_n int)
+returns text
+language sql immutable as $$
+  select case
+    when test_item_ok(p_kind, p_item, p_answer, p_accept, p_n) then null
+    when p_kind = 'ox' and trim(split_part(coalesce(p_answer, ''), '||', 1)) = '' then 'none'
+    when p_kind = 'ox' and upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) <> upper(trim(coalesce(p_item->>'a', ''))) then 'ox'
+    when p_kind = 'ox' then 'fix'
+    when blank_norm(p_answer) = '' then 'none'
+    else 'write'
+  end;
+$$;
+
+-- 틀린 문제 다시 풀기: 두 번까지, 한 번에 10분. '다시 풀기 시작'을 누른 때부터 셈
+--   data.start = { "1": 첫 번째 다시 풀기 시작 시각, "2": 두 번째 }, data.late = { "1": true } (시간 넘겨 낸 것)
+--   시간(+1분 여유)을 넘겨 내면 새 답은 받지 않고 그 전 답으로 끝냄 = '쓴 데까지 자동 제출'을 서버에서도 지킴
+create or replace function public.test_retry_minutes() returns int language sql immutable as $$ select 10 $$;
+
 -- ---------- 학생용 RPC: 시험 문제 (정답·해설·핵심어 제외) -------------
 create or replace function public.get_test(p_test_id uuid)
 returns jsonb
@@ -102,39 +122,66 @@ begin
 end; $$;
 
 -- ---------- 학생용 RPC: 상태 ----------------------------------------
---   stage 0 안 냄 / 1 처음 냄 (맞고 틀림만) / 2 다시 냄 또는 처음에 다 맞음 (정답·해설 공개)
+--   stage 0 안 냄 / 1 틀린 문제 다시 푸는 중 (맞고 틀림 + 틀린 까닭, retry = 몇 번째 다시 풀기)
+--   2 두 번 다시 냄 또는 다 맞음 (정답·해설 공개)
 create or replace function public.get_test_status(p_test_id uuid, p_name text)
 returns jsonb
 language plpgsql security definer set search_path = public
 as $$
 declare
   t tests%rowtype; v_data jsonb; v_final jsonb; r record;
-  v_marks jsonb := '[]'::jsonb; v_keys jsonb := '[]'::jsonb; v_all boolean := true; v_ok boolean; v_stage int;
+  v_marks jsonb := '[]'::jsonb; v_why jsonb := '[]'::jsonb; v_keys jsonb := '[]'::jsonb; v_all boolean := true; v_ok boolean; v_stage int;
+  v_retry text; v_start timestamptz;
 begin
   select * into t from tests where id = p_test_id and is_open;
   if t.id is null then raise exception '문제를 열 수 없습니다.'; end if;
   select data into v_data from test_entries where test_id = p_test_id and student_name = trim(p_name);
   if v_data is null then return jsonb_build_object('stage', 0); end if;
-  v_final := coalesce(v_data->'second', v_data->'first', '[]'::jsonb);
+  v_final := coalesce(v_data->'third', v_data->'second', v_data->'first', '[]'::jsonb);
   for r in select * from test_items(t.parts) order by n loop
     v_ok := test_item_ok(r.kind, r.item, v_final ->> r.n, v_data->'accept', r.n);
     v_all := v_all and v_ok;
     v_marks := v_marks || to_jsonb(v_ok);
+    v_why := v_why || coalesce(to_jsonb(test_item_why(r.kind, r.item, v_final ->> r.n, v_data->'accept', r.n)), 'null'::jsonb);
     v_keys := v_keys || case when r.kind = 'ox'
                 then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''), 'fix', coalesce(r.item->>'fix', ''))
                 else jsonb_build_object('model', coalesce(r.item->>'model', ''), 'point', coalesce(r.item->>'point', '')) end;
   end loop;
-  v_stage := case when v_data ? 'second' or v_all then 2 else 1 end;
-  return jsonb_build_object('stage', v_stage, 'first', coalesce(v_data->'first', '[]'::jsonb), 'second', v_data->'second',
-                            'marks', v_marks, 'keys', case when v_stage = 2 then v_keys else null end);
+  v_stage := case when v_data ? 'third' or v_all then 2 else 1 end;
+  v_retry := case when v_data ? 'second' then '2' else '1' end;
+  v_start := (v_data->'start'->>v_retry)::timestamptz;
+  return jsonb_build_object('stage', v_stage, 'first', coalesce(v_data->'first', '[]'::jsonb), 'second', v_data->'second', 'third', v_data->'third',
+                            'marks', v_marks, 'why', v_why, 'retry', v_retry::int, 'late', coalesce(v_data->'late', '{}'::jsonb),
+                            'limit_min', test_retry_minutes(), 'server_now', now(),
+                            'deadline', case when v_stage = 1 and v_start is not null then v_start + make_interval(mins => test_retry_minutes()) else null end,
+                            'keys', case when v_stage = 2 then v_keys else null end);
 end; $$;
 
--- ---------- 학생용 RPC: 제출 (처음 → 틀린 문항만 한 번 더) -------------
+-- ---------- 학생용 RPC: 다시 풀기 시작 (10분 재기 시작) ------------------
+create or replace function public.start_test_retry(p_test_id uuid, p_name text)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare v_data jsonb; v_retry text;
+begin
+  select data into v_data from test_entries where test_id = p_test_id and student_name = trim(p_name);
+  if v_data is null or v_data ? 'third' then return get_test_status(p_test_id, p_name); end if;
+  v_retry := case when v_data ? 'second' then '2' else '1' end;
+  if (v_data->'start'->>v_retry) is null then
+    update test_entries
+       set data = data || jsonb_build_object('start', coalesce(data->'start', '{}'::jsonb) || jsonb_build_object(v_retry, now()))
+     where test_id = p_test_id and student_name = trim(p_name);
+  end if;
+  return get_test_status(p_test_id, p_name);
+end; $$;
+
+-- ---------- 학생용 RPC: 제출 (처음 → 틀린 문항만 다시, 두 번까지) -------------
 create or replace function public.submit_test(p_test_id uuid, p_name text, p_answers jsonb)
 returns jsonb
 language plpgsql security definer set search_path = public
 as $$
-declare t tests%rowtype; v_data jsonb; v_second jsonb := '[]'::jsonb; r record;
+declare t tests%rowtype; v_data jsonb; v_prev jsonb; v_next jsonb := '[]'::jsonb; r record;
+        v_retry text; v_start timestamptz; v_late boolean;
 begin
   select * into t from tests where id = p_test_id and is_open;
   if t.id is null then raise exception '선생님이 닫은 문제입니다.'; end if;
@@ -146,15 +193,22 @@ begin
   if v_data is null then
     insert into test_entries (test_id, student_name, data) values (p_test_id, trim(p_name), jsonb_build_object('first', p_answers));
   else
-    if v_data ? 'second' then raise exception '이미 두 번 제출했어요.'; end if;
+    if v_data ? 'third' then raise exception '이미 세 번 제출했어요.'; end if;
+    v_retry := case when v_data ? 'second' then '2' else '1' end;
+    v_prev  := coalesce(v_data->'second', v_data->'first', '[]'::jsonb);
+    v_start := (v_data->'start'->>v_retry)::timestamptz;
+    v_late  := v_start is not null and now() > v_start + make_interval(mins => test_retry_minutes() + 1);
     for r in select * from test_items(t.parts) order by n loop
-      if test_item_ok(r.kind, r.item, v_data->'first' ->> r.n, v_data->'accept', r.n) then
-        v_second := v_second || to_jsonb(coalesce(v_data->'first' ->> r.n, ''));
+      if v_late or test_item_ok(r.kind, r.item, v_prev ->> r.n, v_data->'accept', r.n) then
+        v_next := v_next || to_jsonb(coalesce(v_prev ->> r.n, ''));
       else
-        v_second := v_second || to_jsonb(coalesce(p_answers ->> r.n, ''));
+        v_next := v_next || to_jsonb(coalesce(p_answers ->> r.n, ''));
       end if;
     end loop;
-    update test_entries set data = v_data || jsonb_build_object('second', v_second), updated_at = now()
+    update test_entries
+       set data = v_data || jsonb_build_object(case when v_data ? 'second' then 'third' else 'second' end, v_next)
+                         || case when v_late then jsonb_build_object('late', coalesce(v_data->'late', '{}'::jsonb) || jsonb_build_object(v_retry, true)) else '{}'::jsonb end,
+           updated_at = now()
      where test_id = p_test_id and student_name = trim(p_name);
   end if;
   return get_test_status(p_test_id, p_name);
@@ -175,6 +229,8 @@ end; $$;
 revoke all on function public.get_test(uuid)                   from public;
 revoke all on function public.get_test_status(uuid, text)      from public;
 revoke all on function public.submit_test(uuid, text, jsonb)   from public;
+revoke all on function public.start_test_retry(uuid, text)     from public;
+grant execute on function public.start_test_retry(uuid, text)  to anon, authenticated;
 revoke all on function public.set_test_accept(uuid, jsonb)     from public;
 grant execute on function public.get_test(uuid)                 to anon, authenticated;
 grant execute on function public.get_test_status(uuid, text)    to anon, authenticated;

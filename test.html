@@ -177,6 +177,12 @@ tbody tr:last-child td{border-bottom:none}
   border:1.5px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer}
 .oxbtn:hover{border-color:var(--accent);color:var(--accent)}
 .oxbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.oxbtn:disabled{cursor:default;opacity:.75}
+.why{font-size:.85rem;font-weight:700;color:var(--wrong);margin:.35rem 0 .1rem}
+.clockbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;justify-content:center;margin:-.4rem 0 .6rem;pointer-events:none}
+.clock{display:inline-block;box-shadow:var(--shadow);font-weight:700;font-variant-numeric:tabular-nums;
+  background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:.3rem .9rem}
+.clock.soon{background:var(--wrong-soft);color:var(--wrong)}
 .retry .oxbtn{border-color:var(--wrong)}
 .retry .oxbtn.on{background:var(--wrong);border-color:var(--wrong)}
 .item textarea{margin-top:.5rem;min-height:3.2rem}
@@ -335,6 +341,14 @@ function itemOk(kind, item, ans, accept, n){
   }
   return gradeA(ans, "@" + (item.kw || ""), accept, n) === "ok";
 }
+// 틀린 까닭 (test.sql 의 test_item_why 와 같음): null 맞음 · none 안 풂 · ox O·X를 잘못 고름 · fix 고쳐 쓴 부분이 틀림 · write 풀이가 틀림
+function itemWhy(kind, item, ans, accept, n){
+  if (itemOk(kind, item, ans, accept, n)) return null;
+  if (kind === "ox"){ var p = splitOX(ans); return !p.c ? "none" : p.c !== trimStr(item.a).toUpperCase() ? "ox" : "fix"; }
+  return norm(ans) ? "write" : "none";
+}
+var WHY_TEXT = { none: "안 풀었어요", ox: "O·X를 잘못 골랐어요", fix: "O·X는 맞았어요. 고쳐 쓴 부분이 틀렸어요", write: "풀이를 다시 생각해 보세요" };
+var RETRY_MIN = 10;   // 틀린 문제 다시 풀기 시간 (분) — test.sql 의 test_retry_minutes 와 같게
 function oxText(ans){ var p = splitOX(ans); return p.c ? p.c + (p.c === "X" && trimStr(p.fix) ? " — " + trimStr(p.fix) : "") : "안 고름"; }
 function partLabel(kind){ return kind === "ox" ? "O·X" : "현대어 풀이"; }
 
@@ -359,6 +373,7 @@ function supabaseApi(){
     publicTest: async function(id){ return unwrap(await db.rpc("get_test", { p_test_id: id })); },
     status: async function(id, name){ return unwrap(await db.rpc("get_test_status", { p_test_id: id, p_name: name })); },
     submit: async function(id, name, answers){ return unwrap(await db.rpc("submit_test", { p_test_id: id, p_name: name, p_answers: answers })); },
+    startRetry: async function(id, name){ return unwrap(await db.rpc("start_test_retry", { p_test_id: id, p_name: name })); },
     subscribe: function(id, cb){
       var ch = db.channel("test-" + id).on("postgres_changes", { event: "*", schema: "public", table: "test_entries", filter: "test_id=eq." + id }, function(){ cb(); }).subscribe();
       return function(){ db.removeChannel(ch); };
@@ -367,7 +382,7 @@ function supabaseApi(){
 }
 
 function demoApi(){
-  var KEY = "test-demo-v2";
+  var KEY = "test-demo-v3";
   var USER = { id: "demo-teacher", email: "체험용 선생님" };
   var S = lsGet(KEY) || seed();
   function save(){ lsSet(KEY, S); }
@@ -392,10 +407,14 @@ function demoApi(){
   function entry(id, name){ return S.entries.find(function(e){ return e.test_id === id && e.student_name === name; }); }
   function status(id, name){
     var e = entry(id, name); if (!e) return { stage: 0 };
-    var items = flatItems(test(id).parts), fin = e.data.second || e.data.first || [];
+    var items = flatItems(test(id).parts), fin = e.data.third || e.data.second || e.data.first || [];
     var marks = items.map(function(x){ return itemOk(x.kind, x.item, fin[x.n], e.data.accept, x.n); });
-    var stage = (e.data.second || marks.every(Boolean)) ? 2 : 1;
-    return { stage: stage, first: e.data.first, second: e.data.second || null, marks: marks,
+    var why = items.map(function(x){ return itemWhy(x.kind, x.item, fin[x.n], e.data.accept, x.n); });
+    var stage = (e.data.third || marks.every(Boolean)) ? 2 : 1;
+    var retry = e.data.second ? 2 : 1, start = (e.data.start || {})[retry];
+    return { stage: stage, first: e.data.first, second: e.data.second || null, third: e.data.third || null, marks: marks, why: why,
+      retry: retry, late: e.data.late || {}, limit_min: RETRY_MIN, server_now: now(),
+      deadline: stage === 1 && start ? new Date(new Date(start).getTime() + RETRY_MIN * 60000).toISOString() : null,
       keys: stage === 2 ? items.map(function(x){ return x.kind === "ox" ? { a: x.item.a, exp: x.item.exp, fix: x.item.fix || "" } : { model: x.item.model, point: x.item.point }; }) : null };
   }
   var listeners = [];
@@ -424,11 +443,19 @@ function demoApi(){
       var e = entry(id, name), items = flatItems(t.parts);
       if (!e) S.entries.push({ id: uid(), test_id: id, student_name: name, data: { first: answers.slice() }, created_at: now(), updated_at: now() });
       else {
-        if (e.data.second) throw new Error("이미 두 번 제출했어요.");
-        e.data.second = items.map(function(x){ var f = e.data.first[x.n] || ""; return itemOk(x.kind, x.item, f, e.data.accept, x.n) ? f : (answers[x.n] || ""); });
+        if (e.data.third) throw new Error("이미 세 번 제출했어요.");
+        var retry = e.data.second ? 2 : 1, prev = e.data.second || e.data.first || [], start = (e.data.start || {})[retry];
+        var late = !!start && Date.now() > new Date(start).getTime() + (RETRY_MIN + 1) * 60000;   // 시간을 넘기면 새 답은 받지 않음
+        e.data[e.data.second ? "third" : "second"] = items.map(function(x){ var f = prev[x.n] || ""; return (late || itemOk(x.kind, x.item, f, e.data.accept, x.n)) ? f : (answers[x.n] || ""); });
+        if (late){ e.data.late = e.data.late || {}; e.data.late[retry] = true; }
         e.updated_at = now();
       }
       save(); notify(); return status(id, name);
+    },
+    startRetry: async function(id, name){
+      var e = entry(id, trimStr(name));
+      if (e && !e.data.third){ var r = e.data.second ? 2 : 1; e.data.start = e.data.start || {}; if (!e.data.start[r]){ e.data.start[r] = now(); save(); } }
+      return status(id, trimStr(name));
     },
     subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; }
   };
@@ -480,36 +507,72 @@ function runStudent(testId){
     app.appendChild(card); inp.focus();
   }
 
+  // 처음 풀기 → 맞고 틀림 + 틀린 까닭 → 틀린 문제만 다시 풀기(두 번까지, 한 번에 RETRY_MIN분, 시간이 끝나면 쓴 데까지 자동 제출) → 정답·해설
+  var TIMER = null;
   async function renderTest(){
+    if (TIMER){ clearInterval(TIMER); TIMER = null; }
     var holder = el("div", {}, [ el("div", { class: "empty", text: "불러오는 중…" }) ]);
     app.appendChild(holder);
     var ST;
     try { ST = await api.status(testId, NAME); } catch(e){ holder.innerHTML = ""; holder.appendChild(el("div", { class: "err", text: e.message })); return; }
     holder.innerHTML = "";
     var items = flatItems(T.parts), N = items.length;
-    var stage = ST.stage || 0, first = ST.first || [], fin = ST.second || first, marks = ST.marks || [];
-    var dkey = "test-draft:" + testId + ":" + NAME + ":" + stage;
-    var cur = lsGet(dkey) || (stage === 1 ? first.slice() : []);
+    var stage = ST.stage || 0, first = ST.first || [], fin = ST.third || ST.second || first, marks = ST.marks || [], why = ST.why || [];
+    var retry = ST.retry || 1, limit = ST.limit_min || RETRY_MIN;
+    var skew = ST.server_now ? Date.now() - new Date(ST.server_now).getTime() : 0;      // 서버 시계와 기기 시계 차이
+    var deadline = ST.deadline ? new Date(ST.deadline).getTime() + skew : null;
+    var started = stage === 1 && !!deadline;
+    var dkey = "test-draft:" + testId + ":" + NAME + ":" + stage + ":" + retry;
+    var cur = lsGet(dkey) || (stage === 1 ? fin.slice() : []);
     function saveDraft(){ lsSet(dkey, cur); }
-    var editable = items.filter(function(x){ return stage === 0 || (stage === 1 && !marks[x.n]); });
+    var editable = items.filter(function(x){ return stage === 0 || (started && !marks[x.n]); });
+    var okN = marks.filter(Boolean).length, wrongN = N - okN;
 
     // 안내
-    var okN = marks.filter(Boolean).length;
     var head = el("div", { class: "card" }, []);
-    if (stage === 0) head.appendChild(el("p", { class: "note", style: "margin:0", text: "모두 풀고 제출하면 맞았는지만 알려 줘요. 틀린 문제는 한 번 더 고칠 수 있고, 그래도 틀리면 그때 정답과 해설이 나와요." }));
-    else if (stage === 1) { head.appendChild(el("h3", { text: N + "문제 중 " + okN + "문제 맞았어요" })); head.appendChild(el("p", { class: "sub", text: "빨간 문제 " + (N - okN) + "개를 다시 생각해서 고쳐 내세요." })); }
-    else { head.appendChild(el("h3", { text: okN === N && !ST.second ? "처음부터 모두 맞았어요!" : "끝 · " + N + "문제 중 " + okN + "문제 맞음" })); head.appendChild(el("p", { class: "sub", text: "아래에서 정답과 해설을 꼭 읽어 보세요." })); }
+    var clock = null;
+    if (stage === 0) head.appendChild(el("p", { class: "note", style: "margin:0", text: "모두 풀고 제출하면 맞았는지만 알려 줘요. 틀린 문제는 두 번까지 다시 풀 수 있어요. 다시 풀 때는 한 번에 " + limit + "분 안에 내야 하고, 두 번 다 틀리면 그때 정답과 해설이 나와요." }));
+    else if (stage === 1){
+      head.appendChild(el("h3", { text: N + "문제 중 " + okN + "문제 맞았어요" }));
+      var cnts = {}; why.forEach(function(w){ if (w) cnts[w] = (cnts[w] || 0) + 1; });
+      var parts = [["ox", "O·X를 잘못 고름"], ["fix", "고쳐 쓴 부분이 틀림"], ["write", "풀이가 틀림"], ["none", "안 풂"]]
+        .filter(function(p){ return cnts[p[0]]; }).map(function(p){ return p[1] + " " + cnts[p[0]]; });
+      if (parts.length) head.appendChild(el("p", { class: "sub", text: "틀린 문제 " + wrongN + "개 · " + parts.join(" · ") }));
+      if (!started){
+        head.appendChild(el("p", { class: "note", text: "틀린 문제를 다시 풀 수 있어요 (" + retry + "번째 / 두 번까지). 시작하면 " + limit + "분 안에 내야 해요. 시간이 끝나면 그때까지 쓴 답이 저절로 제출돼요." }));
+        var sbtn = el("button", { class: "btn", text: retry + "번째 다시 풀기 시작 (" + limit + "분)" });
+        sbtn.addEventListener("click", async function(){
+          sbtn.disabled = true;
+          try { await api.startRetry(testId, NAME); render(); window.scrollTo(0, 0); }
+          catch(e){ sbtn.disabled = false; toast(e.message, true); }
+        });
+        head.appendChild(sbtn);
+        holder.appendChild(head);
+        return;                                   // 시작 전에는 문제를 보여 주지 않음 (시간 안에 스스로 풀게)
+      }
+      head.appendChild(el("p", { class: "sub", text: retry + "번째 다시 풀기 · 빨간 문제 " + wrongN + "개를 고쳐 내요." + (retry === 2 ? " 마지막 기회예요." : "") }));
+      clock = el("div", { class: "clock", role: "timer", "aria-live": "off" });
+    } else {
+      head.appendChild(el("h3", { text: okN === N && !ST.second ? "처음부터 모두 맞았어요!" : "끝 · " + N + "문제 중 " + okN + "문제 맞음" }));
+      head.appendChild(el("p", { class: "sub", text: "아래에서 정답과 해설을 꼭 읽어 보세요." }));
+      if (ST.late && Object.keys(ST.late).length) head.appendChild(el("p", { class: "sub small", text: "시간이 지나 자동으로 제출된 적이 있어요." }));
+    }
     holder.appendChild(head);
+    if (clock) holder.appendChild(el("div", { class: "clockbar" }, [ clock ]));
 
     T.parts.forEach(function(p, pi){
       var card = el("div", { class: "card" }, [ el("div", { class: "box-h", text: p.title || partLabel(p.type) }) ]);
       if (p.guide) card.appendChild(el("p", { class: "sub small", text: p.guide }));
       items.filter(function(x){ return x.part === pi; }).forEach(function(x){
-        var canEdit = stage === 0 || (stage === 1 && !marks[x.n]);
+        var canEdit = stage === 0 || (started && !marks[x.n]);
+        var w = why[x.n];
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
+        if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
         if (x.kind === "ox"){
           if (canEdit){
+            var lockX = stage === 1 && w === "fix";      // X는 맞았으니 고쳐 쓴 부분만 다시
             var row = el("div", { class: "oxrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
+            if (lockX) cur[x.n] = "X||" + splitOX(cur[x.n]).fix;
             var pc = splitOX(cur[x.n]);
             var fixIn = el("input", { type: "text", class: "fixin", placeholder: "틀린 부분을 바르게 고쳐 쓰세요", "aria-label": (x.i + 1) + "번 고쳐 쓰기" });
             fixIn.value = pc.fix; fixIn.hidden = pc.c !== "X";
@@ -517,6 +580,7 @@ function runStudent(testId){
             fixIn.addEventListener("input", store);
             ["O", "X"].forEach(function(v){
               var b = el("button", { class: "oxbtn" + (pc.c === v ? " on" : ""), text: v, "aria-pressed": pc.c === v ? "true" : "false" });
+              if (lockX) b.disabled = true;
               b.addEventListener("click", function(){
                 cur[x.n] = v === "X" ? "X||" + fixIn.value : "O";
                 fixIn.hidden = v !== "X"; if (v === "X") fixIn.focus();
@@ -540,6 +604,7 @@ function runStudent(testId){
             box.appendChild(el("div", { class: "res " + (marks[x.n] ? "ok" : "no"), style: "white-space:pre-wrap", text: (trimStr(fin[x.n]) || "(안 씀)") + (marks[x.n] ? " ✓" : " ✗") }));
           }
         }
+        if (stage === 2 && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
         if (stage === 2 && ST.keys){
           var k = ST.keys[x.n] || {};
           box.appendChild(x.kind === "ox"
@@ -554,22 +619,42 @@ function runStudent(testId){
 
     var bar = el("div", { class: "card" }, []);
     var cnt = el("p", { class: "sub" });
-    function count(){ cnt.textContent = (stage === 0 ? "" : "다시 풀 문제 ") + editable.length + "문제 중 " + editable.filter(function(x){ return trimStr(cur[x.n]); }).length + "문제를 풀었어요."; }
+    function count(){ cnt.textContent = (stage === 0 ? "" : "다시 풀 문제 ") + editable.length + "문제 중 " + editable.filter(function(x){ return trimStr(splitOX(cur[x.n]).c === "X" && x.kind === "ox" ? splitOX(cur[x.n]).fix : cur[x.n]); }).length + "문제를 풀었어요."; }
     count();
     var msg = el("div", { class: "err" });
-    var btn = el("button", { class: "btn", text: stage === 0 ? "제출하기" : "고쳐서 다시 제출" });
-    btn.addEventListener("click", async function(){
+    var btn = el("button", { class: "btn", text: stage === 0 ? "제출하기" : retry === 2 ? "마지막으로 다시 제출" : "고쳐서 다시 제출" });
+    var sending = false;
+    async function send(auto){
+      if (sending) return;
       msg.textContent = "";
       var answers = items.map(function(x){ return (stage === 1 && marks[x.n]) ? (fin[x.n] || "") : trimStr(cur[x.n]); });
-      var empty = editable.filter(function(x){ return !trimStr(cur[x.n]); }).length;
-      var ask = stage === 0 ? (empty ? "안 푼 문제가 " + empty + "개 있어요. 그래도 제출할까요?" : "제출할까요?") : "다시 내면 더 고칠 수 없고, 정답과 해설이 나와요. 제출할까요?";
-      if (!(await askBox(ask, stage === 0 ? "제출하기" : "다시 제출"))) return;
-      btn.disabled = true;
-      try { await api.submit(testId, NAME, answers); lsDel(dkey); toast(stage === 0 ? "제출했어요" : "다시 냈어요"); render(); window.scrollTo(0, 0); }
-      catch(e){ btn.disabled = false; msg.textContent = e.message; }
-    });
+      if (!auto){
+        var empty = editable.filter(function(x){ return !trimStr(cur[x.n]); }).length;
+        var ask = stage === 0 ? (empty ? "안 푼 문제가 " + empty + "개 있어요. 그래도 제출할까요?" : "제출할까요?")
+          : retry === 1 ? "고쳐서 낼까요? 그래도 틀린 문제는 한 번 더 다시 풀 수 있어요."
+          : "마지막이에요. 다시 내면 더 고칠 수 없고, 정답과 해설이 나와요. 제출할까요?";
+        if (!(await askBox(ask, stage === 0 ? "제출하기" : "다시 제출"))) return;
+      }
+      sending = true; btn.disabled = true;
+      if (TIMER){ clearInterval(TIMER); TIMER = null; }
+      try { await api.submit(testId, NAME, answers); lsDel(dkey); toast(auto ? "시간이 다 되어 쓴 데까지 제출했어요" : stage === 0 ? "제출했어요" : "다시 냈어요"); render(); window.scrollTo(0, 0); }
+      catch(e){ sending = false; btn.disabled = false; msg.textContent = e.message; }
+    }
+    btn.addEventListener("click", function(){ send(false); });
     bar.appendChild(cnt); bar.appendChild(btn); bar.appendChild(msg);
     holder.appendChild(bar);
+
+    // 남은 시간: 0이 되면 쓴 데까지 자동 제출
+    if (started){
+      var tick = function(){
+        var left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        clock.textContent = "남은 시간 " + Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+        clock.classList.toggle("soon", left <= 60);
+        if (left <= 0) send(true);
+      };
+      tick();
+      if (!sending) TIMER = setInterval(tick, 1000);
+    }
   }
 }
 
@@ -704,7 +789,7 @@ function runTeacher(){
     var tm = null; unsub = api.subscribe(id, function(){ clearTimeout(tm); tm = setTimeout(load, 400); });
 
     async function load(){ try { E = (await api.listEntries(id)).sort(function(a, b){ return a.student_name.localeCompare(b.student_name, "ko"); }); } catch(e){ body.innerHTML = ""; body.appendChild(el("div", { class: "err", text: e.message })); return; } draw(); }
-    function ans(e, which){ return which === "first" ? (e.data.first || []) : (e.data.second || e.data.first || []); }
+    function ans(e, which){ var d = e.data; return which === "first" ? (d.first || []) : which === "second" ? (d.second || d.first || []) : (d.third || d.second || d.first || []); }
     function ok(e, x, which){ return itemOk(x.kind, x.item, ans(e, which)[x.n], e.data.accept, x.n); }
     function score(e, kind, which){ return items.filter(function(x){ return x.kind === kind && ok(e, x, which); }).length; }
     function countKind(kind){ return items.filter(function(x){ return x.kind === kind; }).length; }
@@ -739,10 +824,11 @@ function runTeacher(){
       E.forEach(function(e){
         var cells = [ el("td", { text: e.student_name }) ];
         kinds.forEach(function(k){
-          var tot = countKind(k), f = score(e, k, "first"), s = e.data.second ? score(e, k, "final") : null;
-          cells.push(el("td", {}, [ el("span", { class: "mark " + (f === tot ? "ok" : ""), text: "처음 " + f + "/" + tot + (s != null ? " → 다시 " + s + "/" + tot : (f < tot ? " (다시 풀기 전)" : "")) }) ]));
+          var tot = countKind(k), f = score(e, k, "first"), s = e.data.second ? score(e, k, "second") : null, s3 = e.data.third ? score(e, k, "final") : null;
+          cells.push(el("td", {}, [ el("span", { class: "mark " + (f === tot ? "ok" : ""), text: "처음 " + f + "/" + tot + (s != null ? " → 다시 " + s + "/" + tot + (s3 != null ? " → " + s3 + "/" + tot : "") : (f < tot ? " (다시 풀기 전)" : "")) }) ]));
         });
-        cells.push(el("td", { class: "sub small", text: fmtTime(e.updated_at) }));
+        var lateN = Object.keys(e.data.late || {}).length;
+        cells.push(el("td", { class: "sub small" }, [ fmtTime(e.updated_at), lateN ? el("div", { class: "mark no", text: "시간 넘김 " + lateN + "번" }) : null ]));
         cells.push(el("td", {}, [ el("button", { class: "chip", text: "다시 풀게 하기", onclick: async function(){
           if (!(await askBox(e.student_name + " 학생의 답을 모두 지우고 처음부터 다시 풀게 할까요?", "다시 풀게 하기"))) return;
           try { await api.deleteEntry(e.id); load(); } catch(err){ toast(err.message, true); }
@@ -750,7 +836,7 @@ function runTeacher(){
         tb.appendChild(el("tr", {}, cells));
       });
       card.appendChild(el("div", { class: "table-wrap" }, [ el("table", {}, [ el("thead", {}, [ el("tr", {}, hr) ]), tb ]) ]));
-      card.appendChild(el("p", { class: "sub small", style: "margin-top:.6rem", text: "‘처음’은 처음 낸 답, ‘다시’는 틀린 문제를 고친 뒤예요. 정답률이 낮은 문항은 ‘문항별’ 탭에서 보세요." }));
+      card.appendChild(el("p", { class: "sub small", style: "margin-top:.6rem", text: "‘처음’은 처음 낸 답, ‘다시’는 틀린 문제를 고친 뒤예요(두 번까지, 한 번에 10분). 정답률이 낮은 문항은 ‘문항별’ 탭에서 보세요." }));
       body.appendChild(card);
     }
 
@@ -789,11 +875,13 @@ function runTeacher(){
         } else {
           var mini = el("div", { class: "mini" }, []);
           E.forEach(function(e){
-            var acc = e.data.accept || {}, f = ans(e, "first")[x.n], s = e.data.second ? e.data.second[x.n] : null;
+            var acc = e.data.accept || {}, f = ans(e, "first")[x.n], s = e.data.second ? e.data.second[x.n] : null, s3 = e.data.third ? e.data.third[x.n] : null;
             var g1 = gradeA(f, "@" + x.item.kw, acc, x.n), retried = s != null && g1 !== "ok";
-            var latest = retried ? s : f, ruleOk = grade(latest, "@" + x.item.kw) === "ok", accepted = !!norm(latest) && acc[x.n] === norm(latest);
+            var g2 = retried ? gradeA(s, "@" + x.item.kw, acc, x.n) : null, retried2 = retried && s3 != null && g2 !== "ok";
+            var latest = retried2 ? s3 : retried ? s : f, ruleOk = grade(latest, "@" + x.item.kw) === "ok", accepted = !!norm(latest) && acc[x.n] === norm(latest);
             var kids = [ el("span", { class: g1, text: e.student_name + ": " + (trimStr(f) || "안 씀") + (!retried && accepted ? " (인정)" : "") }) ];
-            if (retried) kids.push(el("span", { class: gradeA(s, "@" + x.item.kw, acc, x.n), text: "→ " + (trimStr(s) || "안 씀") + (accepted ? " (인정)" : "") }));
+            if (retried) kids.push(el("span", { class: g2, text: "→ " + (trimStr(s) || "안 씀") + (!retried2 && accepted ? " (인정)" : "") }));
+            if (retried2) kids.push(el("span", { class: gradeA(s3, "@" + x.item.kw, acc, x.n), text: "→ " + (trimStr(s3) || "안 씀") + (accepted ? " (인정)" : "") }));
             if (!ruleOk && norm(latest)) kids.push(el("button", { class: "acc", text: accepted ? "인정 취소" : "인정", onclick: async function(){
               var next = clone(acc); if (accepted) delete next[x.n]; else next[x.n] = norm(latest);
               try { await api.setAccept(e.id, next); e.data.accept = next; draw(); } catch(err){ toast(err.message, true); }

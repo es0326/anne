@@ -174,6 +174,12 @@ tbody tr:last-child td{border-bottom:none}
 .item .q{font-size:1.02rem;line-height:1.65;white-space:pre-wrap}
 mark.tg{background:var(--accent-soft);color:var(--accent);font-weight:700;border-bottom:2px solid var(--accent);border-radius:4px;padding:0 .2rem}
 .tagin{margin-top:.5rem;max-width:16rem}
+.pgrid{display:flex;flex-wrap:wrap;gap:.5rem .6rem;margin-top:.55rem}
+.pcell{display:flex;flex-direction:column;gap:.2rem;min-width:4.6rem}
+.pcell .pw{font-weight:700;font-size:.95rem;text-align:center;border-bottom:2px solid var(--accent);color:var(--accent)}
+.pcell input.pin{width:6.2rem;padding:.4rem .5rem;font-size:.9rem;text-align:center}
+.pcell input.pin.bad{border-color:var(--wrong);background:var(--wrong-soft)}
+.pcell .res{margin-top:0;text-align:center;font-size:.9rem}
 .item.retry .tagin{border-color:var(--wrong);background:var(--wrong-soft)}
 .trk{font-family:"Gowun Batang",serif;font-size:1.15rem;margin:1.4rem 0 .3rem;color:var(--accent)}
 .mcrow{display:flex;flex-direction:column;gap:.4rem;margin-top:.55rem}
@@ -386,7 +392,14 @@ function flatItems(parts){
 // 한 문항 채점 (reading.sql / test.sql 의 test_item_ok 와 같은 규칙)
 //   O·X 답은 "O" 또는 "X||고친 문장". X 문항은 X를 고르고 고친 문장의 핵심어(fkw)까지 맞아야 맞음
 function splitOX(ans){ var s = String(ans == null ? "" : ans), i = s.indexOf("||"); return { c: trimStr(i < 0 ? s : s.slice(0, i)).toUpperCase(), fix: i < 0 ? "" : s.slice(i + 2) }; }
+// 문장 분석: 답은 "명사,조사,…" (낱말 순서대로 쉼표로 이음). 낱말마다 맞고 틀림 [true,false,…] (test.sql 의 test_parse_marks 와 같음)
+//   item.w = 낱말 목록(학생 화면), item.a = 낱말마다 정답(| 로 여러 개 인정)
+function parseMarks(item, ans){
+  var a = Array.isArray(item.a) ? item.a : [], got = String(ans == null ? "" : ans).split(",");
+  return a.map(function(av, i){ var g = norm(got[i] || ""); return !!g && String(av).split("|").some(function(k){ return norm(k) === g; }); });
+}
 function itemOk(kind, item, ans, accept, n){
+  if (kind === "parse"){ var pm = parseMarks(item, ans); return pm.length > 0 && pm.every(Boolean); }   // 문장 분석: 모든 낱말의 품사가 맞아야 맞음
   if (kind === "tag"){ var tx = norm(ans); return !!tx && String(item.a || "").split("|").some(function(k){ return norm(k) === tx; }); }   // 품사 쓰기: 정답(|로 여러 개)과 통째로 같아야 맞음
   if (kind === "mc") return !!trimStr(ans) && trimStr(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5"
   if (kind === "ox"){
@@ -400,15 +413,16 @@ function itemOk(kind, item, ans, accept, n){
 // 틀린 까닭 (test.sql 의 test_item_why 와 같음): null 맞음 · none 안 풂 · ox O·X를 잘못 고름 · fix 고쳐 쓴 부분이 틀림 · write 풀이가 틀림
 function itemWhy(kind, item, ans, accept, n){
   if (itemOk(kind, item, ans, accept, n)) return null;
+  if (kind === "parse") return norm(String(ans == null ? "" : ans).replace(/,/g, "")) ? "parse" : "none";
   if (kind === "tag") return norm(ans) ? "tag" : "none";
   if (kind === "mc") return trimStr(ans) ? "mc" : "none";
   if (kind === "ox"){ var p = splitOX(ans); return !p.c ? "none" : p.c !== trimStr(item.a).toUpperCase() ? "ox" : "fix"; }
   return norm(ans) ? "write" : "none";
 }
-var WHY_TEXT = { none: "안 풀었어요", tag: "품사를 다시 생각해 보세요", mc: "보기를 다시 골라 보세요", ox: "O·X를 잘못 골랐어요", fix: "O·X는 맞았어요. 고쳐 쓴 부분이 틀렸어요", write: "풀이를 다시 생각해 보세요" };
+var WHY_TEXT = { none: "안 풀었어요", parse: "빨간 낱말의 품사를 다시 생각해 보세요", tag: "품사를 다시 생각해 보세요", mc: "보기를 다시 골라 보세요", ox: "O·X를 잘못 골랐어요", fix: "O·X는 맞았어요. 고쳐 쓴 부분이 틀렸어요", write: "풀이를 다시 생각해 보세요" };
 var RETRY_MIN = 10;   // 틀린 문제 다시 풀기 시간 (분) — test.sql 의 test_retry_minutes 와 같게
 function oxText(ans){ var p = splitOX(ans); return p.c ? p.c + (p.c === "X" && trimStr(p.fix) ? " — " + trimStr(p.fix) : "") : "안 고름"; }
-function partLabel(kind){ return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : kind === "tag" ? "품사 쓰기" : "현대어 풀이"; }
+function partLabel(kind){ return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : kind === "tag" ? "품사 쓰기" : kind === "parse" ? "문장 분석" : "현대어 풀이"; }
 // 문제 글 안의 [낱말]은 표시(밑줄 대신)해서 보여 줌: "동생이 [새] 신발을 샀다."
 function qNode(text){
   var span = el("span", {}, []), re = /\[([^\]]+)\]/g, last = 0, m, s = String(text == null ? "" : text);
@@ -477,7 +491,7 @@ function demoApi(){
     var t = clone(SAMPLES[0] || DEMO_SAMPLE); t.app = "grammar"; t.id = "demo-gangho"; t.owner = USER.id; t.is_open = true; t.class_ids = ["dc1"]; t.created_at = now();
     var items = flatItems(t.parts);
     function answers(fn){ return items.map(fn); }
-    var right = answers(function(x){ return x.kind === "tag" ? String(x.item.a).split("|")[0] : x.kind === "mc" ? x.item.a : x.kind === "ox" ? (x.item.a === "X" ? "X||" + (x.item.fix || "") : x.item.a) : x.item.model; });
+    var right = answers(function(x){ return x.kind === "parse" ? x.item.a.map(function(v){ return String(v).split("|")[0]; }).join(",") : x.kind === "tag" ? String(x.item.a).split("|")[0] : x.kind === "mc" ? x.item.a : x.kind === "ox" ? (x.item.a === "X" ? "X||" + (x.item.fix || "") : x.item.a) : x.item.model; });
     var oxs = items.filter(function(x){ return x.kind === "ox"; }), ws = items.filter(function(x){ return x.kind === "write"; });
     var st = { tests: [t], entries: [], sessions: {},
       classes: [ { id: "dc1", name: "목요일반", created_at: now() }, { id: "dc2", name: "토요일반", created_at: now() } ],
@@ -516,7 +530,8 @@ function demoApi(){
     return { stage: stage, first: e.data.first, second: e.data.second || null, third: e.data.third || null, marks: marks, why: why,
       retry: retry, late: e.data.late || {}, limit_min: RETRY_MIN, server_now: now(),
       deadline: stage === 1 && start ? new Date(new Date(start).getTime() + RETRY_MIN * 60000).toISOString() : null,
-      keys: stage === 2 ? items.map(function(x){ return x.kind === "tag" ? { a: String(x.item.a).split("|")[0], exp: x.item.exp } : x.kind === "mc" ? { a: x.item.a, exp: x.item.exp } : x.kind === "ox" ? { a: x.item.a, exp: x.item.exp, fix: x.item.fix || "" } : { model: x.item.model, point: x.item.point }; }) : null };
+      wm: items.map(function(x){ return x.kind === "parse" ? parseMarks(x.item, fin[x.n]) : null; }),
+      keys: stage === 2 ? items.map(function(x){ return x.kind === "parse" ? { a: x.item.a.map(function(v){ return String(v).split("|")[0]; }), exp: x.item.exp } : x.kind === "tag" ? { a: String(x.item.a).split("|")[0], exp: x.item.exp } : x.kind === "mc" ? { a: x.item.a, exp: x.item.exp } : x.kind === "ox" ? { a: x.item.a, exp: x.item.exp, fix: x.item.fix || "" } : { model: x.item.model, point: x.item.point }; }) : null };
   }
   var listeners = [];
   function notify(){ listeners.forEach(function(f){ f(); }); }
@@ -565,7 +580,7 @@ function demoApi(){
     publicTest: async function(tok, id){
       nameFor(tok, id); var t = test(id);
       return { title: t.title, work: t.work, author: t.author, series: t.series,
-        parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ return it.c ? { q: it.q, c: it.c } : { q: it.q }; }) }; }) };
+        parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ var o = { q: it.q }; if (it.c) o.c = it.c; if (it.w) o.w = it.w; return o; }) }; }) };
     },
     status: async function(tok, id){ return status(id, nameFor(tok, id)); },
     submit: async function(tok, id, answers){
@@ -766,7 +781,27 @@ function runStudent(){
         var w = why[x.n];
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), qNode(x.item.q) ]) ]);
         if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
-        if (x.kind === "tag"){
+        if (x.kind === "parse"){
+          var words = x.item.w || [], wmk = (ST.wm || [])[x.n] || [], pieces = String(cur[x.n] || "").split(",");
+          var grid = el("div", { class: "pgrid" }, []);
+          if (canEdit){
+            words.forEach(function(wd, wi){
+              var bad = stage === 1 && wmk[wi] === false;      // 다시 풀 때: 틀린 낱말만 빨갛게
+              var pin = el("input", { type: "text", class: "pin" + (bad ? " bad" : ""), placeholder: "품사", autocomplete: "off", "aria-label": wd + " 품사" });
+              pin.value = pieces[wi] || "";
+              pin.addEventListener("input", function(){
+                var arr = []; Array.prototype.forEach.call(grid.querySelectorAll("input"), function(i){ arr.push(i.value.replace(/,/g, "")); });
+                cur[x.n] = arr.some(function(v){ return trimStr(v); }) ? arr.join(",") : ""; saveDraft(); count();
+              });
+              grid.appendChild(el("div", { class: "pcell" }, [ el("div", { class: "pw", text: wd }), pin ]));
+            });
+          } else {
+            words.forEach(function(wd, wi){
+              grid.appendChild(el("div", { class: "pcell" }, [ el("div", { class: "pw", text: wd }), el("div", { class: "res " + (wmk[wi] ? "ok" : "no"), text: (trimStr(pieces[wi]) || "(안 씀)") + (wmk[wi] ? " ✓" : " ✗") }) ]));
+            });
+          }
+          box.appendChild(grid);
+        } else if (x.kind === "tag"){
           if (canEdit){
             var tin = el("input", { type: "text", class: "tagin", placeholder: "품사를 써요 (예: 명사)", autocomplete: "off", "aria-label": (x.i + 1) + "번 품사" });
             tin.value = cur[x.n] || "";
@@ -831,7 +866,9 @@ function runStudent(){
         if (stage === 2 && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
         if (stage === 2 && ST.keys){
           var k = ST.keys[x.n] || {};
-          box.appendChild(x.kind === "tag"
+          box.appendChild(x.kind === "parse"
+            ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답" }), textBlock((x.item.w || []).map(function(wd, wi){ return wd + " → " + ((k.a || [])[wi] || ""); }).join("   ")), k.exp ? textBlock(k.exp) : null ])
+            : x.kind === "tag"
             ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답 " + (k.a || "") }), textBlock(k.exp || "") ])
             : x.kind === "mc"
             ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답 " + mcText(x.item, k.a) }), textBlock(k.exp || "") ])
@@ -1085,7 +1122,14 @@ function runTeacher(){
         p.items.forEach(function(it, i){
           var box = el("div", { class: "item" }, [ el("div", { class: "spread" }, [ el("strong", { text: (i + 1) + "번" }), el("button", { class: "chip", text: "삭제", onclick: async function(){ if (await askBox((i + 1) + "번을 지울까요?", "지우기")){ p.items.splice(i, 1); draw(); } } }) ]) ]);
           box.appendChild(bind(el("textarea", { placeholder: p.type === "tag" ? "문장 (묻는 낱말은 [ ]로 묶기)" : p.type === "ox" || p.type === "mc" ? "문제" : "구절" }), it, "q"));
-          if (p.type === "tag"){
+          if (p.type === "parse"){
+            var wIn = el("input", { type: "text", placeholder: "낱말 나누기 (공백으로): 동생 이 새 신발 을 샀다", style: "margin-top:.4rem" });
+            wIn.value = (it.w || []).join(" "); wIn.addEventListener("input", function(){ it.w = wIn.value.split(/\s+/).filter(Boolean); });
+            var aIn = el("input", { type: "text", placeholder: "낱말마다 품사 (쉼표로): 명사,조사,관형사,명사,조사,동사  (인정할 말은 보조사|조사)", style: "margin-top:.4rem" });
+            aIn.value = (it.a || []).join(","); aIn.addEventListener("input", function(){ it.a = aIn.value.split(",").map(trimStr).filter(Boolean); });
+            box.appendChild(wIn); box.appendChild(aIn);
+            box.appendChild(bind(el("textarea", { placeholder: "해설", style: "margin-top:.4rem" }), it, "exp"));
+          } else if (p.type === "tag"){
             box.appendChild(bind(el("input", { type: "text", placeholder: "정답 품사 (여러 개 인정: 의존 명사|의존명사)", style: "margin-top:.4rem" }), it, "a"));
             box.appendChild(bind(el("textarea", { placeholder: "해설", style: "margin-top:.4rem" }), it, "exp"));
           } else if (p.type === "mc"){
@@ -1110,7 +1154,7 @@ function runTeacher(){
           }
           card.appendChild(box);
         });
-        card.appendChild(el("button", { class: "chip", text: "+ 문제 추가", onclick: function(){ p.items.push(p.type === "tag" ? { q: "", a: "", exp: "" } : p.type === "mc" ? { q: "", c: [], a: "1", exp: "" } : p.type === "ox" ? { q: "", a: "O", exp: "" } : { q: "", model: "", point: "", kw: "" }); draw(); } }));
+        card.appendChild(el("button", { class: "chip", text: "+ 문제 추가", onclick: function(){ p.items.push(p.type === "parse" ? { q: "", w: [], a: [], exp: "" } : p.type === "tag" ? { q: "", a: "", exp: "" } : p.type === "mc" ? { q: "", c: [], a: "1", exp: "" } : p.type === "ox" ? { q: "", a: "O", exp: "" } : { q: "", model: "", point: "", kw: "" }); draw(); } }));
         list.appendChild(card);
       });
     }
@@ -1211,12 +1255,18 @@ function runTeacher(){
         var rate = E.length ? Math.round(okN / E.length * 100) : null;
         var box = el("div", { class: "item" }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), qNode(x.item.q) ]) ]);
         if (kind === "mc") box.appendChild(el("div", { class: "kwline", text: (x.item.c || []).map(function(c, ci){ return CIRCLED[ci] + " " + c; }).join("   ") }));
-        box.appendChild(el("div", { class: "kwline", text: kind === "tag" ? "정답 " + x.item.a : kind === "mc" ? "정답 " + mcText(x.item, x.item.a) : kind === "ox" ? "정답 " + x.item.a + (x.item.fix ? "  ·  고친 예: " + x.item.fix + "  ·  핵심어: " + (x.item.fkw || "") : "") : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
+        box.appendChild(el("div", { class: "kwline", text: kind === "parse" ? "정답 " + (x.item.w || []).map(function(wd, wi){ return wd + "(" + ((x.item.a || [])[wi] || "") + ")"; }).join(" ") : kind === "tag" ? "정답 " + x.item.a : kind === "mc" ? "정답 " + mcText(x.item, x.item.a) : kind === "ox" ? "정답 " + x.item.a + (x.item.fix ? "  ·  고친 예: " + x.item.fix + "  ·  핵심어: " + (x.item.fkw || "") : "") : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
         if (rate != null){
           box.appendChild(el("div", { class: "bar" + (rate < 60 ? " low" : "") }, [ el("span", { style: "width:" + rate + "%" }) ]));
           box.appendChild(el("div", { class: "kwline", text: "처음 " + okN + " / " + E.length + " 맞음" }));
         }
-        if (kind === "tag"){
+        if (kind === "parse"){
+          var wrongP = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){
+            var pmk = parseMarks(x.item, ans(e, "first")[x.n]), bads = (x.item.w || []).filter(function(_w, wi){ return !pmk[wi]; });
+            return e.student_name + "(" + (bads.length ? bads.join("·") : "안 씀") + ")";
+          });
+          if (wrongP.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생(틀린 낱말): " + wrongP.join(", ") }));
+        } else if (kind === "tag"){
           var wrongT = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + (trimStr(ans(e, "first")[x.n]) || "안 씀") + ")"; });
           if (wrongT.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrongT.join(", ") }));
         } else if (kind === "mc"){

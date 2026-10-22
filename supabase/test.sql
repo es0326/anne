@@ -63,11 +63,27 @@ language sql immutable as $$
          jsonb_array_elements(coalesce(p->'items', '[]'::jsonb)) with ordinality as qq(q, qn);
 $$;
 
+-- 문장 분석 (청연 문법): 낱말마다 품사를 쓴 답("명사,조사,…")을 낱말별로 맞고 틀림 [true,false,…] 로 채점
+--   item.a = ["명사","조사|보조사",…] (낱말마다 정답, | 로 여러 개 인정). 낱말 수는 a 의 길이
+create or replace function public.test_parse_marks(p_item jsonb, p_answer text)
+returns jsonb
+language sql immutable as $$
+  select coalesce(jsonb_agg(
+           blank_norm(split_part(coalesce(p_answer, ''), ',', ord::int)) <> ''
+           and exists (select 1 from unnest(string_to_array(av, '|')) as x
+                        where blank_norm(x) = blank_norm(split_part(coalesce(p_answer, ''), ',', ord::int)))
+         order by ord), '[]'::jsonb)
+    from jsonb_array_elements_text(case when jsonb_typeof(p_item->'a') = 'array' then p_item->'a' else '[]'::jsonb end) with ordinality as t(av, ord);
+$$;
+
 -- 한 문항 채점. O·X 는 그대로 비교, 풀이는 핵심어(blank_ok) + 선생님 인정
 create or replace function public.test_item_ok(p_kind text, p_item jsonb, p_answer text, p_accept jsonb, p_n int)
 returns boolean
 language sql immutable as $$
   select case
+    -- 문장 분석: 모든 낱말의 품사가 맞아야 맞음
+    when p_kind = 'parse' then
+      test_parse_marks(p_item, p_answer) <> '[]'::jsonb and not (test_parse_marks(p_item, p_answer) @> '[false]'::jsonb)
     -- 품사 쓰기 (청연 문법): 정답 item->>'a' 는 '|' 로 여러 개 가능, 띄어쓰기·문장부호는 무시하고 통째로 같아야 맞음
     when p_kind = 'tag' then
       blank_norm(p_answer) <> ''
@@ -96,6 +112,8 @@ returns text
 language sql immutable as $$
   select case
     when test_item_ok(p_kind, p_item, p_answer, p_accept, p_n) then null
+    when p_kind = 'parse' and blank_norm(replace(coalesce(p_answer, ''), ',', '')) = '' then 'none'
+    when p_kind = 'parse' then 'parse'
     when p_kind = 'tag' and blank_norm(p_answer) = '' then 'none'
     when p_kind = 'tag' then 'tag'
     when p_kind = 'mc' and trim(coalesce(p_answer, '')) = '' then 'none'
@@ -125,8 +143,7 @@ begin
   if not t.is_open then raise exception '선생님이 아직 열지 않은 문제입니다.'; end if;
   select coalesce(jsonb_agg(jsonb_build_object(
            'type', p->>'type', 'title', coalesce(p->>'title', ''), 'guide', coalesce(p->>'guide', ''),
-           'items', (select coalesce(jsonb_agg(case when q ? 'c' then jsonb_build_object('q', q->>'q', 'c', q->'c')
-                                                    else jsonb_build_object('q', q->>'q') end order by qn), '[]'::jsonb)
+           'items', (select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object('q', q->>'q', 'c', q->'c', 'w', q->'w')) order by qn), '[]'::jsonb)
                        from jsonb_array_elements(coalesce(p->'items', '[]'::jsonb)) with ordinality as qq(q, qn))
          ) order by pn), '[]'::jsonb)
     into v_parts
@@ -143,7 +160,7 @@ language plpgsql security definer set search_path = public
 as $$
 declare
   t tests%rowtype; v_data jsonb; v_final jsonb; r record;
-  v_marks jsonb := '[]'::jsonb; v_why jsonb := '[]'::jsonb; v_keys jsonb := '[]'::jsonb; v_all boolean := true; v_ok boolean; v_stage int;
+  v_marks jsonb := '[]'::jsonb; v_why jsonb := '[]'::jsonb; v_keys jsonb := '[]'::jsonb; v_wm jsonb := '[]'::jsonb; v_all boolean := true; v_ok boolean; v_stage int;
   v_retry text; v_start timestamptz;
 begin
   select * into t from tests where id = p_test_id and is_open;
@@ -156,7 +173,12 @@ begin
     v_all := v_all and v_ok;
     v_marks := v_marks || to_jsonb(v_ok);
     v_why := v_why || coalesce(to_jsonb(test_item_why(r.kind, r.item, v_final ->> r.n, v_data->'accept', r.n)), 'null'::jsonb);
-    v_keys := v_keys || case when r.kind = 'tag'
+    v_wm := v_wm || case when r.kind = 'parse' then jsonb_build_array(test_parse_marks(r.item, v_final ->> r.n)) else '[null]'::jsonb end;
+    v_keys := v_keys || case when r.kind = 'parse'
+                then jsonb_build_object('a', (select coalesce(jsonb_agg(split_part(av, '|', 1) order by ord), '[]'::jsonb)
+                                                from jsonb_array_elements_text(r.item->'a') with ordinality as t(av, ord)),
+                                        'exp', coalesce(r.item->>'exp', ''))
+              when r.kind = 'tag'
                 then jsonb_build_object('a', split_part(coalesce(r.item->>'a', ''), '|', 1), 'exp', coalesce(r.item->>'exp', ''))
               when r.kind = 'mc'
                 then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''))
@@ -168,7 +190,7 @@ begin
   v_retry := case when v_data ? 'second' then '2' else '1' end;
   v_start := (v_data->'start'->>v_retry)::timestamptz;
   return jsonb_build_object('stage', v_stage, 'first', coalesce(v_data->'first', '[]'::jsonb), 'second', v_data->'second', 'third', v_data->'third',
-                            'marks', v_marks, 'why', v_why, 'retry', v_retry::int, 'late', coalesce(v_data->'late', '{}'::jsonb),
+                            'marks', v_marks, 'wm', v_wm, 'why', v_why, 'retry', v_retry::int, 'late', coalesce(v_data->'late', '{}'::jsonb),
                             'limit_min', test_retry_minutes(), 'server_now', now(),
                             'deadline', case when v_stage = 1 and v_start is not null then v_start + make_interval(mins => test_retry_minutes()) else null end,
                             'keys', case when v_stage = 2 then v_keys else null end);

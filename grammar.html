@@ -422,7 +422,7 @@ function itemWhy(kind, item, ans, accept, n){
 var WHY_TEXT = { none: "안 풀었어요", parse: "빨간 낱말의 품사를 다시 생각해 보세요", tag: "품사를 다시 생각해 보세요", mc: "보기를 다시 골라 보세요", ox: "O·X를 잘못 골랐어요", fix: "O·X는 맞았어요. 고쳐 쓴 부분이 틀렸어요", write: "풀이를 다시 생각해 보세요" };
 var RETRY_MIN = 10;   // 틀린 문제 다시 풀기 시간 (분) — test.sql 의 test_retry_minutes 와 같게
 function oxText(ans){ var p = splitOX(ans); return p.c ? p.c + (p.c === "X" && trimStr(p.fix) ? " — " + trimStr(p.fix) : "") : "안 고름"; }
-function partLabel(kind){ return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : kind === "tag" ? "품사 쓰기" : kind === "parse" ? "문장 분석" : "현대어 풀이"; }
+function partLabel(kind){ return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : kind === "tag" ? "품사 쓰기" : kind === "parse" ? "품사 분석" : "현대어 풀이"; }
 // 문제 글 안의 [낱말]은 표시(밑줄 대신)해서 보여 줌: "동생이 [새] 신발을 샀다."
 function qNode(text){
   var span = el("span", {}, []), re = /\[([^\]]+)\]/g, last = 0, m, s = String(text == null ? "" : text);

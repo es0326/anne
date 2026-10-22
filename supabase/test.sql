@@ -68,6 +68,10 @@ create or replace function public.test_item_ok(p_kind text, p_item jsonb, p_answ
 returns boolean
 language sql immutable as $$
   select case
+    -- 품사 쓰기 (청연 문법): 정답 item->>'a' 는 '|' 로 여러 개 가능, 띄어쓰기·문장부호는 무시하고 통째로 같아야 맞음
+    when p_kind = 'tag' then
+      blank_norm(p_answer) <> ''
+      and exists (select 1 from unnest(string_to_array(coalesce(p_item->>'a', ''), '|')) as x where blank_norm(x) = blank_norm(p_answer))
     -- 객관식 (2026-10-22): 답은 고른 보기 번호("1"~"5"), 정답 item->>'a' 와 같아야 맞음
     when p_kind = 'mc' then
       trim(coalesce(p_answer, '')) <> '' and trim(p_answer) = trim(coalesce(p_item->>'a', ''))
@@ -92,6 +96,8 @@ returns text
 language sql immutable as $$
   select case
     when test_item_ok(p_kind, p_item, p_answer, p_accept, p_n) then null
+    when p_kind = 'tag' and blank_norm(p_answer) = '' then 'none'
+    when p_kind = 'tag' then 'tag'
     when p_kind = 'mc' and trim(coalesce(p_answer, '')) = '' then 'none'
     when p_kind = 'mc' then 'mc'
     when p_kind = 'ox' and trim(split_part(coalesce(p_answer, ''), '||', 1)) = '' then 'none'
@@ -150,7 +156,9 @@ begin
     v_all := v_all and v_ok;
     v_marks := v_marks || to_jsonb(v_ok);
     v_why := v_why || coalesce(to_jsonb(test_item_why(r.kind, r.item, v_final ->> r.n, v_data->'accept', r.n)), 'null'::jsonb);
-    v_keys := v_keys || case when r.kind = 'mc'
+    v_keys := v_keys || case when r.kind = 'tag'
+                then jsonb_build_object('a', split_part(coalesce(r.item->>'a', ''), '|', 1), 'exp', coalesce(r.item->>'exp', ''))
+              when r.kind = 'mc'
                 then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''))
               when r.kind = 'ox'
                 then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''), 'fix', coalesce(r.item->>'fix', ''))
@@ -265,6 +273,11 @@ end $$;
 -- ============================================================
 alter table public.tests add column if not exists class_ids uuid[] not null default '{}';
 
+-- 2026-10-22 · 청연 문법(grammar.html): 같은 시험 틀을 쓰되 앱을 나눔. app = 'test'(되새김) | 'grammar'(문법), track = '중등부' | '고등부'
+--   되새김과 문법은 서로의 작품을 목록에 보여 주지 않음 (앱이 app 으로 걸러 냄)
+alter table public.tests add column if not exists app   text not null default 'test';
+alter table public.tests add column if not exists track text not null default '';
+
 -- 열쇠 + 작품 → 학생 이름 (그 학생 반에 열린 작품이어야 함)
 create or replace function public.st_name_for(p_token uuid, p_test_id uuid)
 returns text
@@ -288,10 +301,10 @@ as $$
 declare s students%rowtype; v_list jsonb := '[]'::jsonb; r record;
 begin
   s := student_from_token(p_token);
-  for r in select t.id, t.title, t.work, t.author, t.series from tests t
+  for r in select t.id, t.title, t.work, t.author, t.series, t.app, t.track from tests t
             where t.owner = s.owner and t.is_open and s.class_id is not null and s.class_id = any(t.class_ids)
             order by t.created_at desc loop
-    v_list := v_list || jsonb_build_object('id', r.id, 'title', r.title, 'work', r.work, 'author', r.author, 'series', r.series,
+    v_list := v_list || jsonb_build_object('id', r.id, 'title', r.title, 'work', r.work, 'author', r.author, 'series', r.series, 'app', r.app, 'track', r.track,
                                            'stage', (get_test_status(r.id, s.name)->>'stage')::int);
   end loop;
   return jsonb_build_object('name', s.name, 'class_name', coalesce((select name from classes where id = s.class_id), ''), 'tests', v_list);

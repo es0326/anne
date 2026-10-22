@@ -226,7 +226,6 @@ td select{width:auto;padding:.25rem .5rem;font-size:.85rem}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- 작품 파일은 공개 저장소에 올리지 않음(private/ 는 이 컴퓨터에만). 인터넷 주소에서는 없어서 그냥 넘어감 -->
 <script src="private/classic-samples.js"></script>
-<script src="private/pumsa-samples.js"></script>
 <script>
 /* ===== 설정 ===== */
 var SUPABASE_URL = "https://yqwexzzdamcpqmsqkbcg.supabase.co";
@@ -307,8 +306,8 @@ function promptBox(msg, value, okText){
     document.body.appendChild(back); inp.focus(); inp.select();
   });
 }
-// 이 컴퓨터의 private/classic-samples.js · pumsa-samples.js (인터넷 주소에서는 없음)
-var SAMPLES = (window.CLASSIC_SAMPLES || []).concat(window.PUMSA_SAMPLES || []);
+// 이 컴퓨터의 private/classic-samples.js (인터넷 주소에서는 없음)
+var SAMPLES = window.CLASSIC_SAMPLES || [];
 // 인터넷 주소에서 ?demo=1 로 열 때 쓰는 짧은 체험용 작품
 var DEMO_SAMPLE = { title: "체험용 되새김", work: "강호사시가 (체험용)", author: "맹사성 · 평시조", series: "체험용",
   parts: [
@@ -319,8 +318,8 @@ var DEMO_SAMPLE = { title: "체험용 되새김", work: "강호사시가 (체험
       { q: "각 수의 끝에 임금의 은혜를 떠올리는 말이 되풀이된다.", a: "O", exp: "‘역군은이샷다’가 되풀이되지? 맞는 말!" },
       { q: "계절의 흐름이 겨울에서 시작하여 가을로 끝난다.", a: "X", exp: "봄 → 여름 → 가을 → 겨울 순서야.", fix: "계절의 흐름이 봄에서 시작하여 겨울로 끝난다.", fkw: "봄,겨울" } ] } ] };
 function parseWorks(text){
-  // classic-samples.js · pumsa-samples.js (var CLASSIC_SAMPLES = [...] / var PUMSA_SAMPLES = [...]) 또는 작품 하나·여러 개의 JSON
-  var s = String(text || ""), at = s.search(/(CLASSIC|PUMSA)_SAMPLES/), v;
+  // classic-samples.js (var CLASSIC_SAMPLES = [...]) 또는 작품 하나·여러 개의 JSON
+  var s = String(text || ""), at = s.indexOf("CLASSIC_SAMPLES"), v;
   if (at >= 0){ var from = s.indexOf("[", at), to = s.lastIndexOf("]"); s = from >= 0 && to > from ? s.slice(from, to + 1) : ""; }
   try { v = JSON.parse(s); } catch(e){ return []; }
   if (!Array.isArray(v)) v = [v];
@@ -442,7 +441,7 @@ function supabaseApi(){
     // 학생: 열쇠(token)로만
     login: async function(name, code){ return unwrap(await db.rpc("student_login", { p_name: name, p_code: code })); },
     logout: async function(tok){ try { await db.rpc("student_logout", { p_token: tok }); } catch(e){} },
-    myTests: async function(tok){ return unwrap(await db.rpc("st_tests", { p_token: tok })); },
+    myTests: async function(tok){ var r = unwrap(await db.rpc("st_tests", { p_token: tok })); r.tests = (r.tests || []).filter(function(t){ return t.app !== "grammar"; }); return r; },   // 청연 문법 작품은 문법 앱에서
     publicTest: async function(tok, id){ return unwrap(await db.rpc("st_get_test", { p_token: tok, p_test_id: id })); },
     status: async function(tok, id){ return unwrap(await db.rpc("st_status", { p_token: tok, p_test_id: id })); },
     submit: async function(tok, id, answers){ return unwrap(await db.rpc("st_submit", { p_token: tok, p_test_id: id, p_answers: answers })); },
@@ -897,6 +896,7 @@ function runTeacher(){
   async function renderList(){
     app.innerHTML = '<div class="empty">불러오는 중…</div>';
     var tests, classes; try { tests = await api.listTests(); classes = await api.listClasses(); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    tests = tests.filter(function(t){ return t.app !== "grammar"; });   // 청연 문법 작품은 문법 앱에서
     app.innerHTML = "";
     var cname = {}; classes.forEach(function(c){ cname[c.id] = c.name; });
     // 학생 입구

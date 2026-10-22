@@ -399,8 +399,9 @@ function parseMarks(item, ans){
   return a.map(function(av, i){ var g = norm(got[i] || ""); return !!g && String(av).split("|").some(function(k){ return norm(k) === g; }); });
 }
 function itemOk(kind, item, ans, accept, n){
-  if (kind === "parse"){ var pm = parseMarks(item, ans); return pm.length > 0 && pm.every(Boolean); }   // 문장 분석: 모든 낱말의 품사가 맞아야 맞음
-  if (kind === "tag"){ var tx = norm(ans); return !!tx && String(item.a || "").split("|").some(function(k){ return norm(k) === tx; }); }   // 품사 쓰기: 정답(|로 여러 개)과 통째로 같아야 맞음
+  // 선생님이 ‘인정’한 답(accept[문항번호] = norm(답))이면 맞음
+  if (kind === "parse"){ var pm = parseMarks(item, ans), ap = norm(ans); if (ap && accept && accept[n] === ap) return true; return pm.length > 0 && pm.every(Boolean); }   // 품사 분석: 모든 낱말의 품사가 맞아야 맞음
+  if (kind === "tag"){ var tx = norm(ans); if (tx && accept && accept[n] === tx) return true; return !!tx && String(item.a || "").split("|").some(function(k){ return norm(k) === tx; }); }   // 품사 쓰기: 정답(|로 여러 개)과 통째로 같아야 맞음
   if (kind === "mc") return !!trimStr(ans) && trimStr(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5"
   if (kind === "ox"){
     var p = splitOX(ans), a = trimStr(item.a).toUpperCase();
@@ -782,7 +783,7 @@ function runStudent(){
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), qNode(x.item.q) ]) ]);
         if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
         if (x.kind === "parse"){
-          var words = x.item.w || [], wmk = (ST.wm || [])[x.n] || [], pieces = String(cur[x.n] || "").split(",");
+          var words = x.item.w || [], wmk = marks[x.n] ? words.map(function(){ return true; }) : ((ST.wm || [])[x.n] || []), pieces = String(cur[x.n] || "").split(",");   // 선생님이 인정한 답이면 모두 맞음으로
           var grid = el("div", { class: "pgrid" }, []);
           if (canEdit){
             words.forEach(function(wd, wi){
@@ -1260,15 +1261,37 @@ function runTeacher(){
           box.appendChild(el("div", { class: "bar" + (rate < 60 ? " low" : "") }, [ el("span", { style: "width:" + rate + "%" }) ]));
           box.appendChild(el("div", { class: "kwline", text: "처음 " + okN + " / " + E.length + " 맞음" }));
         }
+        // 품사 쓰기·품사 분석: 규칙으로는 틀린 답을 보여 주고, 선생님이 ‘인정’하면 맞음으로 (되새김의 인정과 같음)
+        function acceptMini(){
+          var mini = el("div", { class: "mini" }, []);
+          E.forEach(function(e){
+            var acc = e.data.accept || {}, latest = ans(e, "final")[x.n];
+            if (itemOk(x.kind, x.item, latest, {}, x.n) || !norm(latest)) return;       // 규칙으로 맞거나 안 쓴 답은 제외
+            var accepted = acc[x.n] === norm(latest), label;
+            if (x.kind === "parse"){
+              var pmk = parseMarks(x.item, latest), got = String(latest || "").split(",");
+              label = (x.item.w || []).map(function(wd, wi){ return pmk[wi] ? null : wd + "→" + (trimStr(got[wi]) || "안 씀"); }).filter(Boolean).join(", ");
+            } else label = trimStr(latest);
+            mini.appendChild(el("span", { style: "padding:0" }, [
+              el("span", { class: accepted ? "ok" : "chk", text: e.student_name + ": " + label + (accepted ? " (인정)" : "") }),
+              el("button", { class: "acc", text: accepted ? "인정 취소" : "인정", onclick: async function(){
+                var next = clone(acc); if (accepted) delete next[x.n]; else next[x.n] = norm(latest);
+                try { await api.setAccept(e.id, next); e.data.accept = next; draw(); } catch(err){ toast(err.message, true); }
+              } }) ]));
+          });
+          return mini;
+        }
         if (kind === "parse"){
           var wrongP = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){
             var pmk = parseMarks(x.item, ans(e, "first")[x.n]), bads = (x.item.w || []).filter(function(_w, wi){ return !pmk[wi]; });
             return e.student_name + "(" + (bads.length ? bads.join("·") : "안 씀") + ")";
           });
           if (wrongP.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생(틀린 낱말): " + wrongP.join(", ") }));
+          var mnP = acceptMini(); if (mnP.children.length) box.appendChild(mnP);
         } else if (kind === "tag"){
           var wrongT = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + (trimStr(ans(e, "first")[x.n]) || "안 씀") + ")"; });
           if (wrongT.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrongT.join(", ") }));
+          var mnT = acceptMini(); if (mnT.children.length) box.appendChild(mnT);
         } else if (kind === "mc"){
           var wrongM = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + mcText(x.item, ans(e, "first")[x.n]).split(" ")[0] + ")"; });
           if (wrongM.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrongM.join(", ") }));

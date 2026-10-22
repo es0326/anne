@@ -82,12 +82,15 @@ returns boolean
 language sql immutable as $$
   select case
     -- 문장 분석: 모든 낱말의 품사가 맞아야 맞음
+    --   (선생님이 ‘인정’한 답이면 accept[문항번호] = blank_norm(답) 이라 맞음)
     when p_kind = 'parse' then
-      test_parse_marks(p_item, p_answer) <> '[]'::jsonb and not (test_parse_marks(p_item, p_answer) @> '[false]'::jsonb)
+      (blank_norm(p_answer) <> '' and coalesce(p_accept ->> p_n::text, '') = blank_norm(p_answer))
+      or (test_parse_marks(p_item, p_answer) <> '[]'::jsonb and not (test_parse_marks(p_item, p_answer) @> '[false]'::jsonb))
     -- 품사 쓰기 (청연 문법): 정답 item->>'a' 는 '|' 로 여러 개 가능, 띄어쓰기·문장부호는 무시하고 통째로 같아야 맞음
     when p_kind = 'tag' then
       blank_norm(p_answer) <> ''
-      and exists (select 1 from unnest(string_to_array(coalesce(p_item->>'a', ''), '|')) as x where blank_norm(x) = blank_norm(p_answer))
+      and ( coalesce(p_accept ->> p_n::text, '') = blank_norm(p_answer)
+            or exists (select 1 from unnest(string_to_array(coalesce(p_item->>'a', ''), '|')) as x where blank_norm(x) = blank_norm(p_answer)) )
     -- 객관식 (2026-10-22): 답은 고른 보기 번호("1"~"5"), 정답 item->>'a' 와 같아야 맞음
     when p_kind = 'mc' then
       trim(coalesce(p_answer, '')) <> '' and trim(p_answer) = trim(coalesce(p_item->>'a', ''))

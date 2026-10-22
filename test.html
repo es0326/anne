@@ -171,7 +171,14 @@ tbody tr:last-child td{border-bottom:none}
 .item{border-top:1px solid var(--line);padding:.9rem 0}
 .item:first-of-type{border-top:none}
 .item .no{font-weight:800;color:var(--accent);margin-right:.35rem}
-.item .q{font-size:1.02rem;line-height:1.65}
+.item .q{font-size:1.02rem;line-height:1.65;white-space:pre-wrap}
+.mcrow{display:flex;flex-direction:column;gap:.4rem;margin-top:.55rem}
+.mcbtn{font-family:inherit;font-size:.98rem;text-align:left;padding:.5rem .8rem;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;line-height:1.5}
+.mcbtn .mcno{font-weight:700;margin-right:.45rem}
+.mcbtn:hover{border-color:var(--accent);color:var(--accent)}
+.mcbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.retry .mcbtn{border-color:var(--wrong)}
+.retry .mcbtn.on{background:var(--wrong);border-color:var(--wrong);color:#fff}
 .oxrow{display:flex;gap:.6rem;margin-top:.55rem}
 .oxbtn{font-family:"Gowun Batang",serif;font-size:1.25rem;font-weight:700;width:3.2rem;height:2.6rem;border-radius:10px;
   border:1.5px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer}
@@ -219,6 +226,7 @@ td select{width:auto;padding:.25rem .5rem;font-size:.85rem}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- 작품 파일은 공개 저장소에 올리지 않음(private/ 는 이 컴퓨터에만). 인터넷 주소에서는 없어서 그냥 넘어감 -->
 <script src="private/classic-samples.js"></script>
+<script src="private/pumsa-samples.js"></script>
 <script>
 /* ===== 설정 ===== */
 var SUPABASE_URL = "https://yqwexzzdamcpqmsqkbcg.supabase.co";
@@ -299,8 +307,8 @@ function promptBox(msg, value, okText){
     document.body.appendChild(back); inp.focus(); inp.select();
   });
 }
-// 이 컴퓨터의 private/classic-samples.js (인터넷 주소에서는 없음)
-var SAMPLES = window.CLASSIC_SAMPLES || [];
+// 이 컴퓨터의 private/classic-samples.js · pumsa-samples.js (인터넷 주소에서는 없음)
+var SAMPLES = (window.CLASSIC_SAMPLES || []).concat(window.PUMSA_SAMPLES || []);
 // 인터넷 주소에서 ?demo=1 로 열 때 쓰는 짧은 체험용 작품
 var DEMO_SAMPLE = { title: "체험용 되새김", work: "강호사시가 (체험용)", author: "맹사성 · 평시조", series: "체험용",
   parts: [
@@ -311,8 +319,8 @@ var DEMO_SAMPLE = { title: "체험용 되새김", work: "강호사시가 (체험
       { q: "각 수의 끝에 임금의 은혜를 떠올리는 말이 되풀이된다.", a: "O", exp: "‘역군은이샷다’가 되풀이되지? 맞는 말!" },
       { q: "계절의 흐름이 겨울에서 시작하여 가을로 끝난다.", a: "X", exp: "봄 → 여름 → 가을 → 겨울 순서야.", fix: "계절의 흐름이 봄에서 시작하여 겨울로 끝난다.", fkw: "봄,겨울" } ] } ] };
 function parseWorks(text){
-  // classic-samples.js (var CLASSIC_SAMPLES = [...]) 또는 작품 하나·여러 개의 JSON
-  var s = String(text || ""), at = s.indexOf("CLASSIC_SAMPLES"), v;
+  // classic-samples.js · pumsa-samples.js (var CLASSIC_SAMPLES = [...] / var PUMSA_SAMPLES = [...]) 또는 작품 하나·여러 개의 JSON
+  var s = String(text || ""), at = s.search(/(CLASSIC|PUMSA)_SAMPLES/), v;
   if (at >= 0){ var from = s.indexOf("[", at), to = s.lastIndexOf("]"); s = from >= 0 && to > from ? s.slice(from, to + 1) : ""; }
   try { v = JSON.parse(s); } catch(e){ return []; }
   if (!Array.isArray(v)) v = [v];
@@ -376,6 +384,7 @@ function flatItems(parts){
 //   O·X 답은 "O" 또는 "X||고친 문장". X 문항은 X를 고르고 고친 문장의 핵심어(fkw)까지 맞아야 맞음
 function splitOX(ans){ var s = String(ans == null ? "" : ans), i = s.indexOf("||"); return { c: trimStr(i < 0 ? s : s.slice(0, i)).toUpperCase(), fix: i < 0 ? "" : s.slice(i + 2) }; }
 function itemOk(kind, item, ans, accept, n){
+  if (kind === "mc") return !!trimStr(ans) && trimStr(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5"
   if (kind === "ox"){
     var p = splitOX(ans), a = trimStr(item.a).toUpperCase();
     if (!p.c || p.c !== a) return false;
@@ -387,13 +396,16 @@ function itemOk(kind, item, ans, accept, n){
 // 틀린 까닭 (test.sql 의 test_item_why 와 같음): null 맞음 · none 안 풂 · ox O·X를 잘못 고름 · fix 고쳐 쓴 부분이 틀림 · write 풀이가 틀림
 function itemWhy(kind, item, ans, accept, n){
   if (itemOk(kind, item, ans, accept, n)) return null;
+  if (kind === "mc") return trimStr(ans) ? "mc" : "none";
   if (kind === "ox"){ var p = splitOX(ans); return !p.c ? "none" : p.c !== trimStr(item.a).toUpperCase() ? "ox" : "fix"; }
   return norm(ans) ? "write" : "none";
 }
-var WHY_TEXT = { none: "안 풀었어요", ox: "O·X를 잘못 골랐어요", fix: "O·X는 맞았어요. 고쳐 쓴 부분이 틀렸어요", write: "풀이를 다시 생각해 보세요" };
+var WHY_TEXT = { none: "안 풀었어요", mc: "보기를 다시 골라 보세요", ox: "O·X를 잘못 골랐어요", fix: "O·X는 맞았어요. 고쳐 쓴 부분이 틀렸어요", write: "풀이를 다시 생각해 보세요" };
 var RETRY_MIN = 10;   // 틀린 문제 다시 풀기 시간 (분) — test.sql 의 test_retry_minutes 와 같게
 function oxText(ans){ var p = splitOX(ans); return p.c ? p.c + (p.c === "X" && trimStr(p.fix) ? " — " + trimStr(p.fix) : "") : "안 고름"; }
-function partLabel(kind){ return kind === "ox" ? "O·X" : "현대어 풀이"; }
+function partLabel(kind){ return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : "현대어 풀이"; }
+var CIRCLED = ["①", "②", "③", "④", "⑤"];
+function mcText(item, ans){ var k = parseInt(trimStr(ans), 10), c = (item && item.c) || []; return k >= 1 && k <= c.length ? CIRCLED[k - 1] + " " + c[k - 1] : "안 고름"; }
 
 /* ===== 데이터 계층 (Supabase / 체험) ===== */
 function unwrap(res){ if (res.error) throw new Error(res.error.message || "오류가 발생했습니다."); return res.data; }
@@ -453,7 +465,7 @@ function demoApi(){
     var t = clone(SAMPLES[0] || DEMO_SAMPLE); t.id = "demo-gangho"; t.owner = USER.id; t.is_open = true; t.class_ids = ["dc1"]; t.created_at = now();
     var items = flatItems(t.parts);
     function answers(fn){ return items.map(fn); }
-    var right = answers(function(x){ return x.kind === "ox" ? (x.item.a === "X" ? "X||" + (x.item.fix || "") : x.item.a) : x.item.model; });
+    var right = answers(function(x){ return x.kind === "mc" ? x.item.a : x.kind === "ox" ? (x.item.a === "X" ? "X||" + (x.item.fix || "") : x.item.a) : x.item.model; });
     var oxs = items.filter(function(x){ return x.kind === "ox"; }), ws = items.filter(function(x){ return x.kind === "write"; });
     var st = { tests: [t], entries: [], sessions: {},
       classes: [ { id: "dc1", name: "목요일반", created_at: now() }, { id: "dc2", name: "토요일반", created_at: now() } ],
@@ -492,7 +504,7 @@ function demoApi(){
     return { stage: stage, first: e.data.first, second: e.data.second || null, third: e.data.third || null, marks: marks, why: why,
       retry: retry, late: e.data.late || {}, limit_min: RETRY_MIN, server_now: now(),
       deadline: stage === 1 && start ? new Date(new Date(start).getTime() + RETRY_MIN * 60000).toISOString() : null,
-      keys: stage === 2 ? items.map(function(x){ return x.kind === "ox" ? { a: x.item.a, exp: x.item.exp, fix: x.item.fix || "" } : { model: x.item.model, point: x.item.point }; }) : null };
+      keys: stage === 2 ? items.map(function(x){ return x.kind === "mc" ? { a: x.item.a, exp: x.item.exp } : x.kind === "ox" ? { a: x.item.a, exp: x.item.exp, fix: x.item.fix || "" } : { model: x.item.model, point: x.item.point }; }) : null };
   }
   var listeners = [];
   function notify(){ listeners.forEach(function(f){ f(); }); }
@@ -541,7 +553,7 @@ function demoApi(){
     publicTest: async function(tok, id){
       nameFor(tok, id); var t = test(id);
       return { title: t.title, work: t.work, author: t.author, series: t.series,
-        parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ return { q: it.q }; }) }; }) };
+        parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ return it.c ? { q: it.q, c: it.c } : { q: it.q }; }) }; }) };
     },
     status: async function(tok, id){ return status(id, nameFor(tok, id)); },
     submit: async function(tok, id, answers){
@@ -691,7 +703,11 @@ function runStudent(){
     var deadline = ST.deadline ? new Date(ST.deadline).getTime() + skew : null;
     var started = stage === 1 && !!deadline;
     var dkey = "test-draft:" + testId + ":" + NAME + ":" + stage + ":" + retry;
-    var cur = lsGet(dkey) || (stage === 1 ? fin.slice() : []);
+    var cur = lsGet(dkey);
+    if (!cur){
+      cur = stage === 1 ? fin.slice() : [];
+      if (stage === 1) items.forEach(function(x){ if (x.kind === "mc" && !marks[x.n]) cur[x.n] = ""; });   // 틀린 객관식은 보기를 새로 고르게
+    }
     function saveDraft(){ lsSet(dkey, cur); }
     var editable = items.filter(function(x){ return stage === 0 || (started && !marks[x.n]); });
     var okN = marks.filter(Boolean).length, wrongN = N - okN;
@@ -703,7 +719,7 @@ function runStudent(){
     else if (stage === 1){
       head.appendChild(el("h3", { text: N + "문제 중 " + okN + "문제 맞았어요" }));
       var cnts = {}; why.forEach(function(w){ if (w) cnts[w] = (cnts[w] || 0) + 1; });
-      var parts = [["ox", "O·X를 잘못 고름"], ["fix", "고쳐 쓴 부분이 틀림"], ["write", "풀이가 틀림"], ["none", "안 풂"]]
+      var parts = [["mc", "보기를 잘못 고름"], ["ox", "O·X를 잘못 고름"], ["fix", "고쳐 쓴 부분이 틀림"], ["write", "풀이가 틀림"], ["none", "안 풂"]]
         .filter(function(p){ return cnts[p[0]]; }).map(function(p){ return p[1] + " " + cnts[p[0]]; });
       if (parts.length) head.appendChild(el("p", { class: "sub", text: "틀린 문제 " + wrongN + "개 · " + parts.join(" · ") }));
       if (!started){
@@ -736,7 +752,24 @@ function runStudent(){
         var w = why[x.n];
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
         if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
-        if (x.kind === "ox"){
+        if (x.kind === "mc"){
+          if (canEdit){
+            var mrow = el("div", { class: "mcrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
+            (x.item.c || []).forEach(function(txt, ci){
+              var v = String(ci + 1), on = trimStr(cur[x.n]) === v;
+              var b = el("button", { class: "mcbtn" + (on ? " on" : ""), "data-v": v, role: "radio", "aria-checked": on ? "true" : "false" }, [ el("span", { class: "mcno", text: CIRCLED[ci] }), txt ]);
+              b.addEventListener("click", function(){
+                cur[x.n] = v;
+                Array.prototype.forEach.call(mrow.children, function(c){ var sel = c.getAttribute("data-v") === v; c.classList.toggle("on", sel); c.setAttribute("aria-checked", sel ? "true" : "false"); });
+                saveDraft(); count();
+              });
+              mrow.appendChild(b);
+            });
+            box.appendChild(mrow);
+          } else {
+            box.appendChild(el("div", { class: "res " + (marks[x.n] ? "ok" : "no"), text: "내 답: " + mcText(x.item, fin[x.n]) + (marks[x.n] ? " ✓" : " ✗") }));
+          }
+        } else if (x.kind === "ox"){
           if (canEdit){
             var lockX = stage === 1 && w === "fix";      // X는 맞았으니 고쳐 쓴 부분만 다시
             var row = el("div", { class: "oxrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
@@ -775,7 +808,9 @@ function runStudent(){
         if (stage === 2 && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
         if (stage === 2 && ST.keys){
           var k = ST.keys[x.n] || {};
-          box.appendChild(x.kind === "ox"
+          box.appendChild(x.kind === "mc"
+            ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답 " + mcText(x.item, k.a) }), textBlock(k.exp || "") ])
+            : x.kind === "ox"
             ? el("div", { class: "explain" }, [ el("span", { class: "lab", text: "정답 " + (k.a || "") }), textBlock(k.exp || ""), k.fix ? el("div", { class: "kwline", text: "바르게 고친 예: " + k.fix }) : null ])
             : el("div", { class: "explain" }, [ el("span", { class: "lab", text: "풀이" }), textBlock(k.model || ""), k.point ? el("div", { class: "kwline", text: "핵심: " + k.point }) : null ]));
         }
@@ -828,7 +863,7 @@ function runStudent(){
 
 /* ================= 교사 ================= */
 function runTeacher(){
-  pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold"><a href="./" style="color:inherit;text-decoration:none">← 청연국어</a> · 교사용</div><h1>청연 되새김</h1><p class="sub">O·X · 현대어 풀이</p></div><div class="row" id="whoami"></div></div>';
+  pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold"><a href="./" style="color:inherit;text-decoration:none">← 청연국어</a> · 교사용</div><h1>청연 되새김</h1><p class="sub">현대어 풀이 · O·X · 객관식</p></div><div class="row" id="whoami"></div></div>';
   pageFoot.innerHTML = "학생에게는 <b>학생 입구 주소</b> 하나와 각자의 <b>입장 코드</b>만 알려 주세요. 작품은 ‘문제 편집’에서 반을 고르면 그 반 학생의 ‘내 숙제’에 나타나요. 정답과 해설은 학생이 다 풀 때까지 보이지 않아요.";
   var whoami = document.getElementById("whoami");
   var USER = null, unsub = null;
@@ -1020,8 +1055,16 @@ function runTeacher(){
         var card = el("div", { class: "card" }, [ el("div", { class: "box-h", text: p.title || partLabel(p.type) }) ]);
         p.items.forEach(function(it, i){
           var box = el("div", { class: "item" }, [ el("div", { class: "spread" }, [ el("strong", { text: (i + 1) + "번" }), el("button", { class: "chip", text: "삭제", onclick: async function(){ if (await askBox((i + 1) + "번을 지울까요?", "지우기")){ p.items.splice(i, 1); draw(); } } }) ]) ]);
-          box.appendChild(bind(el("textarea", { placeholder: p.type === "ox" ? "문제" : "구절" }), it, "q"));
-          if (p.type === "ox"){
+          box.appendChild(bind(el("textarea", { placeholder: p.type === "ox" || p.type === "mc" ? "문제" : "구절" }), it, "q"));
+          if (p.type === "mc"){
+            var cs = el("textarea", { placeholder: "보기 (한 줄에 하나, 번호 ①②는 쓰지 않기)", style: "margin-top:.4rem" });
+            cs.value = (it.c || []).join("\n"); cs.addEventListener("input", function(){ it.c = cs.value.split("\n").map(trimStr).filter(Boolean); });
+            box.appendChild(cs);
+            var ms = el("select", { style: "width:auto;margin-top:.4rem" }, [1, 2, 3, 4, 5].map(function(k){ return el("option", { value: String(k), text: "정답 " + CIRCLED[k - 1] }); }));
+            ms.value = it.a || "1"; ms.addEventListener("change", function(){ it.a = ms.value; });
+            box.appendChild(ms);
+            box.appendChild(bind(el("textarea", { placeholder: "해설", style: "margin-top:.4rem" }), it, "exp"));
+          } else if (p.type === "ox"){
             var s = el("select", { style: "width:auto;margin-top:.4rem" }, [ el("option", { value: "O", text: "정답 O" }), el("option", { value: "X", text: "정답 X" }) ]);
             s.value = it.a || "O"; s.addEventListener("change", function(){ it.a = s.value; });
             box.appendChild(s);
@@ -1035,7 +1078,7 @@ function runTeacher(){
           }
           card.appendChild(box);
         });
-        card.appendChild(el("button", { class: "chip", text: "+ 문제 추가", onclick: function(){ p.items.push(p.type === "ox" ? { q: "", a: "O", exp: "" } : { q: "", model: "", point: "", kw: "" }); draw(); } }));
+        card.appendChild(el("button", { class: "chip", text: "+ 문제 추가", onclick: function(){ p.items.push(p.type === "mc" ? { q: "", c: [], a: "1", exp: "" } : p.type === "ox" ? { q: "", a: "O", exp: "" } : { q: "", model: "", point: "", kw: "" }); draw(); } }));
         list.appendChild(card);
       });
     }
@@ -1135,12 +1178,16 @@ function runTeacher(){
         var okN = E.filter(function(e){ return ok(e, x, "first"); }).length;
         var rate = E.length ? Math.round(okN / E.length * 100) : null;
         var box = el("div", { class: "item" }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
-        box.appendChild(el("div", { class: "kwline", text: kind === "ox" ? "정답 " + x.item.a + (x.item.fix ? "  ·  고친 예: " + x.item.fix + "  ·  핵심어: " + (x.item.fkw || "") : "") : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
+        if (kind === "mc") box.appendChild(el("div", { class: "kwline", text: (x.item.c || []).map(function(c, ci){ return CIRCLED[ci] + " " + c; }).join("   ") }));
+        box.appendChild(el("div", { class: "kwline", text: kind === "mc" ? "정답 " + mcText(x.item, x.item.a) : kind === "ox" ? "정답 " + x.item.a + (x.item.fix ? "  ·  고친 예: " + x.item.fix + "  ·  핵심어: " + (x.item.fkw || "") : "") : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
         if (rate != null){
           box.appendChild(el("div", { class: "bar" + (rate < 60 ? " low" : "") }, [ el("span", { style: "width:" + rate + "%" }) ]));
           box.appendChild(el("div", { class: "kwline", text: "처음 " + okN + " / " + E.length + " 맞음" }));
         }
-        if (kind === "ox"){
+        if (kind === "mc"){
+          var wrongM = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + mcText(x.item, ans(e, "first")[x.n]).split(" ")[0] + ")"; });
+          if (wrongM.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrongM.join(", ") }));
+        } else if (kind === "ox"){
           var wrong = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + oxText(ans(e, "first")[x.n]).split(" — ")[0] + ")"; });
           if (wrong.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrong.join(", ") }));
           if (trimStr(x.item.a).toUpperCase() === "X" && trimStr(x.item.fkw)){

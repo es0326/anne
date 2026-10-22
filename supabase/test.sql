@@ -24,7 +24,8 @@ create table if not exists public.tests (
 );
 
 -- 학생 응시 기록. data: { first: [...], second: [...], accept: { "번호": "정규화한 답" } }
---   답 배열은 모든 part 의 문항을 순서대로 이어 붙인 것 (O·X 는 "O"/"X", 풀이는 글)
+--   답 배열은 모든 part 의 문항을 순서대로 이어 붙인 것 (O·X 는 "O"/"X", 풀이는 글, 객관식은 "1"~"5")
+--   객관식 part: { "type": "mc", "items": [{ "q": "문제", "c": ["보기1", …], "a": "3", "exp": "해설" }] }
 create table if not exists public.test_entries (
   id           uuid primary key default gen_random_uuid(),
   test_id      uuid not null references public.tests (id) on delete cascade,
@@ -67,6 +68,9 @@ create or replace function public.test_item_ok(p_kind text, p_item jsonb, p_answ
 returns boolean
 language sql immutable as $$
   select case
+    -- 객관식 (2026-10-22): 답은 고른 보기 번호("1"~"5"), 정답 item->>'a' 와 같아야 맞음
+    when p_kind = 'mc' then
+      trim(coalesce(p_answer, '')) <> '' and trim(p_answer) = trim(coalesce(p_item->>'a', ''))
     -- O·X 답은 'O' 또는 'X||고친 문장'. X 문항은 고친 문장의 핵심어(fkw)까지 맞아야 맞음
     when p_kind = 'ox' then
       upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) <> ''
@@ -88,6 +92,8 @@ returns text
 language sql immutable as $$
   select case
     when test_item_ok(p_kind, p_item, p_answer, p_accept, p_n) then null
+    when p_kind = 'mc' and trim(coalesce(p_answer, '')) = '' then 'none'
+    when p_kind = 'mc' then 'mc'
     when p_kind = 'ox' and trim(split_part(coalesce(p_answer, ''), '||', 1)) = '' then 'none'
     when p_kind = 'ox' and upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) <> upper(trim(coalesce(p_item->>'a', ''))) then 'ox'
     when p_kind = 'ox' then 'fix'
@@ -113,7 +119,8 @@ begin
   if not t.is_open then raise exception '선생님이 아직 열지 않은 문제입니다.'; end if;
   select coalesce(jsonb_agg(jsonb_build_object(
            'type', p->>'type', 'title', coalesce(p->>'title', ''), 'guide', coalesce(p->>'guide', ''),
-           'items', (select coalesce(jsonb_agg(jsonb_build_object('q', q->>'q') order by qn), '[]'::jsonb)
+           'items', (select coalesce(jsonb_agg(case when q ? 'c' then jsonb_build_object('q', q->>'q', 'c', q->'c')
+                                                    else jsonb_build_object('q', q->>'q') end order by qn), '[]'::jsonb)
                        from jsonb_array_elements(coalesce(p->'items', '[]'::jsonb)) with ordinality as qq(q, qn))
          ) order by pn), '[]'::jsonb)
     into v_parts
@@ -143,7 +150,9 @@ begin
     v_all := v_all and v_ok;
     v_marks := v_marks || to_jsonb(v_ok);
     v_why := v_why || coalesce(to_jsonb(test_item_why(r.kind, r.item, v_final ->> r.n, v_data->'accept', r.n)), 'null'::jsonb);
-    v_keys := v_keys || case when r.kind = 'ox'
+    v_keys := v_keys || case when r.kind = 'mc'
+                then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''))
+              when r.kind = 'ox'
                 then jsonb_build_object('a', r.item->>'a', 'exp', coalesce(r.item->>'exp', ''), 'fix', coalesce(r.item->>'fix', ''))
                 else jsonb_build_object('model', coalesce(r.item->>'model', ''), 'point', coalesce(r.item->>'point', '')) end;
   end loop;

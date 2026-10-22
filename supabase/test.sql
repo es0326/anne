@@ -176,7 +176,7 @@ begin
     v_wm := v_wm || case when r.kind = 'parse' then jsonb_build_array(test_parse_marks(r.item, v_final ->> r.n)) else '[null]'::jsonb end;
     v_keys := v_keys || case when r.kind = 'parse'
                 then jsonb_build_object('a', (select coalesce(jsonb_agg(split_part(av, '|', 1) order by ord), '[]'::jsonb)
-                                                from jsonb_array_elements_text(r.item->'a') with ordinality as t(av, ord)),
+                                                from jsonb_array_elements_text(r.item->'a') with ordinality as kk(av, ord)),
                                         'exp', coalesce(r.item->>'exp', ''))
               when r.kind = 'tag'
                 then jsonb_build_object('a', split_part(coalesce(r.item->>'a', ''), '|', 1), 'exp', coalesce(r.item->>'exp', ''))

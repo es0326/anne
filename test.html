@@ -198,6 +198,13 @@ tbody tr:last-child td{border-bottom:none}
 .bar span{display:block;height:100%;background:var(--accent)}
 .bar.low span{background:var(--wrong)}
 .kwline{font-size:.8rem;color:var(--muted);margin-top:.2rem}
+/* 학생 명단 · 입장 코드 · 내 숙제 (2026-10-22) */
+.code{font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:.12em;font-size:1.05rem}
+.hw{display:block;width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.hw:hover{border-color:var(--accent,#1F499D)}
+.classpick{display:flex;flex-wrap:wrap;gap:.5rem;margin:.4rem 0}
+.classpick label{display:flex;align-items:center;gap:.35rem;font-weight:600}
+td select{width:auto;padding:.25rem .5rem;font-size:.85rem}
 </style>
 </head>
 <body>
@@ -210,7 +217,8 @@ tbody tr:last-child td{border-bottom:none}
 <div id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="classic-samples.js"></script>
+<!-- 작품 파일은 공개 저장소에 올리지 않음(private/ 는 이 컴퓨터에만). 인터넷 주소에서는 없어서 그냥 넘어감 -->
+<script src="private/classic-samples.js"></script>
 <script>
 /* ===== 설정 ===== */
 var SUPABASE_URL = "https://yqwexzzdamcpqmsqkbcg.supabase.co";
@@ -274,7 +282,42 @@ function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
 function clone(o){ return JSON.parse(JSON.stringify(o)); }
 function trimStr(s){ return String(s == null ? "" : s).trim(); }
 function textBlock(s){ var d = el("div", { style: "white-space:pre-wrap" }); d.textContent = s; return d; }
-function studentLink(id){ return location.href.split(/[?#]/)[0] + "?test=" + id + (DEMO ? "&demo=1" : ""); }
+// 학생 입구: 주소 하나. 학생은 이름 + 입장 코드로 들어와 '내 숙제'에서 작품을 고름
+function studentHome(){ return location.href.split(/[?#]/)[0] + "?s=1" + (DEMO ? "&demo=1" : ""); }
+// 글 한 줄 받는 창 (prompt 대신)
+function promptBox(msg, value, okText){
+  return new Promise(function(resolve){
+    var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+    var inp = el("input", { type: "text", maxlength: "30" }); inp.value = value || "";
+    function done(v){ back.remove(); resolve(v); }
+    var ok = el("button", { class: "btn", text: okText || "확인", onclick: function(){ done(trimStr(inp.value)); } });
+    inp.addEventListener("keydown", function(e){ if (e.key === "Enter") done(trimStr(inp.value)); if (e.key === "Escape") done(null); });
+    back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: msg }), inp,
+      el("div", { class: "row", style: "justify-content:flex-end;margin-top:.8rem" }, [
+        el("button", { class: "btn ghost", text: "취소", onclick: function(){ done(null); } }), ok ]) ]));
+    back.addEventListener("click", function(e){ if (e.target === back) done(null); });
+    document.body.appendChild(back); inp.focus(); inp.select();
+  });
+}
+// 이 컴퓨터의 private/classic-samples.js (인터넷 주소에서는 없음)
+var SAMPLES = window.CLASSIC_SAMPLES || [];
+// 인터넷 주소에서 ?demo=1 로 열 때 쓰는 짧은 체험용 작품
+var DEMO_SAMPLE = { title: "체험용 되새김", work: "강호사시가 (체험용)", author: "맹사성 · 평시조", series: "체험용",
+  parts: [
+    { type: "write", title: "Ⅰ. 현대어 풀이", guide: "다음 구절을 현대어로 풀이하시오.", items: [
+      { q: "강호(江湖)에 봄이 드니 (제1수)", model: "자연에 봄이 찾아오니", point: "강호 = 자연", kw: "자연,봄" },
+      { q: "이 몸이 한가(閑暇)하옴도 (제1수)", model: "이 몸이 한가롭게 지내는 것도", point: "한가하다 = 할 일이 없어 여유롭다", kw: "한가·여유" } ] },
+    { type: "ox", title: "Ⅱ. O·X 문제", guide: "다음 설명이 적절하면 O, 적절하지 않으면 X를 고르시오. X를 골랐다면 틀린 부분을 바르게 고쳐 쓰시오.", items: [
+      { q: "각 수의 끝에 임금의 은혜를 떠올리는 말이 되풀이된다.", a: "O", exp: "‘역군은이샷다’가 되풀이되지? 맞는 말!" },
+      { q: "계절의 흐름이 겨울에서 시작하여 가을로 끝난다.", a: "X", exp: "봄 → 여름 → 가을 → 겨울 순서야.", fix: "계절의 흐름이 봄에서 시작하여 겨울로 끝난다.", fkw: "봄,겨울" } ] } ] };
+function parseWorks(text){
+  // classic-samples.js (var CLASSIC_SAMPLES = [...]) 또는 작품 하나·여러 개의 JSON
+  var s = String(text || ""), at = s.indexOf("CLASSIC_SAMPLES"), v;
+  if (at >= 0){ var from = s.indexOf("[", at), to = s.lastIndexOf("]"); s = from >= 0 && to > from ? s.slice(from, to + 1) : ""; }
+  try { v = JSON.parse(s); } catch(e){ return []; }
+  if (!Array.isArray(v)) v = [v];
+  return v.filter(function(w){ return w && Array.isArray(w.parts); });
+}
 function copyText(text, msg){
   if (navigator.clipboard) navigator.clipboard.writeText(text).then(function(){ toast(msg || "복사했어요"); }, function(){ showCopyBox(text); });
   else showCopyBox(text);
@@ -370,10 +413,28 @@ function supabaseApi(){
     listEntries: async function(id){ return unwrap(await db.from("test_entries").select("*").eq("test_id", id)); },
     deleteEntry: async function(id){ unwrap(await db.from("test_entries").delete().eq("id", id)); },
     setAccept: async function(id, accept){ unwrap(await db.rpc("set_test_accept", { p_entry_id: id, p_accept: accept })); },
-    publicTest: async function(id){ return unwrap(await db.rpc("get_test", { p_test_id: id })); },
-    status: async function(id, name){ return unwrap(await db.rpc("get_test_status", { p_test_id: id, p_name: name })); },
-    submit: async function(id, name, answers){ return unwrap(await db.rpc("submit_test", { p_test_id: id, p_name: name, p_answers: answers })); },
-    startRetry: async function(id, name){ return unwrap(await db.rpc("start_test_retry", { p_test_id: id, p_name: name })); },
+    // 학생 명단 (students.sql). 코드는 서버가 정함
+    listClasses: async function(){ return unwrap(await db.from("classes").select("*").order("created_at")); },
+    addClass: async function(name){ return unwrap(await db.from("classes").insert({ name: name }).select().single()); },
+    renameClass: async function(id, name){ unwrap(await db.from("classes").update({ name: name }).eq("id", id)); },
+    deleteClass: async function(id){ unwrap(await db.from("classes").delete().eq("id", id)); },
+    listStudents: async function(){ return unwrap(await db.from("students").select("*").order("name")); },
+    addStudent: async function(name, classId){
+      var r = await db.from("students").insert({ name: name, class_id: classId || null }).select().single();
+      if (r.error && /duplicate|unique/i.test(r.error.message)) throw new Error("‘" + name + "’ 학생이 이미 있어요. 이름 뒤에 글자를 붙여 구별해 주세요 (예: " + name + "B).");
+      return unwrap(r);
+    },
+    updateStudent: async function(id, patch){ unwrap(await db.from("students").update(patch).eq("id", id)); },
+    deleteStudent: async function(id){ unwrap(await db.from("students").delete().eq("id", id)); },
+    resetCode: async function(id){ return unwrap(await db.rpc("reset_student_code", { p_student_id: id })); },
+    // 학생: 열쇠(token)로만
+    login: async function(name, code){ return unwrap(await db.rpc("student_login", { p_name: name, p_code: code })); },
+    logout: async function(tok){ try { await db.rpc("student_logout", { p_token: tok }); } catch(e){} },
+    myTests: async function(tok){ return unwrap(await db.rpc("st_tests", { p_token: tok })); },
+    publicTest: async function(tok, id){ return unwrap(await db.rpc("st_get_test", { p_token: tok, p_test_id: id })); },
+    status: async function(tok, id){ return unwrap(await db.rpc("st_status", { p_token: tok, p_test_id: id })); },
+    submit: async function(tok, id, answers){ return unwrap(await db.rpc("st_submit", { p_token: tok, p_test_id: id, p_answers: answers })); },
+    startRetry: async function(tok, id){ return unwrap(await db.rpc("st_start_retry", { p_token: tok, p_test_id: id })); },
     subscribe: function(id, cb){
       var ch = db.channel("test-" + id).on("postgres_changes", { event: "*", schema: "public", table: "test_entries", filter: "test_id=eq." + id }, function(){ cb(); }).subscribe();
       return function(){ db.removeChannel(ch); };
@@ -382,29 +443,45 @@ function supabaseApi(){
 }
 
 function demoApi(){
-  var KEY = "test-demo-v3";
+  var KEY = "test-demo-v4";
   var USER = { id: "demo-teacher", email: "체험용 선생님" };
   var S = lsGet(KEY) || seed();
   function save(){ lsSet(KEY, S); }
   function uid(){ return "d" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
   function now(){ return new Date().toISOString(); }
   function seed(){
-    var t = clone(CLASSIC_SAMPLES[0]); t.id = "demo-gangho"; t.owner = USER.id; t.is_open = true; t.created_at = now();
+    var t = clone(SAMPLES[0] || DEMO_SAMPLE); t.id = "demo-gangho"; t.owner = USER.id; t.is_open = true; t.class_ids = ["dc1"]; t.created_at = now();
     var items = flatItems(t.parts);
     function answers(fn){ return items.map(fn); }
     var right = answers(function(x){ return x.kind === "ox" ? (x.item.a === "X" ? "X||" + (x.item.fix || "") : x.item.a) : x.item.model; });
-    var st = { tests: [t], entries: [] };
+    var oxs = items.filter(function(x){ return x.kind === "ox"; }), ws = items.filter(function(x){ return x.kind === "write"; });
+    var st = { tests: [t], entries: [], sessions: {},
+      classes: [ { id: "dc1", name: "목요일반", created_at: now() }, { id: "dc2", name: "토요일반", created_at: now() } ],
+      students: [ { id: "ds1", name: "김하늘", code: "1357", class_id: "dc1" }, { id: "ds2", name: "이준서", code: "2468", class_id: "dc1" },
+                  { id: "ds3", name: "박서연", code: "3579", class_id: "dc1" }, { id: "ds4", name: "최민준", code: "4826", class_id: "dc1" },
+                  { id: "ds5", name: "정유나", code: "5713", class_id: "dc2" } ] };
     st.entries.push({ id: "e0", test_id: t.id, student_name: "김하늘", data: { first: right }, created_at: now(), updated_at: now() });
-    var j1 = right.slice(); j1[1] = j1[1] === "O" ? "X" : "O"; j1[4] = j1[4] === "O" ? "X" : "O"; j1[20 + 7] = "작은 그물을 던지고"; j1[20 + 17] = "소정";
-    var j2 = right.slice(); j2[20 + 7] = "작은 배에 그물을 실어 흘러가게 던져두고"; j2[20 + 17] = "작은 배";
-    st.entries.push({ id: "e1", test_id: t.id, student_name: "이준서", data: { first: j1, second: j2 }, created_at: now(), updated_at: now() });
-    var p1 = right.slice(); p1[14] = "O"; p1[20 + 0] = "자연에 봄이 와서 신이 난다"; p1[20 + 10] = "삿갓을 쓰고 비옷을 입고";
+    var j1 = right.slice(); if (oxs[0]) j1[oxs[0].n] = oxs[0].item.a === "O" ? "X||" : "O"; if (ws[0]) j1[ws[0].n] = "잘 모르겠다";
+    st.entries.push({ id: "e1", test_id: t.id, student_name: "이준서", data: { first: j1 }, created_at: now(), updated_at: now() });
+    var p1 = right.slice(); if (ws[1]) p1[ws[1].n] = "";
     st.entries.push({ id: "e2", test_id: t.id, student_name: "박서연", data: { first: p1 }, created_at: now(), updated_at: now() });
     lsSet(KEY, st);
     return st;
   }
   function test(id){ var t = S.tests.find(function(x){ return x.id === id; }); if (!t) throw new Error("문제를 찾을 수 없습니다."); return t; }
   function entry(id, name){ return S.entries.find(function(e){ return e.test_id === id && e.student_name === name; }); }
+  function who(tok){ var sid = S.sessions[tok], s = S.students.find(function(x){ return x.id === sid; }); if (!s) throw new Error("다시 들어와 주세요."); return s; }
+  function openFor(t, s){ return t.is_open && !!s.class_id && (t.class_ids || []).indexOf(s.class_id) !== -1; }
+  function nameFor(tok, id){ var s = who(tok), t = test(id); if (!openFor(t, s)) throw new Error("선생님이 아직 열지 않은 문제입니다."); return s.name; }
+  function className(id){ var c = S.classes.find(function(x){ return x.id === id; }); return c ? c.name : ""; }
+  function newCode(){
+    for (var i = 0; i < 500; i++){
+      var c = String(1000 + Math.floor(Math.random() * 9000));
+      if (/^(.)\1{3}$/.test(c) || "0123456789".indexOf(c) !== -1 || "9876543210".indexOf(c) !== -1) continue;
+      if (!S.students.some(function(s){ return s.code === c; })) return c;
+    }
+    throw new Error("입장 코드를 더 만들 수 없어요.");
+  }
   function status(id, name){
     var e = entry(id, name); if (!e) return { stage: 0 };
     var items = flatItems(test(id).parts), fin = e.data.third || e.data.second || e.data.first || [];
@@ -422,24 +499,53 @@ function demoApi(){
   window.addEventListener("storage", function(ev){ if (ev.key === KEY){ S = lsGet(KEY) || S; notify(); } });
   return {
     getUser: async function(){ return USER; }, onAuth: function(){}, signIn: async function(){},
-    signOut: async function(){ if (await askBox("체험 데이터를 처음 상태로 되돌릴까요?", "되돌리기")){ lsDel(KEY); location.reload(); } },
+    signOut: async function(){ if (await askBox("체험 데이터를 처음 상태로 되돌릴까요?", "되돌리기")){ lsDel(KEY); lsDel("cy-student-demo"); location.reload(); } },
     listTests: async function(){ return clone(S.tests).sort(function(a, b){ return a.created_at < b.created_at ? 1 : -1; }); },
-    createTest: async function(_u, t){ var n = Object.assign(clone(t), { id: uid(), owner: USER.id, is_open: true, created_at: now() }); S.tests.push(n); save(); return clone(n); },
+    createTest: async function(_u, t){ var n = Object.assign(clone(t), { id: uid(), owner: USER.id, is_open: true, class_ids: [], created_at: now() }); S.tests.push(n); save(); return clone(n); },
     getTest: async function(id){ return clone(test(id)); },
     updateTest: async function(id, patch){ Object.assign(test(id), clone(patch)); save(); },
     deleteTest: async function(id){ S.tests = S.tests.filter(function(t){ return t.id !== id; }); S.entries = S.entries.filter(function(e){ return e.test_id !== id; }); save(); },
     listEntries: async function(id){ return clone(S.entries.filter(function(e){ return e.test_id === id; })); },
     deleteEntry: async function(id){ S.entries = S.entries.filter(function(e){ return e.id !== id; }); save(); },
     setAccept: async function(id, accept){ var e = S.entries.find(function(x){ return x.id === id; }); if (e){ e.data.accept = clone(accept); save(); } },
-    publicTest: async function(id){
-      var t = test(id); if (!t.is_open) throw new Error("선생님이 아직 열지 않은 문제입니다.");
+    // 학생 명단
+    listClasses: async function(){ return clone(S.classes); },
+    addClass: async function(name){ var c = { id: uid(), name: name, created_at: now() }; S.classes.push(c); save(); return clone(c); },
+    renameClass: async function(id, name){ S.classes.forEach(function(c){ if (c.id === id) c.name = name; }); save(); },
+    deleteClass: async function(id){ S.classes = S.classes.filter(function(c){ return c.id !== id; }); S.students.forEach(function(s){ if (s.class_id === id) s.class_id = null; }); save(); },
+    listStudents: async function(){ return clone(S.students).sort(function(a, b){ return a.name.localeCompare(b.name, "ko"); }); },
+    addStudent: async function(name, classId){
+      name = trimStr(name).replace(/\s+/g, " ");
+      if (S.students.some(function(s){ return s.name === name; })) throw new Error("‘" + name + "’ 학생이 이미 있어요. 이름 뒤에 글자를 붙여 구별해 주세요 (예: " + name + "B).");
+      var s = { id: uid(), name: name, code: newCode(), class_id: classId || null }; S.students.push(s); save(); return clone(s);
+    },
+    updateStudent: async function(id, patch){ S.students.forEach(function(s){ if (s.id === id){ if ("class_id" in patch) s.class_id = patch.class_id; if (patch.name) s.name = patch.name; } }); save(); },
+    deleteStudent: async function(id){ S.students = S.students.filter(function(s){ return s.id !== id; }); Object.keys(S.sessions).forEach(function(k){ if (S.sessions[k] === id) delete S.sessions[k]; }); save(); },
+    resetCode: async function(id){ var c = newCode(); S.students.forEach(function(s){ if (s.id === id) s.code = c; }); Object.keys(S.sessions).forEach(function(k){ if (S.sessions[k] === id) delete S.sessions[k]; }); save(); return c; },
+    // 학생
+    login: async function(name, code){
+      var key = String(name || "").replace(/\s/g, "");
+      if (!key) throw new Error("이름을 입력하세요.");
+      var s = S.students.find(function(x){ return x.name.replace(/\s/g, "") === key && x.code === trimStr(code); });
+      if (!s) throw new Error("이름이나 입장 코드가 맞지 않아요.");
+      var tok = uid(); S.sessions[tok] = s.id; save();
+      return { token: tok, name: s.name, class_name: className(s.class_id) };
+    },
+    logout: async function(tok){ delete S.sessions[tok]; save(); },
+    myTests: async function(tok){
+      var s = who(tok);
+      return { name: s.name, class_name: className(s.class_id),
+        tests: S.tests.filter(function(t){ return openFor(t, s); }).sort(function(a, b){ return a.created_at < b.created_at ? 1 : -1; })
+          .map(function(t){ return { id: t.id, title: t.title, work: t.work, author: t.author, series: t.series, stage: status(t.id, s.name).stage }; }) };
+    },
+    publicTest: async function(tok, id){
+      nameFor(tok, id); var t = test(id);
       return { title: t.title, work: t.work, author: t.author, series: t.series,
         parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ return { q: it.q }; }) }; }) };
     },
-    status: async function(id, name){ return status(id, trimStr(name)); },
-    submit: async function(id, name, answers){
-      var t = test(id); if (!t.is_open) throw new Error("선생님이 닫은 문제입니다.");
-      name = trimStr(name); if (!name) throw new Error("이름을 입력하세요.");
+    status: async function(tok, id){ return status(id, nameFor(tok, id)); },
+    submit: async function(tok, id, answers){
+      var name = nameFor(tok, id), t = test(id);
       var e = entry(id, name), items = flatItems(t.parts);
       if (!e) S.entries.push({ id: uid(), test_id: id, student_name: name, data: { first: answers.slice() }, created_at: now(), updated_at: now() });
       else {
@@ -452,10 +558,10 @@ function demoApi(){
       }
       save(); notify(); return status(id, name);
     },
-    startRetry: async function(id, name){
-      var e = entry(id, trimStr(name));
+    startRetry: async function(tok, id){
+      var name = nameFor(tok, id), e = entry(id, name);
       if (e && !e.data.third){ var r = e.data.second ? 2 : 1; e.data.start = e.data.start || {}; if (!e.data.start[r]){ e.data.start[r] = now(); save(); } }
-      return status(id, trimStr(name));
+      return status(id, name);
     },
     subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; }
   };
@@ -467,44 +573,106 @@ if (DEMO){
     "기록은 이 기기의 브라우저에만 저장돼요. 실제 수업은 인터넷 주소에서 ‘?demo=1’ 없이 쓰세요." ]));
 }
 
-var testParam = PARAMS.get("test");
-if (testParam) runStudent(testParam); else runTeacher();
+// 학생: ?s=1 (학생 입구) · 예전 학생 링크 ?test=ID 도 학생 입구로 와서, 들어온 뒤 그 작품을 엶
+if (PARAMS.has("s") || PARAMS.get("test")) runStudent(); else runTeacher();
 
 /* ================= 학생 ================= */
-function runStudent(testId){
+function runStudent(){
   document.getElementById("wrap").classList.add("narrow");
   pageFoot.textContent = "내가 쓴 답은 선생님만 볼 수 있어요.";
-  if (DEMO) document.getElementById("demoBar").appendChild(el("a", { class: "btn ghost small", href: location.href.split(/[?#]/)[0] + "?demo=1#test=" + testId, text: "← 선생님 화면으로", style: "text-decoration:none;margin-bottom:1rem" }));
-  var T = null, NAME = lsGet("reading-name") || "";
-  init();
+  if (DEMO) document.getElementById("demoBar").appendChild(el("a", { class: "btn ghost small", href: location.href.split(/[?#]/)[0] + "?demo=1", text: "← 선생님 화면으로", style: "text-decoration:none;margin-bottom:1rem" }));
+  var SKEY = DEMO ? "cy-student-demo" : "cy-student";      // { token, name, class_name } — 이 기기에 남는 열쇠
+  var SES = lsGet(SKEY), T = null, NAME = "", testId = null;
+  if (PARAMS.get("test") && !location.hash) history.replaceState(null, "", "#t=" + PARAMS.get("test"));
+  window.addEventListener("hashchange", route);
+  route();
 
-  async function init(){
-    try { T = await api.publicTest(testId); }
-    catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "empty", text: e.message })); return; }
+  // 열쇠가 지워졌으면(선생님이 새 코드를 줌 등) 다시 들어오게
+  function lost(e){
+    if (!e || !/다시 들어와/.test(e.message)) return false;
+    lsDel(SKEY); SES = null; route(); return true;
+  }
+  function setHeader(eyebrow, title, sub){
     pageHeader.innerHTML = "";
-    pageHeader.appendChild(el("div", { class: "eyebrow", text: (T.series ? T.series + " · " : "") + "청연 되새김" }));
-    pageHeader.appendChild(el("h1", { text: T.work || T.title }));
-    if (T.author) pageHeader.appendChild(el("p", { class: "sub", text: T.author }));
+    pageHeader.appendChild(el("div", { class: "eyebrow", text: eyebrow }));
+    pageHeader.appendChild(el("h1", { text: title }));
+    if (sub) pageHeader.appendChild(el("p", { class: "sub", text: sub }));
+  }
+  function route(){
+    if (TIMER){ clearInterval(TIMER); TIMER = null; }
+    if (!SES) return renderLogin();
+    NAME = SES.name;
+    var id = new URLSearchParams(location.hash.slice(1)).get("t");
+    if (id) openTest(id); else renderHome();
+  }
+
+  function renderLogin(){
+    setHeader("청연국어", "청연 되새김", "선생님께 받은 입장 코드로 들어와요.");
+    app.innerHTML = "";
+    var card = el("div", { class: "card" }, [ el("h2", { text: "들어오기" }) ]);
+    var nm = el("input", { type: "text", placeholder: "이름 (예: 김하늘)", autocomplete: "off", maxlength: "30", "aria-label": "이름" });
+    var cd = el("input", { type: "text", inputmode: "numeric", pattern: "[0-9]*", placeholder: "입장 코드 4자리", autocomplete: "off", maxlength: "4", "aria-label": "입장 코드", class: "code" });
+    var errb = el("div", { class: "err" }), btn = el("button", { class: "btn", text: "들어가기" });
+    async function go(){
+      errb.textContent = "";
+      var n = trimStr(nm.value), c = trimStr(cd.value).replace(/\D/g, "");
+      if (!n){ errb.textContent = "이름을 입력하세요."; nm.focus(); return; }
+      if (c.length !== 4){ errb.textContent = "입장 코드 4자리를 입력하세요."; cd.focus(); return; }
+      btn.disabled = true;
+      try { SES = await api.login(n, c); lsSet(SKEY, SES); route(); }
+      catch(e){ errb.textContent = e.message; btn.disabled = false; }
+    }
+    btn.addEventListener("click", go);
+    nm.addEventListener("keydown", function(e){ if (e.key === "Enter") cd.focus(); });
+    cd.addEventListener("keydown", function(e){ if (e.key === "Enter") go(); });
+    card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ nm ]));
+    card.appendChild(el("div", { class: "field" }, [ cd ]));
+    card.appendChild(btn); card.appendChild(errb);
+    card.appendChild(el("p", { class: "sub small", style: "margin-top:.8rem", text: "한 번 들어오면 이 휴대폰이 기억해요. 코드를 잊어버리면 선생님께 물어보세요." }));
+    app.appendChild(card); nm.focus();
+  }
+
+  async function renderHome(){
+    setHeader("청연국어", "청연 되새김", "내 숙제");
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var R; try { R = await api.myTests(SES.token); } catch(e){ if (lost(e)) return; app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    app.innerHTML = "";
+    app.appendChild(el("div", { class: "card spread" }, [
+      el("div", {}, [ el("h2", { text: R.name + " 학생" }), R.class_name ? el("div", { class: "sub small", text: R.class_name }) : null ]),
+      el("button", { class: "btn ghost small", text: "나가기", onclick: async function(){
+        if (!(await askBox("나갈까요? 다음에 들어올 때 입장 코드를 다시 넣어야 해요.", "나가기"))) return;
+        await api.logout(SES.token); lsDel(SKEY); SES = null; route();
+      } }) ]));
+    if (!R.tests.length){ app.appendChild(el("div", { class: "empty", text: "지금 열린 숙제가 없어요." })); return; }
+    var LAB = [ ["no", "아직 안 풂", "풀기"], ["", "틀린 문제 다시 풀기", "이어서 풀기"], ["ok", "끝", "정답·해설 보기"] ];
+    R.tests.forEach(function(t){
+      var L = LAB[t.stage] || LAB[0];
+      app.appendChild(el("button", { class: "card hw", onclick: function(){ location.hash = "t=" + t.id; } }, [
+        el("div", { class: "spread" }, [ el("h3", { text: t.work || t.title }), el("span", { class: "pill " + L[0], text: L[1] }) ]),
+        el("div", { class: "sub small", text: [t.series, t.author].filter(Boolean).join(" · ") }),
+        el("div", { class: "sub small", style: "margin-top:.4rem;font-weight:700", text: L[2] + " →" }) ]));
+    });
+  }
+
+  async function openTest(id){
+    testId = id;
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    try { T = await api.publicTest(SES.token, id); }
+    catch(e){
+      if (lost(e)) return;
+      app.innerHTML = ""; app.appendChild(el("div", { class: "empty", text: e.message }));
+      app.appendChild(el("button", { class: "btn ghost small", text: "← 내 숙제", onclick: function(){ location.hash = ""; } }));
+      return;
+    }
+    setHeader((T.series ? T.series + " · " : "") + "청연 되새김", T.work || T.title, T.author);
     render();
   }
 
   function render(){
     app.innerHTML = "";
-    if (!NAME) return renderName();
     app.appendChild(el("div", { class: "card spread" }, [ el("h2", { text: NAME + " 학생" }),
-      el("button", { class: "btn ghost small", text: "이름 바꾸기", onclick: function(){ NAME = ""; lsDel("reading-name"); render(); } }) ]));
+      el("button", { class: "btn ghost small", text: "← 내 숙제", onclick: function(){ location.hash = ""; } }) ]));
     renderTest();
-  }
-
-  function renderName(){
-    var card = el("div", { class: "card" }, [ el("h2", { text: "이름을 적어 주세요" }), el("p", { class: "sub", text: "다음에도 똑같은 이름으로 들어와야 내 기록을 다시 볼 수 있어요." }) ]);
-    var inp = el("input", { type: "text", placeholder: "예) 김하늘", autocomplete: "off", maxlength: "40" });
-    var errb = el("div", { class: "err" });
-    function go(){ var v = trimStr(inp.value); if (!v){ errb.textContent = "이름을 입력하세요."; return; } NAME = v; lsSet("reading-name", v); render(); }
-    inp.addEventListener("keydown", function(e){ if (e.key === "Enter") go(); });
-    card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ inp ]));
-    card.appendChild(el("button", { class: "btn", text: "시작하기", onclick: go })); card.appendChild(errb);
-    app.appendChild(card); inp.focus();
   }
 
   // 처음 풀기 → 맞고 틀림 + 틀린 까닭 → 틀린 문제만 다시 풀기(두 번까지, 한 번에 RETRY_MIN분, 시간이 끝나면 쓴 데까지 자동 제출) → 정답·해설
@@ -514,7 +682,7 @@ function runStudent(testId){
     var holder = el("div", {}, [ el("div", { class: "empty", text: "불러오는 중…" }) ]);
     app.appendChild(holder);
     var ST;
-    try { ST = await api.status(testId, NAME); } catch(e){ holder.innerHTML = ""; holder.appendChild(el("div", { class: "err", text: e.message })); return; }
+    try { ST = await api.status(SES.token, testId); } catch(e){ if (lost(e)) return; holder.innerHTML = ""; holder.appendChild(el("div", { class: "err", text: e.message })); return; }
     holder.innerHTML = "";
     var items = flatItems(T.parts), N = items.length;
     var stage = ST.stage || 0, first = ST.first || [], fin = ST.third || ST.second || first, marks = ST.marks || [], why = ST.why || [];
@@ -543,7 +711,7 @@ function runStudent(testId){
         var sbtn = el("button", { class: "btn", text: retry + "번째 다시 풀기 시작 (" + limit + "분)" });
         sbtn.addEventListener("click", async function(){
           sbtn.disabled = true;
-          try { await api.startRetry(testId, NAME); render(); window.scrollTo(0, 0); }
+          try { await api.startRetry(SES.token, testId); render(); window.scrollTo(0, 0); }
           catch(e){ sbtn.disabled = false; toast(e.message, true); }
         });
         head.appendChild(sbtn);
@@ -637,7 +805,7 @@ function runStudent(testId){
       }
       sending = true; btn.disabled = true;
       if (TIMER){ clearInterval(TIMER); TIMER = null; }
-      try { await api.submit(testId, NAME, answers); lsDel(dkey); toast(auto ? "시간이 다 되어 쓴 데까지 제출했어요" : stage === 0 ? "제출했어요" : "다시 냈어요"); render(); window.scrollTo(0, 0); }
+      try { await api.submit(SES.token, testId, answers); lsDel(dkey); toast(auto ? "시간이 다 되어 쓴 데까지 제출했어요" : stage === 0 ? "제출했어요" : "다시 냈어요"); render(); window.scrollTo(0, 0); }
       catch(e){ sending = false; btn.disabled = false; msg.textContent = e.message; }
     }
     btn.addEventListener("click", function(){ send(false); });
@@ -661,7 +829,7 @@ function runStudent(testId){
 /* ================= 교사 ================= */
 function runTeacher(){
   pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold"><a href="./" style="color:inherit;text-decoration:none">← 청연국어</a> · 교사용</div><h1>청연 되새김</h1><p class="sub">O·X · 현대어 풀이</p></div><div class="row" id="whoami"></div></div>';
-  pageFoot.innerHTML = "학생에게는 작품마다 <b>학생 링크</b>만 보내 주세요. 정답과 해설은 학생이 다 풀 때까지 보이지 않아요.";
+  pageFoot.innerHTML = "학생에게는 <b>학생 입구 주소</b> 하나와 각자의 <b>입장 코드</b>만 알려 주세요. 작품은 ‘문제 편집’에서 반을 고르면 그 반 학생의 ‘내 숙제’에 나타나요. 정답과 해설은 학생이 다 풀 때까지 보이지 않아요.";
   var whoami = document.getElementById("whoami");
   var USER = null, unsub = null;
   api.getUser().then(function(u){ USER = u; route(); });
@@ -676,7 +844,7 @@ function runTeacher(){
     whoami.appendChild(el("span", { class: "pill", text: USER.email }));
     whoami.appendChild(el("button", { class: "btn ghost small", text: DEMO ? "체험 초기화" : "로그아웃", onclick: function(){ api.signOut(); } }));
     var p = new URLSearchParams(location.hash.slice(1));
-    if (p.get("edit")) renderEditor(p.get("edit")); else if (p.get("test")) renderDashboard(p.get("test")); else renderList();
+    if (p.has("roster")) renderRoster(); else if (p.get("edit")) renderEditor(p.get("edit")); else if (p.get("test")) renderDashboard(p.get("test")); else renderList();
   }
 
   function renderLogin(){
@@ -693,32 +861,137 @@ function runTeacher(){
 
   async function renderList(){
     app.innerHTML = '<div class="empty">불러오는 중…</div>';
-    var tests; try { tests = await api.listTests(); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    var tests, classes; try { tests = await api.listTests(); classes = await api.listClasses(); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
     app.innerHTML = "";
-    var sel = el("select", { "aria-label": "샘플 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" },
-      [ el("option", { value: "", text: "고전문학 샘플 넣기 ▾" }) ].concat(CLASSIC_SAMPLES.map(function(s, i){ return el("option", { value: String(i), text: s.work }); })));
-    sel.addEventListener("change", function(){ if (sel.value !== "") create(clone(CLASSIC_SAMPLES[+sel.value])); });
-    app.appendChild(el("div", { class: "spread" }, [ el("h2", { text: "내 되새김" }), sel ]));
-    if (!tests.length){ app.appendChild(el("div", { class: "empty", text: "아직 만든 문제가 없어요. ‘고전문학 샘플 넣기’에서 작품을 골라 보세요." })); return; }
+    var cname = {}; classes.forEach(function(c){ cname[c.id] = c.name; });
+    // 학생 입구
+    app.appendChild(el("div", { class: "card" }, [
+      el("div", { class: "spread" }, [ el("h3", { text: "학생 입구" }),
+        el("div", { class: "row" }, [
+          el("button", { class: "btn small", text: "학생 명단 · 입장 코드", onclick: function(){ go("roster"); } }),
+          el("button", { class: "btn ghost small", text: "학생 입구 주소 복사", onclick: function(){ copyText(studentHome(), "학생 입구 주소를 복사했어요"); } }),
+          DEMO ? el("a", { class: "btn ghost small", href: studentHome(), text: "학생 화면 보기 →", style: "text-decoration:none" }) : null ]) ]),
+      el("p", { class: "sub small", style: "margin-top:.4rem", text: classes.length
+        ? "학생에게는 이 주소를 처음에 한 번만 보내 주세요. 학생은 이름과 입장 코드로 들어와 자기 반에 열린 작품을 ‘내 숙제’에서 골라요."
+        : "먼저 ‘학생 명단’에서 반과 학생을 넣어 주세요. 입장 코드는 저절로 정해져요." }) ]));
+    // 작품 넣기: 이 컴퓨터의 작품 목록(private) 또는 작품 파일
+    var tools = el("div", { class: "row" }, []);
+    if (SAMPLES.length){
+      var sel = el("select", { "aria-label": "작품 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" },
+        [ el("option", { value: "", text: "작품 넣기 ▾" }) ].concat(SAMPLES.map(function(s, i){ return el("option", { value: String(i), text: s.work }); })));
+      sel.addEventListener("change", function(){ if (sel.value !== "") create(clone(SAMPLES[+sel.value])); });
+      tools.appendChild(sel);
+    }
+    var file = el("input", { type: "file", accept: ".js,.json", hidden: "hidden" });
+    file.addEventListener("change", function(){
+      var f = file.files[0]; if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function(){ var ws = parseWorks(rd.result); file.value = ""; if (!ws.length) toast("작품을 찾지 못했어요. 되새김 작품 파일이 맞는지 봐 주세요.", true); else pickWork(ws); };
+      rd.readAsText(f, "utf-8");
+    });
+    tools.appendChild(file);
+    tools.appendChild(el("button", { class: "btn ghost small", text: "작품 파일 불러오기", onclick: function(){ file.click(); } }));
+    app.appendChild(el("div", { class: "spread" }, [ el("h2", { text: "내 되새김" }), tools ]));
+    if (!tests.length){ app.appendChild(el("div", { class: "empty", text: "아직 만든 문제가 없어요. ‘작품 파일 불러오기’로 작품을 넣어 보세요." })); return; }
     tests.forEach(function(t){
       var n = flatItems(t.parts).length;
+      var open = (t.class_ids || []).map(function(id){ return cname[id]; }).filter(Boolean);
       app.appendChild(el("div", { class: "card" }, [
         el("div", { class: "spread" }, [ el("div", {}, [ el("h3", { text: t.work || t.title }), el("div", { class: "sub small", text: [t.series, t.author].filter(Boolean).join(" · ") }) ]),
-          el("span", { class: "pill " + (t.is_open ? "ok" : "no"), text: t.is_open ? "학생에게 열림" : "닫힘" }) ]),
+          el("span", { class: "pill " + (open.length ? "ok" : "no"), text: open.length ? open.join(" · ") + "에 열림" : "닫힘" }) ]),
         el("div", { class: "sub small", style: "margin-top:.3rem", text: (t.parts || []).map(function(p){ return partLabel(p.type) + " " + (p.items || []).length; }).join(" · ") + " · 모두 " + n + "문제" }),
         el("div", { class: "row", style: "margin-top:.8rem" }, [
           el("button", { class: "btn small", text: "결과 보기", onclick: function(){ go("test=" + t.id); } }),
-          el("button", { class: "btn ghost small", text: "문제 편집", onclick: function(){ go("edit=" + t.id); } }),
-          el("button", { class: "btn ghost small", text: "학생 링크 복사", onclick: function(){ copyText(studentLink(t.id), "학생 링크를 복사했어요"); } }) ])
+          el("button", { class: "btn ghost small", text: open.length ? "문제 편집 · 반 고르기" : "반 골라 열기", onclick: function(){ go("edit=" + t.id); } }) ])
       ]));
     });
   }
-  async function create(t){ try { var n = await api.createTest(USER, t); go("test=" + n.id); toast((t.work || "되새김") + " 문제를 만들었어요"); } catch(e){ toast(e.message, true); } }
+  async function create(t){ try { var n = await api.createTest(USER, t); go("edit=" + n.id); toast((t.work || "되새김") + " 문제를 만들었어요. 열어 줄 반을 골라 주세요."); } catch(e){ toast(e.message, true); } }
+  // 작품 파일 안의 작품 고르기
+  function pickWork(ws){
+    if (ws.length === 1) return create(clone(ws[0]));
+    var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+    var list = el("div", { class: "row" }, ws.map(function(w){
+      return el("button", { class: "btn ghost small", text: w.work || w.title, onclick: function(){ back.remove(); create(clone(w)); } });
+    }));
+    back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: "어느 작품을 넣을까요?" }), list,
+      el("div", { class: "row", style: "justify-content:flex-end;margin-top:.8rem" }, [ el("button", { class: "btn ghost", text: "닫기", onclick: function(){ back.remove(); } }) ]) ]));
+    back.addEventListener("click", function(e){ if (e.target === back) back.remove(); });
+    document.body.appendChild(back);
+  }
+
+  /* ----- 학생 명단 · 입장 코드 ----- */
+  async function renderRoster(){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var classes, students;
+    try { classes = await api.listClasses(); students = await api.listStudents(); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    app.innerHTML = "";
+    app.appendChild(el("div", { class: "row", style: "margin-bottom:1rem" }, [ el("button", { class: "btn ghost small", text: "← 목록", onclick: function(){ go(""); } }),
+      el("button", { class: "btn ghost small", text: "학생 입구 주소 복사", onclick: function(){ copyText(studentHome(), "학생 입구 주소를 복사했어요"); } }) ]));
+    app.appendChild(el("div", { class: "card" }, [ el("h2", { text: "학생 명단 · 입장 코드" }),
+      el("p", { class: "sub", text: "학생은 이름과 입장 코드(4자리)로 들어와요. 코드는 저절로 정해지고 0으로 시작하지 않아요. 코드가 다른 사람에게 알려진 것 같으면 ‘새 코드’를 누르세요. 그 학생은 새 코드로 다시 들어와야 해요." }) ]));
+    // 반 추가
+    var cin = el("input", { type: "text", placeholder: "새 반 이름 (예: 목요일반)", maxlength: "30", style: "flex:1;min-width:10rem" });
+    async function addClass(){ var v = trimStr(cin.value); if (!v) return; try { await api.addClass(v); renderRoster(); } catch(e){ toast(e.message, true); } }
+    cin.addEventListener("keydown", function(e){ if (e.key === "Enter") addClass(); });
+    app.appendChild(el("div", { class: "card row" }, [ cin, el("button", { class: "btn small", text: "반 추가", onclick: addClass }) ]));
+
+    var groups = classes.map(function(c){ return { c: c, list: students.filter(function(s){ return s.class_id === c.id; }) }; });
+    var loose = students.filter(function(s){ return !s.class_id || !classes.some(function(c){ return c.id === s.class_id; }); });
+    if (loose.length) groups.push({ c: null, list: loose });
+    if (!groups.length) app.appendChild(el("div", { class: "empty", text: "반을 먼저 만들어 주세요." }));
+    groups.forEach(function(g){
+      var card = el("div", { class: "card" }, []);
+      var head = el("div", { class: "spread" }, [ el("h3", { text: (g.c ? g.c.name : "반 없음") + " · " + g.list.length + "명" }) ]);
+      if (g.c) head.appendChild(el("div", { class: "row" }, [
+        el("button", { class: "chip", text: "코드 목록 복사", onclick: function(){ copyText(g.c.name + "\n" + g.list.map(function(s){ return s.name + "\t" + s.code; }).join("\n"), "이름과 코드를 복사했어요"); } }),
+        el("button", { class: "chip", text: "반 이름 바꾸기", onclick: async function(){ var v = await promptBox("새 반 이름", g.c.name, "바꾸기"); if (!v) return; try { await api.renameClass(g.c.id, v); renderRoster(); } catch(e){ toast(e.message, true); } } }),
+        el("button", { class: "chip", text: "반 삭제", onclick: async function(){
+          if (!(await askBox("‘" + g.c.name + "’ 반을 지울까요? 학생과 기록은 지워지지 않고 ‘반 없음’으로 가요. 이 반에 열어 둔 작품은 이 반 학생에게 안 보이게 돼요.", "반 삭제"))) return;
+          try { await api.deleteClass(g.c.id); renderRoster(); } catch(e){ toast(e.message, true); }
+        } }) ]));
+      card.appendChild(head);
+      if (g.list.length){
+        var tb = el("tbody", {}, []);
+        g.list.forEach(function(s){
+          var mv = el("select", { "aria-label": s.name + " 반" }, [ el("option", { value: "", text: "반 없음" }) ].concat(classes.map(function(c){ return el("option", { value: c.id, text: c.name }); })));
+          mv.value = s.class_id || "";
+          mv.addEventListener("change", async function(){ try { await api.updateStudent(s.id, { class_id: mv.value || null }); renderRoster(); } catch(e){ toast(e.message, true); } });
+          tb.appendChild(el("tr", {}, [ el("td", { text: s.name }), el("td", {}, [ el("span", { class: "code", text: s.code }) ]), el("td", {}, [ mv ]),
+            el("td", {}, [ el("div", { class: "row" }, [
+              el("button", { class: "chip", text: "새 코드", onclick: async function(){
+                if (!(await askBox(s.name + " 학생에게 새 코드를 줄까요? 지금 코드(" + s.code + ")는 바로 못 쓰게 되고, 새 코드로 다시 들어와야 해요.", "새 코드"))) return;
+                try { var c = await api.resetCode(s.id); toast(s.name + " 새 코드: " + c); renderRoster(); } catch(e){ toast(e.message, true); }
+              } }),
+              el("button", { class: "chip", text: "삭제", onclick: async function(){
+                if (!(await askBox(s.name + " 학생을 명단에서 지울까요? 이 학생은 더 들어올 수 없어요. 이미 낸 답은 결과 보기에 남아요.", "삭제"))) return;
+                try { await api.deleteStudent(s.id); renderRoster(); } catch(e){ toast(e.message, true); }
+              } }) ]) ]) ]));
+        });
+        card.appendChild(el("div", { class: "table-wrap" }, [ el("table", {}, [ el("thead", {}, [ el("tr", {}, [ el("th", { text: "이름" }), el("th", { text: "입장 코드" }), el("th", { text: "반" }), el("th", { text: "" }) ]) ]), tb ]) ]));
+      }
+      if (g.c){
+        var sin = el("input", { type: "text", placeholder: "학생 이름 (여러 명은 쉼표로: 김하늘, 이준서)", style: "flex:1;min-width:12rem" });
+        var addBtn = el("button", { class: "btn small", text: "학생 추가" });
+        async function addStudents(){
+          var names = sin.value.split(/[,\n、]/).map(trimStr).filter(Boolean); if (!names.length) return;
+          addBtn.disabled = true; var bad = [];
+          for (var i = 0; i < names.length; i++){ try { await api.addStudent(names[i], g.c.id); } catch(e){ bad.push(e.message); } }
+          if (bad.length) toast(bad[0], true);
+          renderRoster();
+        }
+        addBtn.addEventListener("click", addStudents);
+        sin.addEventListener("keydown", function(e){ if (e.key === "Enter") addStudents(); });
+        card.appendChild(el("div", { class: "row", style: "margin-top:.8rem" }, [ sin, addBtn ]));
+      }
+      app.appendChild(card);
+    });
+  }
 
   /* ----- 문제 편집 ----- */
   async function renderEditor(id){
     app.innerHTML = '<div class="empty">불러오는 중…</div>';
-    var t; try { t = await api.getTest(id); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    var t, classes; try { t = await api.getTest(id); classes = await api.listClasses(); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
     var parts = clone(t.parts || []);
     app.innerHTML = "";
     app.appendChild(el("div", { class: "row", style: "margin-bottom:1rem" }, [ el("button", { class: "btn ghost small", text: "← 목록", onclick: function(){ go(""); } }), el("button", { class: "btn ghost small", text: "결과 보기", onclick: function(){ go("test=" + id); } }) ]));
@@ -726,8 +999,18 @@ function runTeacher(){
     var meta = el("div", { class: "card" }, []);
     var m = { title: t.title, work: t.work, author: t.author, series: t.series };
     [["work", "작품"], ["author", "지은이 · 갈래"], ["series", "교재"], ["title", "제목"]].forEach(function(f){ meta.appendChild(el("div", { class: "field" }, [ el("label", { text: f[1] }), bind(el("input", { type: "text" }), m, f[0]) ])); });
-    var open = el("input", { type: "checkbox", id: "tOpen" }); open.checked = t.is_open;
-    meta.appendChild(el("label", { class: "row", for: "tOpen", style: "font-weight:600" }, [ open, " 학생에게 열기" ]));
+    // 열어 줄 반: 고른 반 학생의 '내 숙제'에 나타남. 하나도 안 고르면 닫힘
+    var chosen = (t.class_ids || []).filter(function(cid){ return classes.some(function(c){ return c.id === cid; }); });
+    var pick = el("div", { class: "classpick" }, classes.map(function(c){
+      var cb = el("input", { type: "checkbox" }); cb.checked = chosen.indexOf(c.id) !== -1;
+      cb.addEventListener("change", function(){ chosen = chosen.filter(function(x){ return x !== c.id; }); if (cb.checked) chosen.push(c.id); });
+      return el("label", {}, [ cb, c.name ]);
+    }));
+    var openBox = el("div", { class: "card", style: "border-color:var(--accent,#1F499D)" }, [ el("h3", { text: "열어 줄 반" }),
+      el("p", { class: "sub small", text: "고른 반 학생의 ‘내 숙제’에 이 작품이 나타나요. 하나도 안 고르면 닫혀요. 고른 뒤 아래 ‘저장하기’를 눌러 주세요." }) ]);
+    if (classes.length) openBox.appendChild(pick);
+    else openBox.appendChild(el("button", { class: "btn small", text: "학생 명단에서 반 만들기", onclick: function(){ go("roster"); } }));
+    app.appendChild(openBox);
     app.appendChild(meta);
     app.appendChild(el("div", { class: "note", html: "현대어 풀이의 <b>핵심어</b>: 쉼표(,)로 나눈 말은 모두 들어가야 하고, 가운뎃점(·)으로 나눈 말은 하나만 있으면 맞음이에요. 학생이 푼 뒤에는 문제 순서를 바꾸지 마세요." }));
     var list = el("div", {}, []); app.appendChild(list);
@@ -760,7 +1043,7 @@ function runTeacher(){
     var errb = el("div", { class: "err" });
     var save = el("button", { class: "btn", text: "저장하기", onclick: async function(){
       save.disabled = true;
-      try { await api.updateTest(id, { title: trimStr(m.title) || trimStr(m.work) || "되새김", work: trimStr(m.work), author: trimStr(m.author), series: trimStr(m.series), is_open: open.checked, parts: parts }); toast("저장했어요"); }
+      try { await api.updateTest(id, { title: trimStr(m.title) || trimStr(m.work) || "되새김", work: trimStr(m.work), author: trimStr(m.author), series: trimStr(m.series), is_open: chosen.length > 0, class_ids: chosen, parts: parts }); toast(chosen.length ? "저장했어요 · 고른 반에 열었어요" : "저장했어요 · 아직 닫혀 있어요"); }
       catch(e){ errb.textContent = e.message; }
       save.disabled = false;
     } });
@@ -774,14 +1057,16 @@ function runTeacher(){
   /* ----- 결과 보기 ----- */
   async function renderDashboard(id){
     app.innerHTML = '<div class="empty">불러오는 중…</div>';
-    var t; try { t = await api.getTest(id); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
+    var t, classes = [], roster = [];
+    try { t = await api.getTest(id); classes = await api.listClasses(); roster = await api.listStudents(); } catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
     var items = flatItems(t.parts), TAB = "status", E = [];
+    var openIds = t.class_ids || [], openNames = classes.filter(function(c){ return openIds.indexOf(c.id) !== -1; }).map(function(c){ return c.name; });
+    var expected = roster.filter(function(s){ return s.class_id && openIds.indexOf(s.class_id) !== -1; });   // 이 작품을 풀어야 하는 학생
     app.innerHTML = "";
     var nav = el("div", { class: "row", style: "margin-bottom:1rem" }, [
       el("button", { class: "btn ghost small", text: "← 목록", onclick: function(){ go(""); } }),
-      el("button", { class: "btn ghost small", text: "문제 편집", onclick: function(){ go("edit=" + id); } }),
-      el("button", { class: "btn ghost small", text: "학생 링크 복사", onclick: function(){ copyText(studentLink(id), "학생 링크를 복사했어요"); } }) ]);
-    if (DEMO) nav.appendChild(el("a", { class: "btn small", href: studentLink(id), text: "학생 화면 보기 →", style: "text-decoration:none" }));
+      el("button", { class: "btn ghost small", text: "문제 편집 · 반 고르기", onclick: function(){ go("edit=" + id); } }) ]);
+    if (DEMO) nav.appendChild(el("a", { class: "btn small", href: studentHome(), text: "학생 화면 보기 →", style: "text-decoration:none" }));
     app.appendChild(nav);
     var head = el("div", { class: "card" }, []), body = el("div", {}, []);
     app.appendChild(head); app.appendChild(body);
@@ -798,6 +1083,7 @@ function runTeacher(){
       head.innerHTML = "";
       head.appendChild(el("div", { class: "eyebrow gold", text: [t.series, "결과 보기"].filter(Boolean).join(" · ") }));
       head.appendChild(el("h2", { text: t.work || t.title }));
+      head.appendChild(el("p", { class: "sub small", text: openNames.length ? openNames.join(" · ") + "에 열림" : "닫힘 · ‘문제 편집 · 반 고르기’에서 반을 골라야 학생에게 보여요" }));
       var kinds = (t.parts || []).map(function(p){ return p.type; });
       var stats = [ statBox(E.length, "응시 학생") ];
       kinds.forEach(function(k){
@@ -818,7 +1104,9 @@ function runTeacher(){
 
     function drawStatus(kinds){
       var card = el("div", { class: "card" }, []);
-      if (!E.length){ card.appendChild(el("div", { class: "empty", text: "아직 응시한 학생이 없어요. 학생 링크를 보내 주세요." })); body.appendChild(card); return; }
+      var done = E.map(function(e){ return e.student_name; }), notYet = expected.filter(function(s){ return done.indexOf(s.name) === -1; }).map(function(s){ return s.name; });
+      if (notYet.length) card.appendChild(el("p", { class: "note", text: "아직 안 낸 학생 " + notYet.length + "명: " + notYet.join(", ") }));
+      if (!E.length){ card.appendChild(el("div", { class: "empty", text: "아직 낸 학생이 없어요." })); body.appendChild(card); return; }
       var hr = [ el("th", { text: "이름" }) ].concat(kinds.map(function(k){ return el("th", { text: partLabel(k) }); })).concat([ el("th", { text: "제출" }), el("th", { text: "" }) ]);
       var tb = el("tbody", {}, []);
       E.forEach(function(e){

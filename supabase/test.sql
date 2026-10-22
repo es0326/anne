@@ -1,7 +1,7 @@
 -- ============================================================
 --  청연 되새김 (O·X + 현대어 풀이 등) · Supabase 스키마
 --  실행 위치: Supabase 대시보드 → SQL Editor → New query → 붙여넣고 Run
---  reading.sql 을 먼저 실행해 두어야 함 (blank_norm · blank_ok 를 같이 씀)
+--  reading.sql · students.sql 을 먼저 실행해 두어야 함 (blank_norm · blank_ok, 학생 명단을 같이 씀)
 --  (다시 실행해도 안전하도록 작성됨)
 -- ============================================================
 
@@ -230,11 +230,11 @@ revoke all on function public.get_test(uuid)                   from public;
 revoke all on function public.get_test_status(uuid, text)      from public;
 revoke all on function public.submit_test(uuid, text, jsonb)   from public;
 revoke all on function public.start_test_retry(uuid, text)     from public;
-grant execute on function public.start_test_retry(uuid, text)  to anon, authenticated;
+revoke execute on function public.start_test_retry(uuid, text)  from anon, authenticated;   -- 2026-10-22: 이름만으로는 못 들어옴 (아래 st_ 함수로만)
 revoke all on function public.set_test_accept(uuid, jsonb)     from public;
-grant execute on function public.get_test(uuid)                 to anon, authenticated;
-grant execute on function public.get_test_status(uuid, text)    to anon, authenticated;
-grant execute on function public.submit_test(uuid, text, jsonb) to anon, authenticated;
+revoke execute on function public.get_test(uuid)                 from anon, authenticated;
+revoke execute on function public.get_test_status(uuid, text)    from anon, authenticated;
+revoke execute on function public.submit_test(uuid, text, jsonb) from anon, authenticated;
 grant execute on function public.set_test_accept(uuid, jsonb)   to authenticated;
 
 grant usage on schema public to anon, authenticated;
@@ -248,3 +248,70 @@ begin
     execute 'alter publication supabase_realtime add table public.test_entries';
   end if;
 end $$;
+
+-- ============================================================
+--  2026-10-22 · 우리 학생만: 이름 + 입장 코드 (students.sql)
+--   학생 링크 + 이름만으로는 더 이상 못 들어옴. 학생은 '내 숙제' 목록에서 고름
+--   tests.class_ids = 이 작품을 연 반들. 비어 있으면 아무 학생에게도 안 보임
+-- ============================================================
+alter table public.tests add column if not exists class_ids uuid[] not null default '{}';
+
+-- 열쇠 + 작품 → 학생 이름 (그 학생 반에 열린 작품이어야 함)
+create or replace function public.st_name_for(p_token uuid, p_test_id uuid)
+returns text
+language plpgsql stable security definer set search_path = public
+as $$
+declare s students%rowtype;
+begin
+  s := student_from_token(p_token);
+  if not exists (select 1 from tests t where t.id = p_test_id and t.owner = s.owner and t.is_open
+                    and s.class_id is not null and s.class_id = any(t.class_ids)) then
+    raise exception '선생님이 아직 열지 않은 문제입니다.';
+  end if;
+  return s.name;
+end; $$;
+
+-- 내 숙제: 내 반에 열린 작품 + 어디까지 했는지 (stage 0 안 냄 · 1 다시 풀기 남음 · 2 끝)
+create or replace function public.st_tests(p_token uuid)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare s students%rowtype; v_list jsonb := '[]'::jsonb; r record;
+begin
+  s := student_from_token(p_token);
+  for r in select t.id, t.title, t.work, t.author, t.series from tests t
+            where t.owner = s.owner and t.is_open and s.class_id is not null and s.class_id = any(t.class_ids)
+            order by t.created_at desc loop
+    v_list := v_list || jsonb_build_object('id', r.id, 'title', r.title, 'work', r.work, 'author', r.author, 'series', r.series,
+                                           'stage', (get_test_status(r.id, s.name)->>'stage')::int);
+  end loop;
+  return jsonb_build_object('name', s.name, 'class_name', coalesce((select name from classes where id = s.class_id), ''), 'tests', v_list);
+end; $$;
+
+create or replace function public.st_get_test(p_token uuid, p_test_id uuid)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ begin perform st_name_for(p_token, p_test_id); return get_test(p_test_id); end; $$;
+
+create or replace function public.st_status(p_token uuid, p_test_id uuid)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ begin return get_test_status(p_test_id, st_name_for(p_token, p_test_id)); end; $$;
+
+create or replace function public.st_start_retry(p_token uuid, p_test_id uuid)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ begin return start_test_retry(p_test_id, st_name_for(p_token, p_test_id)); end; $$;
+
+create or replace function public.st_submit(p_token uuid, p_test_id uuid, p_answers jsonb)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ begin return submit_test(p_test_id, st_name_for(p_token, p_test_id), p_answers); end; $$;
+
+revoke all on function public.st_name_for(uuid, uuid)            from public, anon, authenticated;
+revoke all on function public.st_tests(uuid)                     from public;
+revoke all on function public.st_get_test(uuid, uuid)            from public;
+revoke all on function public.st_status(uuid, uuid)              from public;
+revoke all on function public.st_start_retry(uuid, uuid)         from public;
+revoke all on function public.st_submit(uuid, uuid, jsonb)       from public;
+grant execute on function public.st_tests(uuid)                  to anon, authenticated;
+grant execute on function public.st_get_test(uuid, uuid)         to anon, authenticated;
+grant execute on function public.st_status(uuid, uuid)           to anon, authenticated;
+grant execute on function public.st_start_retry(uuid, uuid)      to anon, authenticated;
+grant execute on function public.st_submit(uuid, uuid, jsonb)    to anon, authenticated;

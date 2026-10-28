@@ -46,6 +46,9 @@ create table if not exists public.exam_scores (
   unique (exam_id, student_name)
 );
 
+-- 2026-10-29: 학교에서 알려 준 1등급컷 (점수)
+alter table public.exams add column if not exists cut1 numeric;
+
 alter table public.exams       enable row level security;
 alter table public.exam_scores enable row level security;
 

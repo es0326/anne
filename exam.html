@@ -330,6 +330,9 @@ function lineOf(arr, n){
   var a = (arr || []).slice(0, n == null ? undefined : n).map(function(x){ return x ? String(x) : "0"; }).join("").replace(/0+$/, "");
   return a.replace(/(.{5})(?=.)/g, "$1 ");
 }
+// 1등급컷: 값이 있을 때만 보냄 (cut1 열을 만들기 전에도 다른 저장은 되게)
+function cutPatch(v){ return hasVal(v) ? { cut1: num(v) } : v === null ? { cut1: null } : {}; }
+function cutOk(ex, s, total){ return hasVal(ex.cut1) && (hasVal(s.official) ? num(s.official) : total) >= num(ex.cut1); }
 function examLabel(ex){ return [ex.year, ex.term, ex.kind].filter(Boolean).join(" "); }
 function examSub(ex){ return [ex.school, ex.grade, ex.subject && ex.subject !== "국어" ? ex.subject : ""].filter(Boolean).join(" · "); }
 
@@ -362,7 +365,7 @@ function supabaseApi(){
   };
 }
 function demoApi(){
-  var KEY = "exam-demo-v1";
+  var KEY = "exam-demo-v2";
   var USER = { id: "demo-teacher", email: "체험용 선생님" };
   var S = lsGet(KEY) || seed();
   function save(){ lsSet(KEY, S); }
@@ -373,7 +376,7 @@ function demoApi(){
     var units = ["일용할 양식", "일용할 양식", "일용할 양식", "일용할 양식", "일용할 양식", "일용할 양식", "일용할 양식", "일용할 양식",
                  "설명하는 글", "설명하는 글", "설명하는 글", "설명하는 글", "설명하는 글",
                  "품사", "품사", "품사", "품사", "음운의 변동", "음운의 변동", "음운의 변동"];
-    var ex = { id: "dx1", year: 2026, term: "2학기", kind: "중간고사", school: "성사중", grade: "중2", subject: "국어", nchoice: 5, memo: "", created_at: now(),
+    var ex = { id: "dx1", year: 2026, term: "2학기", kind: "중간고사", school: "성사중", grade: "중2", subject: "국어", nchoice: 5, cut1: 88, memo: "", created_at: now(),
       items: keys.map(function(k, i){ return { a: k, pts: i < 10 ? 3.5 : 4, unit: units[i], memo: "" }; }),
       essays: [ { label: "서술형 1", pts: 12, unit: "일용할 양식", memo: "인물의 처지" }, { label: "서술형 2", pts: 13, unit: "품사", memo: "품사 통용" } ] };
     ex.items[6].memo = "[A] 공간 변화의 의미"; ex.items[6].notes = { "2": "‘시장 발걸음을 끊었다’를 경제 수준 상승으로 오해" };
@@ -475,7 +478,7 @@ function runTeacher(){
       app.appendChild(el("div", { class: "card" }, [
         el("div", { class: "spread" }, [ el("div", {}, [ el("h3", { text: examLabel(ex) }), el("div", { class: "sub small", text: examSub(ex) || "학교 미정" }) ]),
           el("span", { class: "pill" + (sc.length ? " ok" : ""), text: info }) ]),
-        el("div", { class: "sub small", style: "margin-top:.3rem", text: "객관식 " + (ex.items || []).length + " · 서술형 " + (ex.essays || []).length }),
+        el("div", { class: "sub small", style: "margin-top:.3rem", text: "객관식 " + (ex.items || []).length + " · 서술형 " + (ex.essays || []).length + (hasVal(ex.cut1) ? " · 1등급컷 " + fmtN(num(ex.cut1)) : "") }),
         el("div", { class: "row", style: "margin-top:.8rem" }, [
           el("button", { class: "btn small", text: "결과 · 분석", onclick: function(){ go("exam=" + ex.id + "&tab=result"); } }),
           el("button", { class: "btn ghost small", text: "답 입력", onclick: function(){ go("exam=" + ex.id + "&tab=entry"); } }),
@@ -581,6 +584,10 @@ function runTeacher(){
       var subj = subjectInput(E.subject); subj.addEventListener("input", function(){ E.subject = subj.value; });
       info.appendChild(el("div", { class: "row", style: "margin-top:.6rem" }, [ inp("year", "5rem"), termSel, kindSel, inp("school", "9rem", "학교"), inp("grade", "5rem", "학년"), subj,
         el("span", { class: "small sub", text: "선지" }), inp("nchoice", "3rem") ]));
+      var cut = el("input", { type: "text", inputmode: "decimal", class: "mini-in", placeholder: "점수" }); cut.value = hasVal(E.cut1) ? E.cut1 : "";
+      cut.addEventListener("input", function(){ E.cut1 = hasVal(cut.value) ? num(cut.value) : null; });
+      info.appendChild(el("div", { class: "row", style: "margin-top:.6rem;gap:.4rem" }, [ el("span", { class: "small", style: "font-weight:700", text: "1등급컷" }), cut,
+        el("span", { class: "sub small", text: "학교에서 알려 주면 넣으세요. 비워 둬도 돼요." }) ]));
       var memo = el("textarea", { placeholder: "시험 메모 (범위, 출제 경향, 특이 사항 등)", style: "margin-top:.6rem;min-height:3rem" }); memo.value = E.memo || ""; memo.addEventListener("input", function(){ E.memo = memo.value; });
       info.appendChild(memo);
       body.appendChild(info);
@@ -658,8 +665,8 @@ function runTeacher(){
         saveBtn.disabled = true;
         E.items.forEach(function(it){ it.a = keyList(it.a).join(","); it.unit = trimStr(it.unit); it.memo = trimStr(it.memo); });
         try {
-          await api.updateExam(id, { year: E.year, term: E.term, kind: E.kind, school: trimStr(E.school), grade: trimStr(E.grade), subject: trimStr(E.subject) || "국어", nchoice: Math.min(9, Math.max(2, parseInt(E.nchoice, 10) || 5)),
-            items: E.items, essays: E.essays, memo: E.memo || "" });
+          await api.updateExam(id, Object.assign({ year: E.year, term: E.term, kind: E.kind, school: trimStr(E.school), grade: trimStr(E.grade), subject: trimStr(E.subject) || "국어", nchoice: Math.min(9, Math.max(2, parseInt(E.nchoice, 10) || 5)),
+            items: E.items, essays: E.essays, memo: E.memo || "" }, cutPatch(E.cut1)));
           EX = clone(E); toast("저장했어요.");
           var miss = E.items.filter(function(it){ return !keyList(it.a).length; }).length;
           if (miss) toast("저장했어요. 정답이 빈 문항이 " + miss + "개 있어요.");
@@ -798,7 +805,17 @@ function runTeacher(){
         var rows = list.map(function(s){ return { s: s, r: scoreOf(EX, s) }; }).sort(function(a, b){ return b.r.total - a.r.total || a.s.student_name.localeCompare(b.s.student_name, "ko"); });
         var tot = rows.map(function(x){ return x.r.total; }), max = maxOf(EX);
         var avg = tot.reduce(function(a, b){ return a + b; }, 0) / tot.length;
-        out.appendChild(el("div", { class: "stats" }, [ stat(list.length + "명", "입력한 학생"), stat(fmtN(avg), "평균 (" + fmtN(max) + "점 만점)"), stat(fmtN(Math.max.apply(null, tot)), "최고"), stat(fmtN(Math.min.apply(null, tot)), "최저") ]));
+        var over = rows.filter(function(x){ return cutOk(EX, x.s, x.r.total); }).length;
+        var cutTile = el("button", { class: "stat", style: "text-align:left;cursor:pointer;font:inherit;color:inherit", title: "누르면 1등급컷을 넣거나 고쳐요", onclick: async function(){
+          var v = await promptBox("1등급컷 점수 (학교에서 알려 준 점수, 지우려면 비우고 확인)", hasVal(EX.cut1) ? String(EX.cut1) : "", "저장");
+          if (v === null) return;
+          if (v && !isFinite(parseFloat(v))) return toast("숫자로 넣어 주세요.", true);
+          try { await api.updateExam(id, { cut1: v ? num(v) : null }); EX.cut1 = v ? num(v) : null; draw(); toast(v ? "1등급컷을 넣었어요." : "1등급컷을 지웠어요."); }
+          catch(e){ toast(/cut1/.test(e.message) ? "Supabase에서 exam.sql을 한 번 더 실행해 주세요 (1등급컷 칸 만들기)." : e.message, true); }
+        } }, hasVal(EX.cut1)
+          ? [ el("div", { class: "n", text: fmtN(num(EX.cut1)) }), el("div", { class: "l", text: "1등급컷 · 넘은 학생 " + over + "명" }) ]
+          : [ el("div", { class: "n", style: "color:var(--muted)", text: "—" }), el("div", { class: "l", text: "1등급컷 넣기 (누르세요)" }) ]);
+        out.appendChild(el("div", { class: "stats" }, [ stat(list.length + "명", "입력한 학생"), stat(fmtN(avg), "평균 (" + fmtN(max) + "점 만점)"), stat(fmtN(Math.max.apply(null, tot)), "최고"), stat(fmtN(Math.min.apply(null, tot)), "최저"), cutTile ]));
 
         // 학생 표
         var hasOff = list.some(function(s){ return hasVal(s.official); }), hasEs = (EX.essays || []).length > 0;
@@ -812,7 +829,7 @@ function runTeacher(){
         rows.forEach(function(x){
           var nm = el("a", { href: "#", text: x.s.student_name, onclick: function(e){ e.preventDefault(); var st = ST.find(function(t){ return t.id === x.s.student_id || t.name === x.s.student_name; }); if (st) go("student=" + st.id); else go("exam=" + id + "&tab=entry&who=" + encodeURIComponent(x.s.student_name)); } });
           tb.appendChild(el("tr", {}, [ el("td", {}, [ nm ]), el("td", { class: "small sub", text: cname[classOf(x.s)] || "" }), el("td", { class: "r", text: fmtN(x.r.mc) }) ]
-            .concat(hasEs ? [ el("td", { class: "r", text: fmtN(x.r.es) }) ] : []).concat([ el("td", { class: "r", html: "<b>" + fmtN(x.r.total) + "</b>" }) ])
+            .concat(hasEs ? [ el("td", { class: "r", text: fmtN(x.r.es) }) ] : []).concat([ el("td", { class: "r", html: (cutOk(EX, x.s, x.r.total) ? '<span title="1등급컷 넘음" style="color:var(--warn)">★</span> ' : "") + "<b>" + fmtN(x.r.total) + "</b>" }) ])
             .concat(hasOff ? [ el("td", { class: "r", text: hasVal(x.s.official) ? String(x.s.official) : "" }) ] : [])
             .concat([ el("td", { class: "wr", text: x.r.wrong.length ? x.r.wrong.join(", ") : "모두 맞음" }), el("td", {}, [ el("button", { class: "chip", text: "고치기", onclick: function(){ go("exam=" + id + "&tab=entry&who=" + encodeURIComponent(x.s.student_name)); } }) ]) ])));
         });
@@ -921,12 +938,13 @@ function runTeacher(){
       var units = {};
       x.r.wrong.forEach(function(no){ var u = (x.ex.items[no - 1] || {}).unit || ""; if (u){ units[u] = (units[u] || 0) + 1; unitMiss[u] = (unitMiss[u] || 0) + 1; } });
       tb.appendChild(el("tr", {}, [ el("td", {}, [ el("a", { href: "#exam=" + x.ex.id + "&tab=result", text: examLabel(x.ex) }), el("div", { class: "small sub", text: examSub(x.ex) }) ]),
-        el("td", { class: "r", html: "<b>" + fmtN(x.r.total) + "</b> / " + fmtN(maxOf(x.ex)) }),
+        el("td", { class: "r", html: (cutOk(x.ex, x.s, x.r.total) ? '<span title="1등급컷 넘음" style="color:var(--warn)">★</span> ' : "") + "<b>" + fmtN(x.r.total) + "</b> / " + fmtN(maxOf(x.ex)) }),
+        el("td", { class: "r", text: hasVal(x.ex.cut1) ? fmtN(num(x.ex.cut1)) : "" }),
         el("td", { class: "r", text: hasVal(x.s.official) ? String(x.s.official) : "" }),
         el("td", { class: "wr", text: x.r.wrong.length ? x.r.wrong.join(", ") + "번" : "모두 맞음" }),
         el("td", { class: "small", style: "white-space:normal", text: Object.keys(units).map(function(u){ return u + " " + units[u]; }).join(" · ") }) ]));
     });
-    card.appendChild(el("div", { class: "table-wrap", style: "margin-top:.6rem" }, [ el("table", {}, [ el("thead", {}, [ el("tr", {}, [ el("th", { text: "시험" }), el("th", { class: "r", text: "가채점" }), el("th", { class: "r", text: "성적표" }), el("th", { text: "틀린 문항" }), el("th", { text: "틀린 단원" }) ]) ]), tb ]) ]));
+    card.appendChild(el("div", { class: "table-wrap", style: "margin-top:.6rem" }, [ el("table", {}, [ el("thead", {}, [ el("tr", {}, [ el("th", { text: "시험" }), el("th", { class: "r", text: "가채점" }), el("th", { class: "r", text: "1등급컷" }), el("th", { class: "r", text: "성적표" }), el("th", { text: "틀린 문항" }), el("th", { text: "틀린 단원" }) ]) ]), tb ]) ]));
     app.appendChild(card);
     var ul = Object.keys(unitMiss).sort(function(a, b){ return unitMiss[b] - unitMiss[a]; });
     if (ul.length) app.appendChild(el("div", { class: "card" }, [ el("h3", { text: "자주 틀린 단원 · 작품" }),

@@ -510,7 +510,8 @@ function runTeacher(){
     var kindChips = el("div", { class: "chips" });
     var school = el("input", { type: "text", placeholder: "예: 성사중", maxlength: "30" });
     var grade = el("input", { type: "text", placeholder: "예: 중2", maxlength: "10", class: "mini-in", style: "width:6rem!important" });
-    var subject = subjectInput("국어");
+    var subject = subjectInput("");   // 비워 두면 '국어'. 미리 채우면 목록이 '국어' 든 과목만 보여서 비워 둠
+    subject.placeholder = "국어";
     var nItems = el("input", { type: "text", inputmode: "numeric", class: "mini-in", value: "25" });
     var nChoice = el("input", { type: "text", inputmode: "numeric", class: "mini-in", value: "5" });
     var nEssay = el("input", { type: "text", inputmode: "numeric", class: "mini-in", value: "0" });
@@ -526,7 +527,7 @@ function runTeacher(){
     function f(label, node, hint){ return el("div", { class: "field" }, [ el("label", { text: label }), node, hint ? el("div", { class: "hint", text: hint }) : null ]); }
     card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ f("연도", year), f("학기 · 시기", term) ]));
     card.appendChild(f("종류", kindChips));
-    card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ el("div", { style: "flex:1;min-width:12rem" }, [ f("학교", school) ]), f("학년", grade), f("과목", subject, "칸을 누르면 목록이 나와요. 없으면 직접 쓰세요.") ]));
+    card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ el("div", { style: "flex:1;min-width:12rem" }, [ f("학교", school) ]), f("학년", grade), f("과목", subject, "칸을 누르면 목록이 나와요. 비워 두면 ‘국어’예요.") ]));
     card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ f("객관식 문항 수", nItems), f("선지 수", nChoice, "보통 5"), f("서술형 문항 수", nEssay) ]));
     var errb = el("div", { class: "err" });
     var btn = el("button", { class: "btn", text: "만들고 정답 넣기 →", onclick: async function(){

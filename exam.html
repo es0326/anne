@@ -299,6 +299,14 @@ function errBox(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "err"
 var CIRCLED = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨"];
 var KINDS = ["중간고사", "기말고사", "모의고사", "기타"];
 var TERMS = ["1학기", "2학기", "3월", "4월", "5월", "6월", "7월", "9월", "10월", "11월"];
+var SUBJECTS = ["국어", "공통국어1", "공통국어2", "문학", "화법과 언어", "독서와 작문", "주제 탐구 독서", "문학과 영상", "언어생활 탐구", "매체 의사소통", "직무 의사소통", "화법과 작문", "언어와 매체", "독서"];
+// 과목 칸: 목록에서 고르거나 직접 쓰기
+function subjectInput(value){
+  var dl = document.getElementById("subjectList");
+  if (!dl){ dl = el("datalist", { id: "subjectList" }, SUBJECTS.map(function(s){ return el("option", { value: s }); })); document.body.appendChild(dl); }
+  var n = el("input", { type: "text", list: "subjectList", maxlength: "30", placeholder: "예: 공통국어1", style: "width:10rem" }); n.value = value || "";
+  return n;
+}
 function circ(a){ var k = parseInt(a, 10); return k >= 1 && k <= 9 ? CIRCLED[k - 1] : (trimStr(a) || "—"); }
 function keyList(a){ return String(a == null ? "" : a).split(/[,\s/·]+/).map(trimStr).filter(function(x){ return /^[1-9]$/.test(x); }); }
 function keyText(a){ var k = keyList(a); return k.length ? k.map(circ).join("·") : "?"; }
@@ -502,6 +510,7 @@ function runTeacher(){
     var kindChips = el("div", { class: "chips" });
     var school = el("input", { type: "text", placeholder: "예: 성사중", maxlength: "30" });
     var grade = el("input", { type: "text", placeholder: "예: 중2", maxlength: "10", class: "mini-in", style: "width:6rem!important" });
+    var subject = subjectInput("국어");
     var nItems = el("input", { type: "text", inputmode: "numeric", class: "mini-in", value: "25" });
     var nChoice = el("input", { type: "text", inputmode: "numeric", class: "mini-in", value: "5" });
     var nEssay = el("input", { type: "text", inputmode: "numeric", class: "mini-in", value: "0" });
@@ -517,7 +526,7 @@ function runTeacher(){
     function f(label, node, hint){ return el("div", { class: "field" }, [ el("label", { text: label }), node, hint ? el("div", { class: "hint", text: hint }) : null ]); }
     card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ f("연도", year), f("학기 · 시기", term) ]));
     card.appendChild(f("종류", kindChips));
-    card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ el("div", { style: "flex:1;min-width:12rem" }, [ f("학교", school) ]), f("학년", grade) ]));
+    card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ el("div", { style: "flex:1;min-width:12rem" }, [ f("학교", school) ]), f("학년", grade), f("과목", subject, "칸을 누르면 목록이 나와요. 없으면 직접 쓰세요.") ]));
     card.appendChild(el("div", { class: "row", style: "align-items:flex-start;gap:1.2rem" }, [ f("객관식 문항 수", nItems), f("선지 수", nChoice, "보통 5"), f("서술형 문항 수", nEssay) ]));
     var errb = el("div", { class: "err" });
     var btn = el("button", { class: "btn", text: "만들고 정답 넣기 →", onclick: async function(){
@@ -530,7 +539,7 @@ function runTeacher(){
       var essays = []; for (var j = 0; j < Math.min(m, 20); j++) essays.push({ label: "서술형 " + (j + 1), pts: "", unit: "", memo: "" });
       btn.disabled = true;
       try {
-        var ex = await api.createExam({ year: y, term: term.value, kind: kind, school: trimStr(school.value), grade: trimStr(grade.value), subject: "국어", nchoice: c, items: items, essays: essays, memo: "" });
+        var ex = await api.createExam({ year: y, term: term.value, kind: kind, school: trimStr(school.value), grade: trimStr(grade.value), subject: trimStr(subject.value) || "국어", nchoice: c, items: items, essays: essays, memo: "" });
         toast(examLabel(ex) + " 시험을 만들었어요. 정답을 넣어 주세요.");
         go("exam=" + ex.id + "&tab=key");
       } catch(e){ errb.textContent = e.message; btn.disabled = false; }
@@ -568,7 +577,8 @@ function runTeacher(){
       function inp(key, w, ph){ var n = el("input", { type: "text", placeholder: ph || "", style: "width:" + w }); n.value = E[key] == null ? "" : E[key]; n.addEventListener("input", function(){ E[key] = key === "year" || key === "nchoice" ? parseInt(n.value, 10) || E[key] : n.value; }); return n; }
       var kindSel = el("select", { style: "width:auto" }, KINDS.map(function(k){ return el("option", { value: k, text: k }); })); kindSel.value = E.kind; kindSel.addEventListener("change", function(){ E.kind = kindSel.value; });
       var termSel = el("select", { style: "width:auto" }, TERMS.concat(TERMS.indexOf(E.term) < 0 && E.term ? [E.term] : []).map(function(k){ return el("option", { value: k, text: k }); })); termSel.value = E.term; termSel.addEventListener("change", function(){ E.term = termSel.value; });
-      info.appendChild(el("div", { class: "row", style: "margin-top:.6rem" }, [ inp("year", "5rem"), termSel, kindSel, inp("school", "9rem", "학교"), inp("grade", "5rem", "학년"),
+      var subj = subjectInput(E.subject); subj.addEventListener("input", function(){ E.subject = subj.value; });
+      info.appendChild(el("div", { class: "row", style: "margin-top:.6rem" }, [ inp("year", "5rem"), termSel, kindSel, inp("school", "9rem", "학교"), inp("grade", "5rem", "학년"), subj,
         el("span", { class: "small sub", text: "선지" }), inp("nchoice", "3rem") ]));
       var memo = el("textarea", { placeholder: "시험 메모 (범위, 출제 경향, 특이 사항 등)", style: "margin-top:.6rem;min-height:3rem" }); memo.value = E.memo || ""; memo.addEventListener("input", function(){ E.memo = memo.value; });
       info.appendChild(memo);
@@ -647,7 +657,7 @@ function runTeacher(){
         saveBtn.disabled = true;
         E.items.forEach(function(it){ it.a = keyList(it.a).join(","); it.unit = trimStr(it.unit); it.memo = trimStr(it.memo); });
         try {
-          await api.updateExam(id, { year: E.year, term: E.term, kind: E.kind, school: trimStr(E.school), grade: trimStr(E.grade), nchoice: Math.min(9, Math.max(2, parseInt(E.nchoice, 10) || 5)),
+          await api.updateExam(id, { year: E.year, term: E.term, kind: E.kind, school: trimStr(E.school), grade: trimStr(E.grade), subject: trimStr(E.subject) || "국어", nchoice: Math.min(9, Math.max(2, parseInt(E.nchoice, 10) || 5)),
             items: E.items, essays: E.essays, memo: E.memo || "" });
           EX = clone(E); toast("저장했어요.");
           var miss = E.items.filter(function(it){ return !keyList(it.a).length; }).length;

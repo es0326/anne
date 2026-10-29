@@ -290,7 +290,8 @@ function clone(o){ return JSON.parse(JSON.stringify(o)); }
 function trimStr(s){ return String(s == null ? "" : s).trim(); }
 function textBlock(s){ var d = el("div", { style: "white-space:pre-wrap" }); d.textContent = s; return d; }
 // 학생 입구: 주소 하나. 학생은 이름 + 입장 코드로 들어와 '내 숙제'에서 작품을 고름
-function studentHome(){ return location.href.split(/[?#]/)[0] + "?s=1" + (DEMO ? "&demo=1" : ""); }
+// 학생 입구: 실제로는 청연국어 학생 입구(student.html) 하나, 체험은 이 앱 안에서
+function studentHome(){ var base = location.href.split(/[?#]/)[0]; return DEMO ? base + "?s=1&demo=1" : base.replace(/[^/]*$/, "") + "student.html"; }
 // 글 한 줄 받는 창 (prompt 대신)
 function promptBox(msg, value, okText){
   return new Promise(function(resolve){
@@ -589,6 +590,9 @@ if (PARAMS.has("s") || PARAMS.get("test")) runStudent(); else runTeacher();
 
 /* ================= 학생 ================= */
 function runStudent(){
+  // 학생이 홈 화면에 추가하면 「청연국어」 학생 입구 아이콘 하나로
+  document.querySelector("link[rel=manifest]").setAttribute("href", "student.webmanifest");
+  document.querySelector("meta[name=apple-mobile-web-app-title]").setAttribute("content", "청연국어");
   document.getElementById("wrap").classList.add("narrow");
   pageFoot.textContent = "내가 쓴 답은 선생님만 볼 수 있어요.";
   if (DEMO) document.getElementById("demoBar").appendChild(el("a", { class: "btn ghost small", href: location.href.split(/[?#]/)[0] + "?demo=1", text: "← 선생님 화면으로", style: "text-decoration:none;margin-bottom:1rem" }));
@@ -611,10 +615,13 @@ function runStudent(){
   }
   function route(){
     if (TIMER){ clearInterval(TIMER); TIMER = null; }
+    if (!SES && !DEMO && !new URLSearchParams(location.hash.slice(1)).get("t")) return location.replace("student.html");   // 들어오기도 학생 입구에서
     if (!SES) return renderLogin();
     NAME = SES.name;
     var id = new URLSearchParams(location.hash.slice(1)).get("t");
-    if (id) openTest(id); else renderHome();
+    if (id) openTest(id);
+    else if (!DEMO) location.replace("student.html");   // 내 숙제는 청연국어 학생 입구에서 한꺼번에
+    else renderHome();
   }
 
   function renderLogin(){

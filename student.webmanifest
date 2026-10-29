@@ -1,0 +1,17 @@
+{
+  "id": "student.html",
+  "name": "청연국어",
+  "short_name": "청연국어",
+  "description": "내 숙제 · 청연 되새김 · 청연 문법",
+  "start_url": "student.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FBF8F1",
+  "theme_color": "#1F499D",
+  "lang": "ko",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

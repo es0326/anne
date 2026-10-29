@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>청연국어</title>
+<!-- 학생 휴대폰 홈 화면 아이콘: 이 주소 하나만 추가하면 됨 -->
+<link rel="manifest" href="student.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="청연국어">
+<meta name="theme-color" content="#1F499D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap">
+<style>
+:root{
+  --paper:#FBF8F1;--ink:#211F1B;--muted:#6E685C;--line:#E7DFCE;--card:#FFFFFF;
+  --accent:#183263;--accent-soft:#E5E9F1;--green:#324840;--beige:#F1EEE4;
+  --correct:#2E7D5B;--correct-soft:#E4F0EA;--wrong:#BF4230;--wrong-soft:#F7E7E3;--warn:#A86A12;--warn-soft:#FBF0DC;
+  --shadow:0 1px 2px rgba(33,31,27,.05),0 12px 32px -14px rgba(33,31,27,.16);--radius:14px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --paper:#191713;--ink:#ECE6D9;--muted:#A69D8B;--line:#38322A;--card:#242019;
+  --accent:#9DB4DE;--accent-soft:#1E2638;--green:#A9C4B6;--beige:#2A2720;
+  --correct:#71C9A0;--correct-soft:#1E2E27;--wrong:#E88C7A;--wrong-soft:#33221E;--warn:#E3B062;--warn-soft:#33291A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -14px rgba(0,0,0,.55);
+}}
+:root[data-theme="dark"]{
+  --paper:#191713;--ink:#ECE6D9;--muted:#A69D8B;--line:#38322A;--card:#242019;
+  --accent:#9DB4DE;--accent-soft:#1E2638;--green:#A9C4B6;--beige:#2A2720;
+  --correct:#71C9A0;--correct-soft:#1E2E27;--wrong:#E88C7A;--wrong-soft:#33221E;--warn:#E3B062;--warn-soft:#33291A;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 14px 34px -14px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Gowun Dodum","Noto Sans KR",system-ui,-apple-system,sans-serif;line-height:1.7;letter-spacing:-.01em;
+  padding:clamp(1rem,4vw,3rem) 1rem 5rem}
+.wrap{max-width:42rem;margin:0 auto}
+h1,h2,h3{font-family:"Gowun Batang",serif;letter-spacing:-.02em;text-wrap:balance;margin:0}
+h1{font-size:clamp(1.9rem,6vw,2.5rem);font-weight:800;line-height:1.15}
+h2{font-size:1.35rem;font-weight:700;margin-bottom:.2rem}
+h3{font-size:1.08rem;font-weight:700}
+p{margin:.3rem 0}
+.eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--accent);
+  display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--line)}
+.sub{color:var(--muted);font-size:.95rem}
+.small{font-size:.85rem}
+header.page{margin-bottom:1.6rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);padding:clamp(1.2rem,4vw,1.9rem);margin-bottom:1rem}
+.field{display:flex;flex-direction:column;gap:.3rem;margin-bottom:1rem}
+input[type=text]{font-family:inherit;font-size:1rem;color:var(--ink);background:var(--paper);
+  border:1.5px solid var(--line);border-radius:10px;padding:.6rem .8rem;width:100%}
+input:focus{outline:2.5px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.btn{font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;color:#fff;background:var(--accent);
+  border:none;border-radius:10px;padding:.62rem 1.25rem;transition:opacity .15s,transform .06s;display:inline-block}
+.btn:hover{opacity:.9}
+.btn:active{transform:scale(.98)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--line)}
+.btn.small{padding:.4rem .8rem;font-size:.85rem}
+.btn:focus-visible,.hw:focus-visible{outline:2.5px solid var(--accent);outline-offset:3px}
+.spread{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.pill{font-size:.75rem;font-weight:700;border-radius:999px;padding:.15rem .6rem;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--correct);border-color:var(--correct)}
+.pill.no{color:var(--wrong);border-color:var(--wrong)}
+.pill.mid{color:var(--warn);border-color:var(--warn)}
+.code{font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:.12em;font-size:1.05rem}
+.hw{display:block;width:100%;text-align:left;cursor:pointer;font:inherit;color:inherit;text-decoration:none}
+.hw:hover{border-color:var(--accent)}
+.hw .go{font-weight:700;color:var(--accent)}
+.hw.done{box-shadow:none;background:var(--paper)}
+.app-h{font-family:"Gowun Batang",serif;font-size:1.1rem;font-weight:800;display:inline-block;
+  border-bottom:3px solid var(--green);padding-bottom:.1rem;margin:1.4rem 0 .7rem}
+.app-h small{font-family:"Gowun Dodum",sans-serif;font-size:.8rem;font-weight:400;color:var(--muted);margin-left:.4rem}
+.left{background:var(--accent-soft);border-radius:12px;padding:.75rem 1rem;font-size:.98rem;margin-bottom:.4rem}
+.left b{color:var(--accent)}
+.demo-bar{background:var(--beige);color:var(--ink);border:1px solid var(--green);border-radius:10px;padding:.55rem .9rem;font-size:.85rem;margin-bottom:1.2rem}
+.err{color:var(--wrong);font-size:.88rem;margin-top:.4rem}
+.empty{text-align:center;color:var(--muted);padding:2.5rem 1rem}
+.foot{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid var(--line);font-size:.82rem;color:var(--muted)}
+.dlg-back{position:fixed;inset:0;background:rgba(20,18,15,.45);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:60}
+.dlg{background:var(--card);color:var(--ink);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.4rem;max-width:26rem;width:100%}
+.dlg p{margin:0 0 1.1rem;white-space:pre-wrap;font-size:1rem}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="demoBar"></div>
+  <header class="page" id="pageHeader"></header>
+  <main id="app"><div class="empty">불러오는 중…</div></main>
+  <p class="foot">내가 쓴 답은 선생님만 볼 수 있어요.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* 청연국어 학생 입구: 이름 + 입장 코드로 한 번 들어오면, 내 반에 열린 숙제(되새김 · 문법)를 한곳에서 봄.
+   들어온 열쇠(cy-student)는 되새김 · 문법 앱과 같이 써서, 숙제를 누르면 다시 로그인하지 않고 바로 열림. */
+var SUPABASE_URL = "https://yqwexzzdamcpqmsqkbcg.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_Y2bK2lw2T_Wysf9WWPuDbg_eA1ZX7R0";
+var PARAMS = new URLSearchParams(location.search);
+var DEMO = PARAMS.has("demo") || location.protocol === "file:";
+var app = document.getElementById("app");
+var pageHeader = document.getElementById("pageHeader");
+// 앱마다: 이름 · 설명 · 숙제 주소
+var APPS = [
+  { app: "test", name: "청연 되새김", desc: "고전문학 현대어 풀이 · O·X", href: "test.html" },
+  { app: "grammar", name: "청연 문법", desc: "품사 O·X · 품사 쓰기 · 객관식", href: "grammar.html" }
+];
+
+function el(tag, attrs, kids){
+  var n = document.createElement(tag); attrs = attrs || {};
+  Object.keys(attrs).forEach(function(k){
+    if (k === "class") n.className = attrs[k];
+    else if (k === "text") n.textContent = attrs[k];
+    else if (k.slice(0,2) === "on") n.addEventListener(k.slice(2), attrs[k]);
+    else n.setAttribute(k, attrs[k]);
+  });
+  (kids || []).forEach(function(c){ if (c != null) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
+  return n;
+}
+function askBox(msg, okText){
+  return new Promise(function(resolve){
+    var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+    function done(v){ back.remove(); resolve(v); }
+    var ok = el("button", { class: "btn", text: okText || "확인", onclick: function(){ done(true); } });
+    back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: msg }),
+      el("div", { class: "spread", style: "justify-content:flex-end" }, [ el("button", { class: "btn ghost", text: "취소", onclick: function(){ done(false); } }), ok ]) ]));
+    back.addEventListener("click", function(e){ if (e.target === back) done(false); });
+    document.body.appendChild(back); ok.focus();
+  });
+}
+function lsGet(k){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+function lsDel(k){ try { localStorage.removeItem(k); } catch(e){} }
+function trimStr(s){ return String(s == null ? "" : s).trim(); }
+function unwrap(res){ if (res.error) throw new Error(res.error.message || "오류가 발생했습니다."); return res.data; }
+
+function supabaseApi(){
+  var db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return {
+    login: async function(name, code){ return unwrap(await db.rpc("student_login", { p_name: name, p_code: code })); },
+    logout: async function(tok){ try { await db.rpc("student_logout", { p_token: tok }); } catch(e){} },
+    myTests: async function(tok){ return unwrap(await db.rpc("st_tests", { p_token: tok })); }
+  };
+}
+// 체험: 화면 모양만 보기 (숙제를 누르면 각 앱의 체험 화면으로)
+function demoApi(){
+  var ST = { "김하늘": "1357", "이준서": "2468" };
+  return {
+    login: async function(name, code){
+      var n = trimStr(name).replace(/\s/g, "");
+      if (ST[n] !== trimStr(code)) throw new Error("이름이나 입장 코드가 맞지 않아요. (체험: 김하늘 · 1357)");
+      return { token: "demo", name: n, class_name: "목요일반" };
+    },
+    logout: async function(){},
+    myTests: async function(){
+      return { name: "김하늘", class_name: "목요일반", tests: [
+        { id: "demo-gangho", app: "test", work: "강호사시가", author: "맹사성", series: "고전시가", stage: 1 },
+        { id: "demo-g1", app: "grammar", title: "품사 O·X · 중등부", track: "중등부", stage: 0 },
+        { id: "demo-g2", app: "grammar", title: "품사 쓰기 · 중등부", track: "중등부", stage: 2 },
+        { id: "demo-sami", app: "test", work: "사미인곡", author: "정철", series: "고전시가", stage: 2 } ] };
+    }
+  };
+}
+var api = DEMO ? demoApi() : supabaseApi();
+if (DEMO) document.getElementById("demoBar").appendChild(el("div", { class: "demo-bar" }, [ el("b", { text: "체험 모드 · " }), "화면 모양만 보여요. 체험 학생: 김하늘 · 1357" ]));
+
+var SKEY = DEMO ? "cy-student-demo-hub" : "cy-student";   // 되새김 · 문법과 같은 열쇠
+var SES = lsGet(SKEY);
+route();
+
+function setHeader(sub){
+  pageHeader.innerHTML = "";
+  pageHeader.appendChild(el("div", { class: "eyebrow", text: "읽고, 생각하고, 답하는 국어" }));
+  pageHeader.appendChild(el("h1", { text: "청연국어" }));
+  pageHeader.appendChild(el("p", { class: "sub", text: sub }));
+}
+function route(){ if (!SES) renderLogin(); else renderHome(); }
+
+function renderLogin(){
+  setHeader("선생님께 받은 입장 코드로 들어와요.");
+  app.innerHTML = "";
+  var card = el("div", { class: "card" }, [ el("h2", { text: "들어오기" }) ]);
+  var nm = el("input", { type: "text", placeholder: "이름 (예: 김하늘)", autocomplete: "off", maxlength: "30", "aria-label": "이름" });
+  var cd = el("input", { type: "text", inputmode: "numeric", pattern: "[0-9]*", placeholder: "입장 코드 4자리", autocomplete: "off", maxlength: "4", "aria-label": "입장 코드", class: "code" });
+  var errb = el("div", { class: "err" }), btn = el("button", { class: "btn", text: "들어가기" });
+  async function go(){
+    errb.textContent = "";
+    var n = trimStr(nm.value), c = trimStr(cd.value).replace(/\D/g, "");
+    if (!n){ errb.textContent = "이름을 입력하세요."; nm.focus(); return; }
+    if (c.length !== 4){ errb.textContent = "입장 코드 4자리를 입력하세요."; cd.focus(); return; }
+    btn.disabled = true;
+    try { SES = await api.login(n, c); lsSet(SKEY, SES); route(); }
+    catch(e){ errb.textContent = e.message; btn.disabled = false; }
+  }
+  btn.addEventListener("click", go);
+  nm.addEventListener("keydown", function(e){ if (e.key === "Enter") cd.focus(); });
+  cd.addEventListener("keydown", function(e){ if (e.key === "Enter") go(); });
+  card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ nm ]));
+  card.appendChild(el("div", { class: "field" }, [ cd ]));
+  card.appendChild(btn); card.appendChild(errb);
+  card.appendChild(el("p", { class: "sub small", style: "margin-top:.8rem", text: "한 번 들어오면 이 휴대폰이 기억해요. 코드를 잊어버리면 선생님께 물어보세요." }));
+  app.appendChild(card); nm.focus();
+}
+
+async function renderHome(){
+  setHeader("내 숙제");
+  app.innerHTML = '<div class="empty">불러오는 중…</div>';
+  var R;
+  try { R = await api.myTests(SES.token); }
+  catch(e){
+    if (/다시 들어와/.test(e.message)){ lsDel(SKEY); SES = null; return route(); }   // 선생님이 새 코드를 줌 등
+    app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message }));
+    app.appendChild(el("button", { class: "btn ghost small", style: "margin-top:.8rem", text: "다시 불러오기", onclick: renderHome }));
+    return;
+  }
+  app.innerHTML = "";
+  app.appendChild(el("div", { class: "card spread" }, [
+    el("div", {}, [ el("h2", { text: R.name + " 학생" }), R.class_name ? el("div", { class: "sub small", text: R.class_name }) : null ]),
+    el("button", { class: "btn ghost small", text: "나가기", onclick: async function(){
+      if (!(await askBox("나갈까요? 다음에 들어올 때 입장 코드를 다시 넣어야 해요.", "나가기"))) return;
+      await api.logout(SES.token); lsDel(SKEY); SES = null; route();
+    } }) ]));
+  var tests = R.tests || [];
+  if (!tests.length){ app.appendChild(el("div", { class: "empty", text: "지금 열린 숙제가 없어요." })); return; }
+  var left = tests.filter(function(t){ return t.stage !== 2; }).length;
+  app.appendChild(el("div", { class: "left" }, left ? [ "남은 숙제 ", el("b", { text: left + "개" }), " · 위에서부터 차례로 하면 돼요." ] : [ "숙제를 ", el("b", { text: "모두 끝냈어요" }), ". 수고했어요!" ]));
+  var LAB = [ ["no", "아직 안 풂", "풀기"], ["mid", "틀린 문제 다시 풀기", "이어서 풀기"], ["ok", "끝", "정답·해설 보기"] ];
+  APPS.forEach(function(A){
+    var mine = tests.filter(function(t){ return (t.app || "test") === A.app; })
+      .sort(function(a, b){ return (a.stage === 2) - (b.stage === 2); });   // 안 끝난 숙제 먼저
+    if (!mine.length) return;
+    app.appendChild(el("div", { class: "app-h" }, [ A.name, el("small", { text: A.desc }) ]));
+    mine.forEach(function(t){
+      var L = LAB[t.stage] || LAB[0];
+      var href = A.href + "?s=1" + (DEMO ? "&demo=1" : "") + "#t=" + encodeURIComponent(t.id);
+      app.appendChild(el("a", { class: "card hw" + (t.stage === 2 ? " done" : ""), href: href }, [
+        el("div", { class: "spread" }, [ el("h3", { text: t.work || t.title }), el("span", { class: "pill " + L[0], text: L[1] }) ]),
+        el("div", { class: "sub small", text: [t.series, t.author, t.track].filter(Boolean).join(" · ") }),
+        el("div", { class: "small go", style: "margin-top:.4rem", text: L[2] + " →" }) ]));
+    });
+  });
+}
+</script>
+</body>
+</html>

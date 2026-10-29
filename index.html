@@ -110,7 +110,9 @@ h1{font-family:"Gowun Batang",serif;font-size:clamp(1.9rem,7vw,2.4rem);line-heig
   </nav>
 
   <p class="who" id="who"></p>
-  <div class="note">학생들은 이 화면을 쓰지 않아요. 숙제마다 선생님이 보낸 <b>학생 링크</b>로 바로 들어가요. 로그인은 한 도구에서 한 번 하면 다른 도구에도 이어져요.</div>
+  <div class="note">학생들은 이 화면을 쓰지 않아요. 학생은 <b>청연국어 학생 입구</b> 하나로 들어와 이름과 입장 코드를 넣으면, 되새김·문법 숙제가 「내 숙제」에 모여 보여요. 홈 화면에 추가하면 「청연국어」 아이콘이 생겨요.<br>
+    <b>학생 입구 주소</b> <span id="stu"></span> <button type="button" id="stuCopy" style="font:inherit;font-size:.8rem;font-weight:700;color:var(--accent);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.1rem .55rem;cursor:pointer">복사</button>
+    <br>청연 독서는 아직 책마다 보낸 학생 링크로 들어가요. 로그인은 한 도구에서 한 번 하면 다른 도구에도 이어져요.</div>
 </div>
 <script>
 // 로그인했는지 보여 주기 (세 도구가 같은 Supabase 로그인을 씀). 없어도 첫 화면은 그대로 동작
@@ -120,6 +122,15 @@ try {
   var email = s && s.user && s.user.email;
   document.getElementById("who").textContent = email ? email + " 로그인됨" : "아직 로그인하지 않았어요. 도구를 열면 로그인 화면이 나와요.";
 } catch(e){}
+// 학생 입구 주소 보여 주기 · 복사
+var STU = location.href.split(/[?#]/)[0].replace(/[^/]*$/, "") + "student.html";
+document.getElementById("stu").textContent = STU.replace(/^https?:\/\//, "");
+document.getElementById("stuCopy").addEventListener("click", function(){
+  var b = this;
+  function ok(){ b.textContent = "복사했어요"; setTimeout(function(){ b.textContent = "복사"; }, 2000); }
+  if (navigator.clipboard) navigator.clipboard.writeText(STU).then(ok, function(){ prompt("주소를 복사하세요", STU); });
+  else prompt("주소를 복사하세요", STU);
+});
 </script>
 </body>
 </html>

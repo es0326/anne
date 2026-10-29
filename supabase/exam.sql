@@ -49,8 +49,31 @@ create table if not exists public.exam_scores (
 -- 2026-10-29: 학교에서 알려 준 1등급컷 (점수)
 alter table public.exams add column if not exists cut1 numeric;
 
+-- 2026-10-29: 교재 배부 · 숙제 체크표 (시험 대비 기간에 누구에게 무엇을 줬는지, 숙제를 했는지)
+--   students: [{ "id": "<students.id, 명단에 없으면 null>", "name": "김하늘" }]
+--   cols:     [{ "id": "c1", "kind": "give"(배부) | "hw"(숙제), "name": "기출 1회", "date": "11/5", "memo": "" }]
+--   marks:    { "c1": { "김하늘": "o" } }   o = 줌 / 다 함 · h = 덜 함 · x = 안 함 · n = 해당 없음 (빈칸 = 아직)
+create table if not exists public.exam_checks (
+  id          uuid primary key default gen_random_uuid(),
+  owner       uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  title       text not null default '',
+  year        int  not null default extract(year from now())::int,
+  students    jsonb not null default '[]'::jsonb,
+  cols        jsonb not null default '[]'::jsonb,
+  marks       jsonb not null default '{}'::jsonb,
+  memo        text not null default '',
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
 alter table public.exams       enable row level security;
 alter table public.exam_scores enable row level security;
+alter table public.exam_checks enable row level security;
+
+drop policy if exists "owner manages exam checks" on public.exam_checks;
+create policy "owner manages exam checks" on public.exam_checks
+  for all to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
+grant select, insert, update, delete on public.exam_checks to authenticated;
 
 drop policy if exists "owner manages exams" on public.exams;
 create policy "owner manages exams" on public.exams

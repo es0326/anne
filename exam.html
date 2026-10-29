@@ -205,6 +205,24 @@ td.wr{white-space:normal;color:var(--wrong);font-size:.85rem}
 th.r,td.r{text-align:right;font-variant-numeric:tabular-nums}
 .big{font-family:"Gowun Batang",serif;font-size:1.4rem;font-weight:800}
 @media (max-width:520px){ .unit{grid-template-columns:1fr 3rem} .unit .bar{grid-column:1 / span 2;grid-row:2} }
+/* 교재 · 숙제 체크표 */
+.ck th.c{text-align:center;white-space:normal;min-width:4.4rem;max-width:7.5rem;vertical-align:bottom;cursor:pointer;letter-spacing:0}
+.ck th.c:hover .cn{color:var(--accent);text-decoration:underline}
+.ck .kind{display:block;font-size:.66rem;letter-spacing:.08em}
+.ck .kind.give{color:var(--green)}
+.ck .kind.hw{color:var(--accent)}
+.ck .cn{display:block;font-size:.86rem;color:var(--ink);line-height:1.3;word-break:keep-all}
+.ck .dt{display:block;font-size:.7rem;font-weight:500}
+.ck td.c{text-align:center;padding:.25rem .3rem}
+.ck td.nm,.ck th.nm0{position:sticky;left:0;background:var(--card);z-index:1;font-weight:700}
+.ck tfoot td{font-size:.76rem;color:var(--muted);border-top:1.5px solid var(--line);border-bottom:none}
+.mk{font-family:inherit;width:2.7rem;height:2.4rem;border:1.5px solid var(--line);border-radius:8px;background:var(--paper);
+  font-size:1.05rem;font-weight:700;cursor:pointer;color:var(--muted);line-height:1}
+.mk:focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+.mk.o{background:var(--correct-soft);border-color:var(--correct);color:var(--correct)}
+.mk.h{background:var(--warn-soft);border-color:var(--warn);color:var(--warn)}
+.mk.x{background:var(--wrong-soft);border-color:var(--wrong);color:var(--wrong)}
+.mk.n{opacity:.55}
 </style>
 </head>
 <body>
@@ -336,6 +354,48 @@ function cutOk(ex, s, total){ return hasVal(ex.cut1) && (hasVal(s.official) ? nu
 function examLabel(ex){ return [ex.year, ex.term, ex.kind].filter(Boolean).join(" "); }
 function examSub(ex){ return [ex.school, ex.grade, ex.subject && ex.subject !== "국어" ? ex.subject : ""].filter(Boolean).join(" · "); }
 
+/* ===== 교재 · 숙제 체크표 ===== */
+// 표시: "" 아직 · o 줌/다 함 · h 덜 함 · x 안 함 · n 해당 없음
+function markOf(B, colId, name){ var m = ((B.marks || {})[colId] || {})[name]; return m === "o" || m === "h" || m === "x" || m === "n" ? m : ""; }
+function markDone(m){ return m === "o" || m === "n"; }
+function markText(kind, m){ return m === "o" ? (kind === "give" ? "✓" : "○") : ({ h: "△", x: "✕", n: "—" }[m] || ""); }
+function markWord(kind, m){ return m === "o" ? (kind === "give" ? "줌" : "다 함") : ({ h: "덜 함", x: "안 함", n: "해당 없음" }[m] || (kind === "give" ? "아직 안 줌" : "확인 안 함")); }
+function checkTally(B){
+  var t = { give: 0, bad: 0, unk: 0 };
+  (B.cols || []).forEach(function(c){ (B.students || []).forEach(function(s){
+    var m = markOf(B, c.id, s.name);
+    if (c.kind === "give"){ if (!m) t.give++; } else if (m === "h" || m === "x") t.bad++; else if (!m) t.unk++;
+  }); });
+  return t;
+}
+// 교재 · 숙제 칸 넣기/고치기 창 → { kind, name, date, memo } · "del" · null(취소)
+function colBox(c, kind){
+  return new Promise(function(resolve){
+    var k = c ? c.kind : kind || "give";
+    var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+    function done(v){ back.remove(); resolve(v); }
+    var chips = el("div", { class: "chips" });
+    function drawK(){ chips.innerHTML = ""; [["give", "교재 배부"], ["hw", "숙제"]].forEach(function(o){ chips.appendChild(el("button", { class: "chip" + (k === o[0] ? " on" : ""), text: o[1], onclick: function(){ k = o[0]; drawK(); name.placeholder = k === "give" ? "예: 기출 문제집" : "예: 기출 1~3회"; dlab.textContent = k === "give" ? "준 날" : "검사 날"; } })); }); }
+    var name = el("input", { type: "text", maxlength: "30" }); name.value = c ? c.name : "";
+    var d = new Date(), date = el("input", { type: "text", maxlength: "12", class: "mini-in", style: "width:7rem!important" });
+    date.value = c ? c.date || "" : (d.getMonth() + 1) + "/" + d.getDate();
+    var memo = el("input", { type: "text", maxlength: "100", placeholder: "없어도 돼요" }); memo.value = c ? c.memo || "" : "";
+    var errb = el("div", { class: "err" });
+    function ok(){ if (!trimStr(name.value)) { errb.textContent = "이름을 넣어 주세요."; return name.focus(); } done({ kind: k, name: trimStr(name.value), date: trimStr(date.value), memo: trimStr(memo.value) }); }
+    [name, date, memo].forEach(function(n){ n.addEventListener("keydown", function(e){ if (e.key === "Enter") ok(); if (e.key === "Escape") done(null); }); });
+    var dlab = el("label", { text: k === "give" ? "준 날" : "검사 날" });
+    drawK();
+    function f(label, node, hint){ return el("div", { class: "field", style: "margin-bottom:.7rem" }, [ typeof label === "string" ? el("label", { text: label }) : label, node, hint ? el("div", { class: "hint", text: hint }) : null ]); }
+    back.appendChild(el("div", { class: "dlg" }, [ el("h3", { style: "margin-bottom:.6rem", text: c ? "칸 고치기" : "칸 넣기" }),
+      chips, f("이름", name), f(dlab, date, "예: 11/5"), f("메모", memo), errb,
+      el("div", { class: "row", style: "justify-content:flex-end;margin-top:.6rem" }, [
+        c ? el("button", { class: "btn danger small", style: "margin-right:auto", text: "이 칸 지우기", onclick: function(){ done("del"); } }) : null,
+        el("button", { class: "btn ghost", text: "취소", onclick: function(){ done(null); } }), el("button", { class: "btn", text: c ? "저장" : "넣기", onclick: ok }) ]) ]));
+    back.addEventListener("click", function(e){ if (e.target === back) done(null); });
+    document.body.appendChild(back); name.focus();
+  });
+}
+
 /* ===== 데이터 계층 (Supabase / 체험) ===== */
 function unwrap(res){ if (res.error) throw new Error(res.error.message || "오류가 발생했습니다."); return res.data; }
 function supabaseApi(){
@@ -361,14 +421,30 @@ function supabaseApi(){
     },
     deleteScore: async function(id){ unwrap(await db.from("exam_scores").delete().eq("id", id)); },
     listClasses: async function(){ return unwrap(await db.from("classes").select("*").order("created_at")); },
-    listStudents: async function(){ return unwrap(await db.from("students").select("id,name,class_id").order("name")); }
+    listStudents: async function(){ return unwrap(await db.from("students").select("id,name,class_id").order("name")); },
+    listChecks: async function(){ return unwrap(await db.from("exam_checks").select("*").order("created_at", { ascending: false })); },
+    getCheck: async function(id){ return unwrap(await db.from("exam_checks").select("*").eq("id", id).single()); },
+    createCheck: async function(c){ return unwrap(await db.from("exam_checks").insert(c).select().single()); },
+    updateCheck: async function(id, patch){ unwrap(await db.from("exam_checks").update(Object.assign({}, patch, { updated_at: new Date().toISOString() })).eq("id", id)); },
+    deleteCheck: async function(id){ unwrap(await db.from("exam_checks").delete().eq("id", id)); }
   };
 }
 function demoApi(){
   var KEY = "exam-demo-v2";
   var USER = { id: "demo-teacher", email: "체험용 선생님" };
   var S = lsGet(KEY) || seed();
+  if (!S.checks) S.checks = seedChecks();
   function save(){ lsSet(KEY, S); }
+  function seedChecks(){
+    var who = [["ds1", "김하늘"], ["ds2", "이준서"], ["ds3", "박서연"], ["ds4", "최민준"], ["ds5", "정유나"], ["ds6", "한도윤"]];
+    return [ { id: "dk1", title: "2학기 기말 대비 · 성사중 중2", year: 2026, memo: "", created_at: now(), updated_at: now(),
+      students: who.map(function(w){ return { id: w[0], name: w[1] }; }),
+      cols: [ { id: "c1", kind: "give", name: "기출 문제집", date: "11/2", memo: "" }, { id: "c2", kind: "hw", name: "기출 1~3회", date: "11/9", memo: "" },
+              { id: "c3", kind: "give", name: "작품 정리 프린트", date: "11/9", memo: "" }, { id: "c4", kind: "hw", name: "품사 문제", date: "11/16", memo: "" } ],
+      marks: { c1: { "김하늘": "o", "이준서": "o", "박서연": "o", "최민준": "o", "정유나": "o" }, c2: { "김하늘": "o", "이준서": "h", "박서연": "x", "최민준": "o", "정유나": "n" },
+               c3: { "김하늘": "o", "이준서": "o" } } } ];
+  }
+  function check(id){ var c = S.checks.find(function(x){ return x.id === id; }); if (!c) throw new Error("체크표를 찾을 수 없습니다."); return c; }
   function uid(){ return "d" + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
   function now(){ return new Date().toISOString(); }
   function seed(){
@@ -412,7 +488,12 @@ function demoApi(){
     },
     deleteScore: async function(id){ S.scores = S.scores.filter(function(s){ return s.id !== id; }); save(); },
     listClasses: async function(){ return clone(S.classes); },
-    listStudents: async function(){ return clone(S.students).sort(function(a, b){ return a.name.localeCompare(b.name, "ko"); }); }
+    listStudents: async function(){ return clone(S.students).sort(function(a, b){ return a.name.localeCompare(b.name, "ko"); }); },
+    listChecks: async function(){ return clone(S.checks).sort(function(a, b){ return a.created_at < b.created_at ? 1 : -1; }); },
+    getCheck: async function(id){ return clone(check(id)); },
+    createCheck: async function(c){ var n = Object.assign({ marks: {}, memo: "", year: new Date().getFullYear() }, clone(c), { id: uid(), owner: USER.id, created_at: now(), updated_at: now() }); S.checks.push(n); save(); return clone(n); },
+    updateCheck: async function(id, patch){ Object.assign(check(id), clone(patch), { updated_at: now() }); save(); },
+    deleteCheck: async function(id){ S.checks = S.checks.filter(function(c){ return c.id !== id; }); save(); }
   };
 }
 
@@ -443,6 +524,9 @@ function runTeacher(){
     if (p.has("new")) renderNew();
     else if (p.get("exam")) renderExam(p.get("exam"), p.get("tab"), p.get("who"));
     else if (p.get("student")) renderStudent(p.get("student"));
+    else if (p.has("newcheck")) renderNewCheck(p.get("from"));
+    else if (p.get("check")) renderCheck(p.get("check"));
+    else if (p.has("checks")) renderChecks();
     else renderList();
     window.scrollTo(0, 0);
   }
@@ -465,6 +549,7 @@ function runTeacher(){
     var exams, scores, classes, students;
     try { exams = await api.listExams(); scores = await api.listScores(); classes = await api.listClasses(); students = await api.listStudents(); } catch(e){ return errBox(e); }
     app.innerHTML = "";
+    app.appendChild(homeTabs("exams"));
     app.appendChild(el("div", { class: "spread", style: "margin-bottom:.8rem" }, [ el("h2", { text: "시험 기록" }),
       el("button", { class: "btn small", text: "+ 시험 만들기", onclick: function(){ go("new"); } }) ]));
     if (!exams.length) app.appendChild(el("div", { class: "card empty", text: "아직 기록한 시험이 없어요. ‘시험 만들기’로 지난 중간고사부터 넣어 보세요." }));
@@ -915,6 +1000,235 @@ function runTeacher(){
     }
   }
   function stat(n, l){ return el("div", { class: "stat" }, [ el("div", { class: "n", text: String(n) }), el("div", { class: "l", text: l }) ]); }
+
+  /* ----- 첫 화면 탭: 시험 기록 | 교재 · 숙제 ----- */
+  function homeTabs(on){
+    var tabs = el("div", { class: "tabs", role: "tablist", style: "margin-top:0" });
+    [["exams", "시험 기록", ""], ["checks", "교재 · 숙제 체크", "checks"]].forEach(function(t){
+      tabs.appendChild(el("button", { class: "tab" + (t[0] === on ? " on" : ""), role: "tab", text: t[1], onclick: function(){ go(t[2]); } }));
+    });
+    return tabs;
+  }
+
+  /* ----- 교재 · 숙제 체크표 목록 ----- */
+  async function renderChecks(){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var list;
+    try { list = await api.listChecks(); } catch(e){ return errBox(e); }
+    app.innerHTML = "";
+    app.appendChild(homeTabs("checks"));
+    app.appendChild(el("div", { class: "spread", style: "margin-bottom:.4rem" }, [ el("h2", { text: "교재 · 숙제 체크표" }),
+      el("button", { class: "btn small", text: "+ 체크표 만들기", onclick: function(){ go("newcheck"); } }) ]));
+    app.appendChild(el("p", { class: "sub small", style: "margin-bottom:.8rem", text: "시험 대비 기간에 누구에게 어떤 교재를 줬는지, 숙제를 했는지 칸을 눌러 표시해요." }));
+    if (!list.length) app.appendChild(el("div", { class: "card empty", text: "아직 체크표가 없어요. 예: ‘2학기 기말 대비 · 성사중 중2’처럼 시험·학교별로 하나씩 만들어 보세요." }));
+    list.forEach(function(B){
+      var t = checkTally(B);
+      var info = [];
+      if (t.give) info.push(el("span", { class: "pill no", text: "안 준 교재 " + t.give }));
+      if (t.bad) info.push(el("span", { class: "pill no", text: "숙제 덜 함·안 함 " + t.bad }));
+      if (t.unk) info.push(el("span", { class: "pill", text: "숙제 확인 안 함 " + t.unk }));
+      if (!info.length && (B.cols || []).length) info.push(el("span", { class: "pill ok", text: "모두 됨" }));
+      app.appendChild(el("div", { class: "card" }, [
+        el("div", { class: "spread" }, [ el("div", {}, [ el("h3", { text: B.title || "제목 없음" }),
+          el("div", { class: "sub small", text: "학생 " + (B.students || []).length + "명 · 배부 " + (B.cols || []).filter(function(c){ return c.kind === "give"; }).length + " · 숙제 " + (B.cols || []).filter(function(c){ return c.kind !== "give"; }).length }) ]) ]),
+        info.length ? el("div", { class: "row", style: "margin-top:.4rem;gap:.4rem" }, info) : null,
+        el("div", { class: "row", style: "margin-top:.8rem" }, [
+          el("button", { class: "btn small", text: "열기", onclick: function(){ go("check=" + B.id); } }),
+          el("button", { class: "btn ghost small", text: "복사해서 새로", onclick: function(){ go("newcheck&from=" + B.id); } }) ]) ]));
+    });
+  }
+
+  /* ----- 학생 고르기 (반 전체 / 한 명씩) ----- */
+  function studentPicker(ST, CL, init){
+    var sel = (init || []).map(function(s){ return { id: s.id || null, name: s.name }; });
+    var box = el("div");
+    var groups = CL.map(function(c){ return { name: c.name, list: ST.filter(function(s){ return s.class_id === c.id; }) }; });
+    groups.push({ name: "반 없음", list: ST.filter(function(s){ return !CL.some(function(c){ return c.id === s.class_id; }); }) });
+    groups = groups.filter(function(g){ return g.list.length; });
+    function has(name){ return sel.some(function(s){ return s.name === name; }); }
+    function add(s){ if (!has(s.name)) sel.push({ id: s.id || null, name: s.name }); }
+    function remove(name){ sel = sel.filter(function(s){ return s.name !== name; }); }
+    function draw(){
+      box.innerHTML = "";
+      box.appendChild(el("div", { class: "sub small", text: sel.length + "명 골랐어요. 반 이름을 누르면 그 반 전체를 넣거나 빼요." }));
+      groups.forEach(function(g){
+        var all = g.list.every(function(s){ return has(s.name); });
+        box.appendChild(el("div", { class: "chips", style: "margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--line)" },
+          [ el("button", { class: "chip" + (all ? " on" : ""), style: "font-weight:700", text: g.name + (all ? " 전체 ✓" : " 전체"), onclick: function(){
+              g.list.forEach(function(s){ if (all) remove(s.name); else add(s); }); draw(); } }) ]
+          .concat(g.list.map(function(s){ return el("button", { class: "chip" + (has(s.name) ? " on" : ""), text: s.name, onclick: function(){ if (has(s.name)) remove(s.name); else add(s); draw(); } }); }))));
+      });
+      var extra = sel.filter(function(s){ return !ST.some(function(x){ return x.name === s.name; }); });
+      box.appendChild(el("div", { class: "chips", style: "margin-top:.6rem;padding-top:.5rem;border-top:1px dashed var(--line)" },
+        extra.map(function(s){ return el("button", { class: "chip on", text: s.name + " ×", title: "빼기", onclick: function(){ remove(s.name); draw(); } }); })
+        .concat([ el("button", { class: "chip", text: "+ 명단에 없는 학생", onclick: async function(){ var v = await promptBox("학생 이름", "", "넣기"); if (v){ add({ name: v }); draw(); } } }) ])));
+      if (!ST.length) box.appendChild(el("p", { class: "sub small", text: "학생 명단이 비어 있어요. 청연 되새김의 ‘학생 명단 · 입장 코드’에서 반과 학생을 넣으면 여기에도 나와요." }));
+    }
+    draw();
+    return { node: box, get: function(){
+      // 반 순서 → 이름 순서, 명단에 없는 학생은 맨 뒤
+      function rank(s){ for (var i = 0; i < groups.length; i++){ var j = groups[i].list.findIndex(function(x){ return x.name === s.name; }); if (j !== -1) return i * 1000 + j; } return 1e6; }
+      return sel.slice().sort(function(a, b){ return rank(a) - rank(b) || a.name.localeCompare(b.name, "ko"); });
+    } };
+  }
+
+  /* ----- 체크표 만들기 (복사해서 새로 포함) ----- */
+  async function renderNewCheck(from){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var ST, CL, SRC = null;
+    try { ST = await api.listStudents(); CL = await api.listClasses(); if (from) SRC = await api.getCheck(from); } catch(e){ return errBox(e); }
+    app.innerHTML = "";
+    app.appendChild(el("div", { class: "row", style: "margin-bottom:1rem" }, [ el("button", { class: "btn ghost small", text: "← 목록", onclick: function(){ go("checks"); } }) ]));
+    var card = el("div", { class: "card" }, [ el("h2", { text: SRC ? "복사해서 새 체크표" : "체크표 만들기" }),
+      el("p", { class: "sub", text: SRC ? "학생과 교재·숙제 칸을 그대로 가져와요. 표시(✓ ○ △ ✕)는 비운 채로 시작해요." : "제목과 학생만 고르면 돼요. 교재 · 숙제 칸은 다음 화면에서 하나씩 넣어요." }) ]);
+    var title = el("input", { type: "text", maxlength: "60", placeholder: "예: 2학기 기말 대비 · 성사중 중2" });
+    title.value = SRC ? SRC.title : "";
+    card.appendChild(el("div", { class: "field", style: "margin-top:1rem" }, [ el("label", { text: "제목" }), title ]));
+    var pick = studentPicker(ST, CL, SRC ? SRC.students : []);
+    card.appendChild(el("div", { class: "field" }, [ el("label", { text: "학생" }), pick.node ]));
+    var errb = el("div", { class: "err" });
+    var btn = el("button", { class: "btn", text: "만들기 →", onclick: async function(){
+      errb.textContent = "";
+      if (!trimStr(title.value)) return errb.textContent = "제목을 넣어 주세요.";
+      var st = pick.get();
+      if (!st.length) return errb.textContent = "학생을 한 명 이상 골라 주세요.";
+      btn.disabled = true;
+      try {
+        var B = await api.createCheck({ title: trimStr(title.value), year: new Date().getFullYear(), students: st, cols: SRC ? clone(SRC.cols || []) : [], marks: {}, memo: "" });
+        toast("체크표를 만들었어요.");
+        go("check=" + B.id);
+      } catch(e){ errb.textContent = e.message; btn.disabled = false; }
+    } });
+    card.appendChild(btn); card.appendChild(errb);
+    app.appendChild(card);
+  }
+
+  /* ----- 체크표 한 개 ----- */
+  async function renderCheck(id){
+    app.innerHTML = '<div class="empty">불러오는 중…</div>';
+    var B, ST, CL;
+    try { B = await api.getCheck(id); ST = await api.listStudents(); CL = await api.listClasses(); } catch(e){ return errBox(e); }
+    B.cols = B.cols || []; B.students = B.students || []; B.marks = B.marks || {};
+    var editing = false;
+    // 칸을 빨리 여러 번 눌러도 순서대로 저장
+    var saving = false, dirty = false;
+    async function persist(patch){
+      Object.assign(B, patch || {});
+      if (saving){ dirty = true; return; }
+      saving = true;
+      do { dirty = false; try { await api.updateCheck(id, { title: B.title, students: B.students, cols: B.cols, marks: B.marks, memo: B.memo || "" }); } catch(e){ toast("저장하지 못했어요: " + e.message, true); } } while (dirty);
+      saving = false;
+    }
+    app.innerHTML = "";
+    app.appendChild(el("div", { class: "row", style: "margin-bottom:1rem" }, [ el("button", { class: "btn ghost small", text: "← 목록", onclick: function(){ go("checks"); } }) ]));
+    var head = el("div"), body = el("div");
+    app.appendChild(head); app.appendChild(body);
+    function drawHead(){
+      head.innerHTML = "";
+      head.appendChild(el("div", { class: "spread" }, [ el("div", {}, [ el("h2", { text: B.title || "제목 없음" }), el("div", { class: "sub", text: "학생 " + B.students.length + "명" }) ]),
+        el("div", { class: "row", style: "gap:.4rem" }, [
+          el("button", { class: "btn ghost small", text: "제목 바꾸기", onclick: async function(){ var v = await promptBox("체크표 제목", B.title, "바꾸기", 60); if (v){ await persist({ title: v }); drawHead(); } } }),
+          el("button", { class: "btn ghost small", text: editing ? "학생 고치기 닫기" : "학생 고치기", onclick: function(){ editing = !editing; drawHead(); draw(); } }),
+          el("button", { class: "btn ghost small", text: "복사해서 새로", onclick: function(){ go("newcheck&from=" + id); } }),
+          el("button", { class: "btn danger small", text: "지우기", onclick: async function(){
+            if (!(await askBox("‘" + B.title + "’ 체크표를 지울까요? 표시한 내용도 함께 지워져요.", "지우기"))) return;
+            try { await api.deleteCheck(id); toast("지웠어요."); go("checks"); } catch(e){ toast(e.message, true); }
+          } }) ]) ]));
+    }
+    function draw(){
+      var keepX = body.querySelector(".table-wrap") ? body.querySelector(".table-wrap").scrollLeft : 0;
+      body.innerHTML = "";
+      if (editing){
+        var pick = studentPicker(ST, CL, B.students);
+        body.appendChild(el("div", { class: "card", style: "margin-top:1rem" }, [ el("h3", { text: "학생 고치기" }), pick.node,
+          el("div", { class: "row", style: "margin-top:1rem" }, [ el("button", { class: "btn", text: "저장", onclick: async function(){
+            var st = pick.get(); if (!st.length) return toast("학생을 한 명 이상 골라 주세요.", true);
+            await persist({ students: st }); editing = false; toast("학생 명단을 고쳤어요."); drawHead(); draw();
+          } }) ]) ]));
+        return;
+      }
+      var card = el("div", { class: "card", style: "margin-top:1rem" });
+      card.appendChild(el("div", { class: "row" }, [
+        el("button", { class: "btn small", text: "+ 교재 배부", onclick: function(){ editCol(null, "give"); } }),
+        el("button", { class: "btn small", text: "+ 숙제", onclick: function(){ editCol(null, "hw"); } }) ]));
+      card.appendChild(el("div", { class: "legend" }, [ el("span", { text: "칸을 누를 때마다 바뀌어요 →" }),
+        el("span", { text: "배부: 빈칸 → ✓ 줌 → — 필요 없음" }), el("span", { text: "숙제: 빈칸 → ○ 다 함 → △ 덜 함 → ✕ 안 함 → — 해당 없음" }) ]));
+      if (!B.cols.length){
+        card.appendChild(el("div", { class: "empty", text: "위 단추로 교재나 숙제 칸을 넣으세요. 예: ‘기출 문제집’ 배부, ‘기출 1~3회’ 숙제" }));
+        body.appendChild(card); return;
+      }
+      var thr = el("tr", {}, [ el("th", { class: "nm0", text: "이름" }) ]);
+      B.cols.forEach(function(c){
+        thr.appendChild(el("th", { class: "c", title: "눌러서 고치기", onclick: function(){ editCol(c); } }, [
+          el("span", { class: "kind " + (c.kind === "give" ? "give" : "hw"), text: c.kind === "give" ? "배부" : "숙제" }),
+          el("span", { class: "cn", text: c.name || "?" }), c.date ? el("span", { class: "dt", text: c.date }) : null ]));
+      });
+      thr.appendChild(el("th", { class: "r", text: "남은 것" }));
+      var tb = el("tbody");
+      B.students.forEach(function(s){
+        var tr = el("tr", {}, [ el("td", { class: "nm", text: s.name }) ]);
+        var left = 0;
+        B.cols.forEach(function(c){
+          var m = markOf(B, c.id, s.name);
+          if (!markDone(m)) left++;
+          tr.appendChild(el("td", { class: "c" }, [ el("button", { class: "mk " + m, "aria-label": s.name + " " + c.name + " " + markWord(c.kind, m), text: markText(c.kind, m), onclick: function(){
+            var seq = c.kind === "give" ? ["", "o", "n"] : ["", "o", "h", "x", "n"];
+            var nx = seq[(seq.indexOf(m) + 1) % seq.length];
+            B.marks[c.id] = B.marks[c.id] || {};
+            if (nx) B.marks[c.id][s.name] = nx; else delete B.marks[c.id][s.name];
+            persist(); draw();
+          } }) ]));
+        });
+        tr.appendChild(el("td", { class: "r" }, [ left ? el("span", { class: "pill no", text: String(left) }) : el("span", { class: "pill ok", text: "다 됨" }) ]));
+        tb.appendChild(tr);
+      });
+      var fr = el("tr", {}, [ el("td", { class: "nm", text: "합계" }) ]);
+      B.cols.forEach(function(c){
+        var cnt = { o: 0, h: 0, x: 0, n: 0, "": 0 };
+        B.students.forEach(function(s){ cnt[markOf(B, c.id, s.name)]++; });
+        var need = B.students.length - cnt.n;
+        fr.appendChild(el("td", { class: "c", text: c.kind === "give" ? cnt.o + "/" + need : "○" + cnt.o + (cnt.h ? " △" + cnt.h : "") + (cnt.x ? " ✕" + cnt.x : "") }));
+      });
+      fr.appendChild(el("td"));
+      var wrap = el("div", { class: "table-wrap ck", style: "margin-top:.6rem" }, [ el("table", {}, [ el("thead", {}, [ thr ]), tb, el("tfoot", {}, [ fr ]) ]) ]);
+      card.appendChild(wrap);
+      body.appendChild(card);
+      wrap.scrollLeft = keepX;
+      // 아직 안 된 것 (학부모 연락 · 다음 수업 확인용)
+      var lines = [];
+      var todo = el("div", { class: "card" }, [ el("h3", { text: "아직 안 된 것" }) ]);
+      B.cols.forEach(function(c){
+        var by = { "": [], h: [], x: [] };
+        B.students.forEach(function(s){ var m = markOf(B, c.id, s.name); if (by[m]) by[m].push(s.name); });
+        var parts = c.kind === "give" ? [["안 줌", by[""]]] : [["안 함", by.x], ["덜 함", by.h], ["확인 안 함", by[""]]];
+        parts = parts.filter(function(p){ return p[1].length; });
+        if (!parts.length) return;
+        var label = c.name + " (" + (c.kind === "give" ? "배부" : "숙제") + (c.date ? ", " + c.date : "") + ")";
+        lines.push(label + " — " + parts.map(function(p){ return p[0] + ": " + p[1].join(", "); }).join(" / "));
+        todo.appendChild(el("div", { class: "istat" }, [ el("div", { style: "font-weight:700", text: label }),
+          el("div", { class: "who-line" }, parts.map(function(p){ return el("span", { style: "margin-right:.9rem" }, [ el("b", { text: p[0] }), " " + p[1].join(", ") ]); })) ]));
+      });
+      if (lines.length){
+        todo.appendChild(el("div", { class: "row", style: "margin-top:.6rem" }, [ el("button", { class: "btn ghost small", text: "글로 복사", onclick: function(){ copyText(B.title + "\n" + lines.join("\n"), "복사했어요. 메모나 문자에 붙여 넣으세요."); } }) ]));
+        body.appendChild(todo);
+      } else body.appendChild(el("div", { class: "card", style: "text-align:center" }, [ el("span", { class: "pill ok", text: "모든 학생이 다 됐어요" }) ]));
+      // 메모
+      var memo = el("textarea", { placeholder: "메모 (예: 시험일 11/20, 범위 ‘일용할 양식’~품사)", maxlength: "500" }); memo.value = B.memo || "";
+      memo.addEventListener("change", function(){ persist({ memo: trimStr(memo.value) }); toast("메모를 저장했어요."); });
+      body.appendChild(el("div", { class: "card" }, [ el("h3", { text: "메모" }), memo ]));
+    }
+    async function editCol(c, kind){
+      var r = await colBox(c, kind);
+      if (!r) return;
+      if (r === "del"){
+        if (!(await askBox("‘" + c.name + "’ 칸을 지울까요? 이 칸에 표시한 것도 지워져요.", "지우기"))) return;
+        B.cols = B.cols.filter(function(x){ return x.id !== c.id; }); delete B.marks[c.id];
+      } else if (c) Object.assign(B.cols.find(function(x){ return x.id === c.id; }), r);
+      else B.cols.push(Object.assign({ id: "c" + Date.now().toString(36) }, r));
+      await persist(); draw();
+    }
+    drawHead(); draw();
+  }
 
   /* ----- 학생 한 명의 기록 ----- */
   async function renderStudent(sid){

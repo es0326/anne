@@ -424,7 +424,14 @@ function itemWhy(kind, item, ans, accept, n){
 var WHY_TEXT = { none: "안 풀었어요", parse: "빨간 낱말의 품사를 다시 생각해 보세요", tag: "품사를 다시 생각해 보세요", mc: "보기를 다시 골라 보세요", ox: "O·X를 잘못 골랐어요", fix: "O·X는 맞았어요. 고쳐 쓴 부분이 틀렸어요", write: "풀이를 다시 생각해 보세요" };
 var RETRY_MIN = 10;   // 틀린 문제 다시 풀기 시간 (분) — test.sql 의 test_retry_minutes 와 같게
 function oxText(ans){ var p = splitOX(ans); return p.c ? p.c + (p.c === "X" && trimStr(p.fix) ? " — " + trimStr(p.fix) : "") : "안 고름"; }
-function partLabel(kind){ return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : kind === "tag" ? "품사 쓰기" : kind === "parse" ? "품사 분석" : "현대어 풀이"; }
+// 품사 문제인지: 제목·안내에 ‘품사’가 있으면 품사(옛 작품 그대로), 없으면 음운 같은 다른 단원 → 쓰기·분석 칸 안내를 ‘답’으로
+function pumsaPart(p){ return !p || /품사/.test(String(p.title || "") + String(p.guide || "")); }
+function partLabel(kind, ps){
+  var p = Array.isArray(ps) ? ps.filter(function(q){ return q.type === kind; })[0] : ps;
+  if ((kind === "tag" || kind === "parse") && !pumsaPart(p)) return kind === "tag" ? "쓰기" : "분석";
+  return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : kind === "tag" ? "품사 쓰기" : kind === "parse" ? "품사 분석" : "현대어 풀이";
+}
+function whyText(w, p){ return pumsaPart(p) ? WHY_TEXT[w] : w === "tag" ? "답을 다시 생각해 보세요" : w === "parse" ? "빨간 칸을 다시 생각해 보세요" : WHY_TEXT[w]; }
 // 문제 글 안의 [낱말]은 표시(밑줄 대신)해서 보여 줌: "동생이 [새] 신발을 샀다."
 function qNode(text){
   var span = el("span", {}, []), re = /\[([^\]]+)\]/g, last = 0, m, s = String(text == null ? "" : text);
@@ -788,14 +795,14 @@ function runStudent(){
         var canEdit = stage === 0 || (started && !marks[x.n]);
         var w = why[x.n];
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), qNode(x.item.q) ]) ]);
-        if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
+        if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: whyText(w, p) }));
         if (x.kind === "parse"){
           var words = x.item.w || [], wmk = marks[x.n] ? words.map(function(){ return true; }) : ((ST.wm || [])[x.n] || []), pieces = String(cur[x.n] || "").split(",");   // 선생님이 인정한 답이면 모두 맞음으로
           var grid = el("div", { class: "pgrid" }, []);
           if (canEdit){
             words.forEach(function(wd, wi){
               var bad = stage === 1 && wmk[wi] === false;      // 다시 풀 때: 틀린 낱말만 빨갛게
-              var pin = el("input", { type: "text", class: "pin" + (bad ? " bad" : ""), placeholder: "품사", autocomplete: "off", "aria-label": wd + " 품사" });
+              var pin = el("input", { type: "text", class: "pin" + (bad ? " bad" : ""), placeholder: pumsaPart(p) ? "품사" : "답", autocomplete: "off", "aria-label": wd + (pumsaPart(p) ? " 품사" : " 답") });
               pin.value = pieces[wi] || "";
               pin.addEventListener("input", function(){
                 var arr = []; Array.prototype.forEach.call(grid.querySelectorAll("input"), function(i){ arr.push(i.value.replace(/,/g, "")); });
@@ -811,7 +818,7 @@ function runStudent(){
           box.appendChild(grid);
         } else if (x.kind === "tag"){
           if (canEdit){
-            var tin = el("input", { type: "text", class: "tagin", placeholder: "품사를 써요 (예: 명사)", autocomplete: "off", "aria-label": (x.i + 1) + "번 품사" });
+            var tin = el("input", { type: "text", class: "tagin", placeholder: pumsaPart(p) ? "품사를 써요 (예: 명사)" : "답을 써요", autocomplete: "off", "aria-label": (x.i + 1) + (pumsaPart(p) ? "번 품사" : "번 답") });
             tin.value = cur[x.n] || "";
             tin.addEventListener("input", function(){ cur[x.n] = tin.value; saveDraft(); count(); });
             box.appendChild(tin);
@@ -871,7 +878,7 @@ function runStudent(){
             box.appendChild(el("div", { class: "res " + (marks[x.n] ? "ok" : "no"), style: "white-space:pre-wrap", text: (trimStr(fin[x.n]) || "(안 씀)") + (marks[x.n] ? " ✓" : " ✗") }));
           }
         }
-        if (stage === 2 && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
+        if (stage === 2 && w) box.appendChild(el("div", { class: "why", text: whyText(w, p) }));
         if (stage === 2 && ST.keys){
           var k = ST.keys[x.n] || {};
           box.appendChild(x.kind === "parse"
@@ -1005,7 +1012,7 @@ function runTeacher(){
       app.appendChild(el("div", { class: "card" }, [
         el("div", { class: "spread" }, [ el("div", {}, [ el("h3", { text: t.work || t.title }), el("div", { class: "sub small", text: [t.track, t.series, t.author].filter(Boolean).join(" · ") }) ]),
           el("span", { class: "pill " + (open.length ? "ok" : "no"), text: open.length ? open.join(" · ") + "에 열림" : "닫힘" }) ]),
-        el("div", { class: "sub small", style: "margin-top:.3rem", text: (t.parts || []).map(function(p){ return partLabel(p.type) + " " + (p.items || []).length; }).join(" · ") + " · 모두 " + n + "문제" }),
+        el("div", { class: "sub small", style: "margin-top:.3rem", text: (t.parts || []).map(function(p){ return partLabel(p.type, p) + " " + (p.items || []).length; }).join(" · ") + " · 모두 " + n + "문제" }),
         el("div", { class: "row", style: "margin-top:.8rem" }, [
           el("button", { class: "btn small", text: "결과 보기", onclick: function(){ go("test=" + t.id); } }),
           el("button", { class: "btn ghost small", text: open.length ? "문제 편집 · 반 고르기" : "반 골라 열기", onclick: function(){ go("edit=" + t.id); } }) ])
@@ -1216,11 +1223,11 @@ function runTeacher(){
       kinds.forEach(function(k){
         var tot = countKind(k);
         var avg = E.length ? Math.round(E.reduce(function(a, e){ return a + score(e, k, "first"); }, 0) / E.length / tot * 100) : null;
-        stats.push(statBox(avg == null ? "–" : avg + "%", partLabel(k) + " 처음 정답률"));
+        stats.push(statBox(avg == null ? "–" : avg + "%", partLabel(k, t.parts) + " 처음 정답률"));
       });
       head.appendChild(el("div", { class: "stats" }, stats));
       var tabs = el("div", { class: "tabs", style: "margin-bottom:0" }, []);
-      [["status", "학생별"]].concat(kinds.map(function(k){ return [k, partLabel(k) + " 문항별"]; })).forEach(function(x){
+      [["status", "학생별"]].concat(kinds.map(function(k){ return [k, partLabel(k, t.parts) + " 문항별"]; })).forEach(function(x){
         tabs.appendChild(el("button", { class: "tab" + (TAB === x[0] ? " on" : ""), text: x[1], onclick: function(){ TAB = x[0]; draw(); } }));
       });
       head.appendChild(tabs);
@@ -1234,7 +1241,7 @@ function runTeacher(){
       var done = E.map(function(e){ return e.student_name; }), notYet = expected.filter(function(s){ return done.indexOf(s.name) === -1; }).map(function(s){ return s.name; });
       if (notYet.length) card.appendChild(el("p", { class: "note", text: "아직 안 낸 학생 " + notYet.length + "명: " + notYet.join(", ") }));
       if (!E.length){ card.appendChild(el("div", { class: "empty", text: "아직 낸 학생이 없어요." })); body.appendChild(card); return; }
-      var hr = [ el("th", { text: "이름" }) ].concat(kinds.map(function(k){ return el("th", { text: partLabel(k) }); })).concat([ el("th", { text: "제출" }), el("th", { text: "" }) ]);
+      var hr = [ el("th", { text: "이름" }) ].concat(kinds.map(function(k){ return el("th", { text: partLabel(k, t.parts) }); })).concat([ el("th", { text: "제출" }), el("th", { text: "" }) ]);
       var tb = el("tbody", {}, []);
       E.forEach(function(e){
         var cells = [ el("td", { text: e.student_name }) ];

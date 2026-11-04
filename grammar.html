@@ -663,7 +663,7 @@ function runStudent(){
   }
 
   function renderLogin(){
-    setHeader("청연국어", "청연 문법", "선생님께 받은 입장 코드로 들어와요.");
+    setHeader("청연국어", "청연 문법·화법", "선생님께 받은 입장 코드로 들어와요.");
     app.innerHTML = "";
     var card = el("div", { class: "card" }, [ el("h2", { text: "들어오기" }) ]);
     var nm = el("input", { type: "text", placeholder: "이름 (예: 김하늘)", autocomplete: "off", maxlength: "30", "aria-label": "이름" });
@@ -689,7 +689,7 @@ function runStudent(){
   }
 
   async function renderHome(){
-    setHeader("청연국어", "청연 문법", "내 숙제");
+    setHeader("청연국어", "청연 문법·화법", "내 숙제");
     app.innerHTML = '<div class="empty">불러오는 중…</div>';
     var R; try { R = await api.myTests(SES.token); } catch(e){ if (lost(e)) return; app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message })); return; }
     app.innerHTML = "";
@@ -722,7 +722,7 @@ function runStudent(){
       app.appendChild(el("button", { class: "btn ghost small", text: "← 내 숙제", onclick: function(){ location.hash = ""; } }));
       return;
     }
-    setHeader((T.series ? T.series + " · " : "") + "청연 문법", T.work || T.title, T.author);
+    setHeader((T.series ? T.series + " · " : "") + "청연 문법·화법", T.work || T.title, T.author);
     render();
   }
 
@@ -945,7 +945,7 @@ function runStudent(){
 
 /* ================= 교사 ================= */
 function runTeacher(){
-  pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold"><a href="./" style="color:inherit;text-decoration:none">← 청연국어</a> · 교사용</div><h1>청연 문법</h1><p class="sub">중등부 · 고등부 · O·X · 품사 쓰기 · 객관식</p></div><div class="row" id="whoami"></div></div>';
+  pageHeader.innerHTML = '<div class="topline"><div><div class="eyebrow gold"><a href="./" style="color:inherit;text-decoration:none">← 청연국어</a> · 교사용</div><h1>청연 문법·화법</h1><p class="sub">중등부 · 고등부 · 문법·화법 O·X · 쓰기 · 객관식</p></div><div class="row" id="whoami"></div></div>';
   pageFoot.innerHTML = "학생에게는 <b>학생 입구 주소</b> 하나와 각자의 <b>입장 코드</b>만 알려 주세요. 작품은 ‘문제 편집’에서 반을 고르면 그 반 학생의 ‘내 숙제’에 나타나요. 정답과 해설은 학생이 다 풀 때까지 보이지 않아요.";
   var whoami = document.getElementById("whoami");
   var USER = null, unsub = null;

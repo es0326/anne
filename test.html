@@ -186,6 +186,8 @@ tbody tr:last-child td{border-bottom:none}
 .oxbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .oxbtn:disabled{cursor:default;opacity:.75}
 .why{font-size:.85rem;font-weight:700;color:var(--wrong);margin:.35rem 0 .1rem}
+.tried{font-size:.85rem;margin:.1rem 0 .3rem;color:var(--wrong)}
+.mcbtn.tried{text-decoration:line-through;text-decoration-color:var(--wrong);opacity:.65}
 .clockbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;justify-content:center;margin:-.4rem 0 .6rem;pointer-events:none}
 .clock{display:inline-block;box-shadow:var(--shadow);font-weight:700;font-variant-numeric:tabular-nums;
   background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:.3rem .9rem}
@@ -715,6 +717,7 @@ function runStudent(){
       if (stage === 1) items.forEach(function(x){ if (x.kind === "mc" && !marks[x.n]) cur[x.n] = ""; });   // 틀린 객관식은 보기를 새로 고르게
     }
     function saveDraft(){ lsSet(dkey, cur); }
+    function triedOf(x){ var t = []; [first, ST.second || []].forEach(function(a){ var v = trimStr(a[x.n]); if (v && t.indexOf(v) < 0) t.push(v); }); return t; }   // 다시 풀 때 지난번에 틀린 답
     var editable = items.filter(function(x){ return stage === 0 || (started && !marks[x.n]); });
     var okN = marks.filter(Boolean).length, wrongN = N - okN;
 
@@ -758,12 +761,14 @@ function runStudent(){
         var w = why[x.n];
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
         if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
+        var tried = stage === 1 && canEdit && x.kind === "mc" ? triedOf(x) : [];
+        if (tried.length) box.appendChild(el("div", { class: "tried", text: "지난번 고른 답: " + tried.map(function(v){ return mcText(x.item, v); }).join(" / ") + " ✗" }));
         if (x.kind === "mc"){
           if (canEdit){
             var mrow = el("div", { class: "mcrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
             (x.item.c || []).forEach(function(txt, ci){
               var v = String(ci + 1), on = trimStr(cur[x.n]) === v;
-              var b = el("button", { class: "mcbtn" + (on ? " on" : ""), "data-v": v, role: "radio", "aria-checked": on ? "true" : "false" }, [ el("span", { class: "mcno", text: CIRCLED[ci] }), txt ]);
+              var b = el("button", { class: "mcbtn" + (on ? " on" : "") + (tried.indexOf(v) >= 0 ? " tried" : ""), "data-v": v, role: "radio", "aria-checked": on ? "true" : "false" }, [ el("span", { class: "mcno", text: CIRCLED[ci] }), txt ]);
               b.addEventListener("click", function(){
                 cur[x.n] = v;
                 Array.prototype.forEach.call(mrow.children, function(c){ var sel = c.getAttribute("data-v") === v; c.classList.toggle("on", sel); c.setAttribute("aria-checked", sel ? "true" : "false"); });

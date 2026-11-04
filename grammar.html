@@ -196,6 +196,8 @@ mark.tg{background:var(--accent-soft);color:var(--accent);font-weight:700;border
 .oxbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .oxbtn:disabled{cursor:default;opacity:.75}
 .why{font-size:.85rem;font-weight:700;color:var(--wrong);margin:.35rem 0 .1rem}
+.tried{font-size:.85rem;margin:.1rem 0 .3rem;color:var(--wrong)}
+.mcbtn.tried{text-decoration:line-through;text-decoration-color:var(--wrong);opacity:.65}
 .clockbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;justify-content:center;margin:-.4rem 0 .6rem;pointer-events:none}
 .clock{display:inline-block;box-shadow:var(--shadow);font-weight:700;font-variant-numeric:tabular-nums;
   background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:.3rem .9rem}
@@ -753,6 +755,7 @@ function runStudent(){
       if (stage === 1) items.forEach(function(x){ if ((x.kind === "mc" || x.kind === "tag") && !marks[x.n]) cur[x.n] = ""; });   // 틀린 객관식·품사 쓰기는 새로 고르고 쓰게
     }
     function saveDraft(){ lsSet(dkey, cur); }
+    function triedOf(x){ var t = []; [first, ST.second || []].forEach(function(a){ var v = trimStr(a[x.n]); if (v && t.indexOf(v) < 0) t.push(v); }); return t; }   // 다시 풀 때 지난번에 틀린 답
     var editable = items.filter(function(x){ return stage === 0 || (started && !marks[x.n]); });
     var okN = marks.filter(Boolean).length, wrongN = N - okN;
 
@@ -763,7 +766,7 @@ function runStudent(){
     else if (stage === 1){
       head.appendChild(el("h3", { text: N + "문제 중 " + okN + "문제 맞았어요" }));
       var cnts = {}; why.forEach(function(w){ if (w) cnts[w] = (cnts[w] || 0) + 1; });
-      var parts = [["tag", "품사가 틀림"], ["mc", "보기를 잘못 고름"], ["ox", "O·X를 잘못 고름"], ["fix", "고쳐 쓴 부분이 틀림"], ["write", "풀이가 틀림"], ["none", "안 풂"]]
+      var parts = [["tag", T.parts.some(function(p){ return p.type === "tag" && pumsaPart(p); }) ? "품사가 틀림" : "쓴 답이 틀림"], ["mc", "보기를 잘못 고름"], ["ox", "O·X를 잘못 고름"], ["fix", "고쳐 쓴 부분이 틀림"], ["write", "풀이가 틀림"], ["none", "안 풂"]]
         .filter(function(p){ return cnts[p[0]]; }).map(function(p){ return p[1] + " " + cnts[p[0]]; });
       if (parts.length) head.appendChild(el("p", { class: "sub", text: "틀린 문제 " + wrongN + "개 · " + parts.join(" · ") }));
       if (!started){
@@ -796,6 +799,8 @@ function runStudent(){
         var w = why[x.n];
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), qNode(x.item.q) ]) ]);
         if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: whyText(w, p) }));
+        var tried = stage === 1 && canEdit && (x.kind === "mc" || x.kind === "tag") ? triedOf(x) : [];
+        if (tried.length) box.appendChild(el("div", { class: "tried", text: "지난번 " + (x.kind === "mc" ? "고른 답" : "쓴 답") + ": " + tried.map(function(v){ return x.kind === "mc" ? mcText(x.item, v) : v; }).join(" / ") + " ✗" }));
         if (x.kind === "parse"){
           var words = x.item.w || [], wmk = marks[x.n] ? words.map(function(){ return true; }) : ((ST.wm || [])[x.n] || []), pieces = String(cur[x.n] || "").split(",");   // 선생님이 인정한 답이면 모두 맞음으로
           var grid = el("div", { class: "pgrid" }, []);
@@ -830,7 +835,7 @@ function runStudent(){
             var mrow = el("div", { class: "mcrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
             (x.item.c || []).forEach(function(txt, ci){
               var v = String(ci + 1), on = trimStr(cur[x.n]) === v;
-              var b = el("button", { class: "mcbtn" + (on ? " on" : ""), "data-v": v, role: "radio", "aria-checked": on ? "true" : "false" }, [ el("span", { class: "mcno", text: CIRCLED[ci] }), txt ]);
+              var b = el("button", { class: "mcbtn" + (on ? " on" : "") + (tried.indexOf(v) >= 0 ? " tried" : ""), "data-v": v, role: "radio", "aria-checked": on ? "true" : "false" }, [ el("span", { class: "mcno", text: CIRCLED[ci] }), txt ]);
               b.addEventListener("click", function(){
                 cur[x.n] = v;
                 Array.prototype.forEach.call(mrow.children, function(c){ var sel = c.getAttribute("data-v") === v; c.classList.toggle("on", sel); c.setAttribute("aria-checked", sel ? "true" : "false"); });

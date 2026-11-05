@@ -92,8 +92,9 @@ language sql immutable as $$
       and ( coalesce(p_accept ->> p_n::text, '') = blank_norm(p_answer)
             or exists (select 1 from unnest(string_to_array(coalesce(p_item->>'a', ''), '|')) as x where blank_norm(x) = blank_norm(p_answer)) )
     -- 객관식 (2026-10-22): 답은 고른 보기 번호("1"~"5"), 정답 item->>'a' 와 같아야 맞음
+    --   2026-11-05: 다시 풀 때는 "번호||선지 분석" (지난번 고른 보기가 왜 틀렸는지) → 번호만 봄
     when p_kind = 'mc' then
-      trim(coalesce(p_answer, '')) <> '' and trim(p_answer) = trim(coalesce(p_item->>'a', ''))
+      trim(split_part(coalesce(p_answer, ''), '||', 1)) <> '' and trim(split_part(p_answer, '||', 1)) = trim(coalesce(p_item->>'a', ''))
     -- O·X 답은 'O' 또는 'X||고친 문장'. X 문항은 고친 문장의 핵심어(fkw)까지 맞아야 맞음
     when p_kind = 'ox' then
       upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) <> ''
@@ -119,7 +120,7 @@ language sql immutable as $$
     when p_kind = 'parse' then 'parse'
     when p_kind = 'tag' and blank_norm(p_answer) = '' then 'none'
     when p_kind = 'tag' then 'tag'
-    when p_kind = 'mc' and trim(coalesce(p_answer, '')) = '' then 'none'
+    when p_kind = 'mc' and trim(split_part(coalesce(p_answer, ''), '||', 1)) = '' then 'none'
     when p_kind = 'mc' then 'mc'
     when p_kind = 'ox' and trim(split_part(coalesce(p_answer, ''), '||', 1)) = '' then 'none'
     when p_kind = 'ox' and upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) <> upper(trim(coalesce(p_item->>'a', ''))) then 'ox'
@@ -134,6 +135,11 @@ $$;
 --   시간(+1분 여유)을 넘겨 내면 새 답은 받지 않고 그 전 답으로 끝냄 = '쓴 데까지 자동 제출'을 서버에서도 지킴
 create or replace function public.test_retry_minutes() returns int language sql immutable as $$ select 10 $$;
 
+-- 2번째 다시 풀기가 열리는 때: 1번째 다시 풀기를 시작한 날의 다음 날 0시 (한국 시각). 공부하고 오게 하려는 것 (2026-11-04)
+create or replace function public.retry_open_at(p_data jsonb) returns timestamptz language sql stable as $$
+  select ((((coalesce((p_data->'start'->>'1')::timestamptz, now())) at time zone 'Asia/Seoul')::date + 1)::timestamp at time zone 'Asia/Seoul')
+$$;
+
 -- ---------- 학생용 RPC: 시험 문제 (정답·해설·핵심어 제외) -------------
 create or replace function public.get_test(p_test_id uuid)
 returns jsonb
@@ -146,7 +152,7 @@ begin
   if not t.is_open then raise exception '선생님이 아직 열지 않은 문제입니다.'; end if;
   select coalesce(jsonb_agg(jsonb_build_object(
            'type', p->>'type', 'title', coalesce(p->>'title', ''), 'guide', coalesce(p->>'guide', ''),
-           'items', (select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object('q', q->>'q', 'c', q->'c', 'w', q->'w')) order by qn), '[]'::jsonb)
+           'items', (select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object('q', q->>'q', 'c', q->'c', 'w', q->'w', 'h', q->>'hint')) order by qn), '[]'::jsonb)
                        from jsonb_array_elements(coalesce(p->'items', '[]'::jsonb)) with ordinality as qq(q, qn))
          ) order by pn), '[]'::jsonb)
     into v_parts
@@ -193,9 +199,10 @@ begin
   v_retry := case when v_data ? 'second' then '2' else '1' end;
   v_start := (v_data->'start'->>v_retry)::timestamptz;
   return jsonb_build_object('stage', v_stage, 'first', coalesce(v_data->'first', '[]'::jsonb), 'second', v_data->'second', 'third', v_data->'third',
-                            'marks', v_marks, 'wm', v_wm, 'why', v_why, 'retry', v_retry::int, 'late', coalesce(v_data->'late', '{}'::jsonb),
+                            'marks', v_marks, 'wm', v_wm, 'why', v_why, 'retry', v_retry::int, 'late', coalesce(v_data->'late', '{}'::jsonb), 'notes', coalesce(v_data->'notes', '{}'::jsonb),
                             'limit_min', test_retry_minutes(), 'server_now', now(),
                             'deadline', case when v_stage = 1 and v_start is not null then v_start + make_interval(mins => test_retry_minutes()) else null end,
+                            'open_at', case when v_stage = 1 and v_retry = '2' and v_start is null then retry_open_at(v_data) else null end,
                             'keys', case when v_stage = 2 then v_keys else null end);
 end; $$;
 
@@ -210,6 +217,9 @@ begin
   if v_data is null or v_data ? 'third' then return get_test_status(p_test_id, p_name); end if;
   v_retry := case when v_data ? 'second' then '2' else '1' end;
   if (v_data->'start'->>v_retry) is null then
+    if v_retry = '2' and now() < retry_open_at(v_data) then
+      raise exception '2번째 다시 풀기는 내일부터 할 수 있어요. 틀린 문제를 교재에서 다시 보고 오세요.';
+    end if;
     update test_entries
        set data = data || jsonb_build_object('start', coalesce(data->'start', '{}'::jsonb) || jsonb_build_object(v_retry, now()))
      where test_id = p_test_id and student_name = trim(p_name);
@@ -268,6 +278,21 @@ begin
   if not found then raise exception '기록을 찾을 수 없습니다.'; end if;
 end; $$;
 
+-- ---------- 교사용 RPC: 선생님 한마디 (2026-11-05) ------------------------
+--   data.notes = { "문항번호": "힌트·설명" }. 학생이 다시 풀기 전 ‘틀린 문제 살펴보기’와 다시 풀기 화면에 보임. 비우면 지움
+create or replace function public.set_test_note(p_entry_id uuid, p_n int, p_text text)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  update test_entries e
+     set data = jsonb_set(e.data, '{notes}',
+                  case when coalesce(trim(p_text), '') = '' then coalesce(e.data->'notes', '{}'::jsonb) - p_n::text
+                       else coalesce(e.data->'notes', '{}'::jsonb) || jsonb_build_object(p_n::text, left(trim(p_text), 1000)) end, true)
+   where e.id = p_entry_id and exists (select 1 from tests t where t.id = e.test_id and t.owner = auth.uid());
+  if not found then raise exception '기록을 찾을 수 없습니다.'; end if;
+end; $$;
+
 revoke all on function public.get_test(uuid)                   from public;
 revoke all on function public.get_test_status(uuid, text)      from public;
 revoke all on function public.submit_test(uuid, text, jsonb)   from public;
@@ -278,6 +303,8 @@ revoke execute on function public.get_test(uuid)                 from anon, auth
 revoke execute on function public.get_test_status(uuid, text)    from anon, authenticated;
 revoke execute on function public.submit_test(uuid, text, jsonb) from anon, authenticated;
 grant execute on function public.set_test_accept(uuid, jsonb)   to authenticated;
+revoke all on function public.set_test_note(uuid, int, text)  from public;
+grant execute on function public.set_test_note(uuid, int, text) to authenticated;
 
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on public.tests to authenticated;

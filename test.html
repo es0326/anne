@@ -128,6 +128,8 @@ input[type=text].blank.retry{border-bottom-color:var(--wrong);background:var(--w
 .mini .chk{background:var(--warn-soft);color:var(--warn)}
 .mini .none{background:var(--wrong-soft);color:var(--wrong)}
 .mini button.acc{font-family:inherit;font-size:.74rem;font-weight:700;color:var(--accent);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:.05rem .4rem;margin-left:.25rem;cursor:pointer}
+.nowbox{margin-top:.5rem;padding-top:.45rem;border-top:1px dashed var(--line)}
+.nowh{font-size:.8rem;font-weight:700;color:var(--wrong);margin-bottom:.15rem}
 .legend{display:flex;gap:.8rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:.4rem 0}
 .legend i{display:inline-block;width:.75rem;height:.75rem;border-radius:3px;vertical-align:-1px;margin-right:.25rem}
 .topic{padding:.7rem 0;border-top:1px solid var(--line)}
@@ -188,6 +190,9 @@ tbody tr:last-child td{border-bottom:none}
 .why{font-size:.85rem;font-weight:700;color:var(--wrong);margin:.35rem 0 .1rem}
 .tried{font-size:.85rem;margin:.1rem 0 .3rem;color:var(--wrong)}
 .mcbtn.tried{text-decoration:line-through;text-decoration-color:var(--wrong);opacity:.65}
+.tnote{font-size:.88rem;margin:.35rem 0 .2rem;padding:.4rem .6rem;border-radius:8px;background:var(--warn-soft);color:var(--ink);white-space:pre-wrap}
+.anlab{font-size:.8rem;font-weight:700;color:var(--accent);margin:.35rem 0 .15rem}
+textarea.anin{min-height:3.2rem;margin-bottom:.4rem}
 .clockbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;display:flex;justify-content:center;margin:-.4rem 0 .6rem;pointer-events:none}
 .clock{display:inline-block;box-shadow:var(--shadow);font-weight:700;font-variant-numeric:tabular-nums;
   background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:.3rem .9rem}
@@ -272,6 +277,21 @@ function askBox(msg, okText){
     back.addEventListener("click", function(e){ if (e.target === back) done(false); });
     back.addEventListener("keydown", function(e){ if (e.key === "Escape") done(false); });
     document.body.appendChild(back); ok.focus();
+  });
+}
+// 글 한 칸 받기 (선생님 한마디 등). 확인 → 쓴 글, 취소 → null
+function askText(msg, val, okText){
+  return new Promise(function(resolve){
+    var back = el("div", { class: "dlg-back", role: "dialog", "aria-modal": "true" });
+    var ta = el("textarea", { style: "min-height:5rem", "aria-label": msg }); ta.value = val || "";
+    function done(v){ back.remove(); resolve(v); }
+    back.appendChild(el("div", { class: "dlg" }, [ el("p", { text: msg }), ta,
+      el("div", { class: "row", style: "justify-content:flex-end" }, [
+        el("button", { class: "btn ghost", text: "취소", onclick: function(){ done(null); } }),
+        el("button", { class: "btn", text: okText || "저장", onclick: function(){ done(ta.value); } }) ]) ]));
+    back.addEventListener("click", function(e){ if (e.target === back) done(null); });
+    back.addEventListener("keydown", function(e){ if (e.key === "Escape") done(null); });
+    document.body.appendChild(back); ta.focus();
   });
 }
 function showCopyBox(text){
@@ -386,7 +406,7 @@ function flatItems(parts){
 //   O·X 답은 "O" 또는 "X||고친 문장". X 문항은 X를 고르고 고친 문장의 핵심어(fkw)까지 맞아야 맞음
 function splitOX(ans){ var s = String(ans == null ? "" : ans), i = s.indexOf("||"); return { c: trimStr(i < 0 ? s : s.slice(0, i)).toUpperCase(), fix: i < 0 ? "" : s.slice(i + 2) }; }
 function itemOk(kind, item, ans, accept, n){
-  if (kind === "mc") return !!trimStr(ans) && trimStr(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5"
+  if (kind === "mc") return !!mcPick(ans) && mcPick(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5" (다시 풀 때는 "2||선지 분석")
   if (kind === "ox"){
     var p = splitOX(ans), a = trimStr(item.a).toUpperCase();
     if (!p.c || p.c !== a) return false;
@@ -398,7 +418,7 @@ function itemOk(kind, item, ans, accept, n){
 // 틀린 까닭 (test.sql 의 test_item_why 와 같음): null 맞음 · none 안 풂 · ox O·X를 잘못 고름 · fix 고쳐 쓴 부분이 틀림 · write 풀이가 틀림
 function itemWhy(kind, item, ans, accept, n){
   if (itemOk(kind, item, ans, accept, n)) return null;
-  if (kind === "mc") return trimStr(ans) ? "mc" : "none";
+  if (kind === "mc") return mcPick(ans) ? "mc" : "none";
   if (kind === "ox"){ var p = splitOX(ans); return !p.c ? "none" : p.c !== trimStr(item.a).toUpperCase() ? "ox" : "fix"; }
   return norm(ans) ? "write" : "none";
 }
@@ -407,7 +427,10 @@ var RETRY_MIN = 10;   // 틀린 문제 다시 풀기 시간 (분) — test.sql �
 function oxText(ans){ var p = splitOX(ans); return p.c ? p.c + (p.c === "X" && trimStr(p.fix) ? " — " + trimStr(p.fix) : "") : "안 고름"; }
 function partLabel(kind){ return kind === "ox" ? "O·X" : kind === "mc" ? "객관식" : "현대어 풀이"; }
 var CIRCLED = ["①", "②", "③", "④", "⑤"];
-function mcText(item, ans){ var k = parseInt(trimStr(ans), 10), c = (item && item.c) || []; return k >= 1 && k <= c.length ? CIRCLED[k - 1] + " " + c[k - 1] : "안 고름"; }
+// 객관식 답 "번호" 또는 "번호||선지 분석"(다시 풀 때 지난번 고른 보기가 왜 틀렸는지 쓴 것)
+function mcPick(ans){ var s = String(ans == null ? "" : ans), i = s.indexOf("||"); return trimStr(i < 0 ? s : s.slice(0, i)); }
+function mcNote(ans){ var s = String(ans == null ? "" : ans), i = s.indexOf("||"); return i < 0 ? "" : trimStr(s.slice(i + 2)); }
+function mcText(item, ans){ var k = parseInt(mcPick(ans), 10), c = (item && item.c) || []; return k >= 1 && k <= c.length ? CIRCLED[k - 1] + " " + c[k - 1] : "안 고름"; }
 
 /* ===== 데이터 계층 (Supabase / 체험) ===== */
 function unwrap(res){ if (res.error) throw new Error(res.error.message || "오류가 발생했습니다."); return res.data; }
@@ -427,6 +450,7 @@ function supabaseApi(){
     listEntries: async function(id){ return unwrap(await db.from("test_entries").select("*").eq("test_id", id)); },
     deleteEntry: async function(id){ unwrap(await db.from("test_entries").delete().eq("id", id)); },
     setAccept: async function(id, accept){ unwrap(await db.rpc("set_test_accept", { p_entry_id: id, p_accept: accept })); },
+    setNote: async function(id, n, text){ unwrap(await db.rpc("set_test_note", { p_entry_id: id, p_n: n, p_text: text })); },
     // 학생 명단 (students.sql). 코드는 서버가 정함
     listClasses: async function(){ return unwrap(await db.from("classes").select("*").order("created_at")); },
     addClass: async function(name){ return unwrap(await db.from("classes").insert({ name: name }).select().single()); },
@@ -496,6 +520,8 @@ function demoApi(){
     }
     throw new Error("입장 코드를 더 만들 수 없어요.");
   }
+  // 2번째 다시 풀기가 열리는 때: 1번째 다시 풀기를 시작한 날의 다음 날 0시 (한국 시각) — test.sql 의 retry_open_at 과 같게
+  function nextDayKST(ts){ var d = new Date(new Date(ts || Date.now()).getTime() + 9 * 3600000); d.setUTCHours(0, 0, 0, 0); return new Date(d.getTime() + 24 * 3600000 - 9 * 3600000).toISOString(); }
   function status(id, name){
     var e = entry(id, name); if (!e) return { stage: 0 };
     var items = flatItems(test(id).parts), fin = e.data.third || e.data.second || e.data.first || [];
@@ -504,8 +530,9 @@ function demoApi(){
     var stage = (e.data.third || marks.every(Boolean)) ? 2 : 1;
     var retry = e.data.second ? 2 : 1, start = (e.data.start || {})[retry];
     return { stage: stage, first: e.data.first, second: e.data.second || null, third: e.data.third || null, marks: marks, why: why,
-      retry: retry, late: e.data.late || {}, limit_min: RETRY_MIN, server_now: now(),
+      retry: retry, late: e.data.late || {}, notes: e.data.notes || {}, limit_min: RETRY_MIN, server_now: now(),
       deadline: stage === 1 && start ? new Date(new Date(start).getTime() + RETRY_MIN * 60000).toISOString() : null,
+      open_at: stage === 1 && retry === 2 && !start ? nextDayKST((e.data.start || {})[1] || e.updated_at) : null,
       keys: stage === 2 ? items.map(function(x){ return x.kind === "mc" ? { a: x.item.a, exp: x.item.exp } : x.kind === "ox" ? { a: x.item.a, exp: x.item.exp, fix: x.item.fix || "" } : { model: x.item.model, point: x.item.point }; }) : null };
   }
   var listeners = [];
@@ -522,6 +549,7 @@ function demoApi(){
     listEntries: async function(id){ return clone(S.entries.filter(function(e){ return e.test_id === id; })); },
     deleteEntry: async function(id){ S.entries = S.entries.filter(function(e){ return e.id !== id; }); save(); },
     setAccept: async function(id, accept){ var e = S.entries.find(function(x){ return x.id === id; }); if (e){ e.data.accept = clone(accept); save(); } },
+    setNote: async function(id, n, text){ var e = S.entries.find(function(x){ return x.id === id; }); if (!e) return; var o = clone(e.data.notes || {}); if (trimStr(text)) o[n] = trimStr(text).slice(0, 1000); else delete o[n]; e.data.notes = o; save(); },
     // 학생 명단
     listClasses: async function(){ return clone(S.classes); },
     addClass: async function(name){ var c = { id: uid(), name: name, created_at: now() }; S.classes.push(c); save(); return clone(c); },
@@ -555,7 +583,7 @@ function demoApi(){
     publicTest: async function(tok, id){
       nameFor(tok, id); var t = test(id);
       return { title: t.title, work: t.work, author: t.author, series: t.series,
-        parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ return it.c ? { q: it.q, c: it.c } : { q: it.q }; }) }; }) };
+        parts: t.parts.map(function(p){ return { type: p.type, title: p.title, guide: p.guide, items: p.items.map(function(it){ var o = it.c ? { q: it.q, c: it.c } : { q: it.q }; if (it.hint) o.h = it.hint; return o; }) }; }) };
     },
     status: async function(tok, id){ return status(id, nameFor(tok, id)); },
     submit: async function(tok, id, answers){
@@ -574,7 +602,11 @@ function demoApi(){
     },
     startRetry: async function(tok, id){
       var name = nameFor(tok, id), e = entry(id, name);
-      if (e && !e.data.third){ var r = e.data.second ? 2 : 1; e.data.start = e.data.start || {}; if (!e.data.start[r]){ e.data.start[r] = now(); save(); } }
+      if (e && !e.data.third){ var r = e.data.second ? 2 : 1; e.data.start = e.data.start || {};
+        if (!e.data.start[r]){
+          if (r === 2 && Date.now() < new Date(nextDayKST(e.data.start[1] || e.updated_at)).getTime()) throw new Error("2번째 다시 풀기는 내일부터 할 수 있어요. 틀린 문제를 교재에서 다시 보고 오세요.");
+          e.data.start[r] = now(); save();
+        } }
       return status(id, name);
     },
     subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; }
@@ -717,7 +749,31 @@ function runStudent(){
       if (stage === 1) items.forEach(function(x){ if (x.kind === "mc" && !marks[x.n]) cur[x.n] = ""; });   // 틀린 객관식은 보기를 새로 고르게
     }
     function saveDraft(){ lsSet(dkey, cur); }
-    function triedOf(x){ var t = []; [first, ST.second || []].forEach(function(a){ var v = trimStr(a[x.n]); if (v && t.indexOf(v) < 0) t.push(v); }); return t; }   // 다시 풀 때 지난번에 틀린 답
+    var NOTES = ST.notes || {};   // 선생님 한마디 { 문항번호: 글 }
+    function teacherNote(x){ var t = trimStr(NOTES[x.n] || NOTES[String(x.n)] || ""); return t ? el("div", { class: "tnote", text: "선생님: " + t }) : null; }
+    function lastPickOf(x){ return x.kind === "mc" ? mcPick(fin[x.n]) : ""; }   // 다시 풀 때 선지 분석을 쓸 보기 (지난번에 고른 것)
+    function reviewCard(){
+      var card = el("div", { class: "card" }, [ el("div", { class: "box-h", text: "틀린 문제 살펴보기" }),
+        el("p", { class: "sub small", text: "정답은 아직 알려 주지 않아요. 교재에서 찾아보고 무엇을 몰랐는지 생각한 뒤 다시 풀어요." }) ]);
+      var lastPart = -1;
+      items.forEach(function(x){
+        if (marks[x.n]) return;
+        var p = T.parts[x.part], w = why[x.n], v = fin[x.n], mine = "";
+        if (x.kind === "mc") mine = mcText(x.item, v);
+        else if (x.kind === "ox") mine = oxText(v);
+        else mine = trimStr(v) || "(안 씀)";
+        if (x.part !== lastPart){ lastPart = x.part; card.appendChild(el("div", { class: "box-h", style: "margin-top:14px", text: p.title || partLabel(p.type) })); }
+        var box = el("div", { class: "item" }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
+        if (w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
+        if (mine) box.appendChild(el("div", { class: "res no", style: "white-space:pre-wrap", text: "내 답: " + mine + " ✗" }));
+        if (x.kind === "mc" && mcNote(v)) box.appendChild(el("div", { class: "kwline", text: "지난번 선지 분석: " + mcNote(v) }));
+        if (x.item.h) box.appendChild(el("div", { class: "kwline", text: "다시 볼 곳: " + x.item.h }));
+        var tn = teacherNote(x); if (tn) box.appendChild(tn);
+        card.appendChild(box);
+      });
+      return card;
+    }
+    function triedOf(x){ var t = []; [first, ST.second || []].forEach(function(a){ var v = x.kind === "mc" ? mcPick(a[x.n]) : trimStr(a[x.n]); if (v && t.indexOf(v) < 0) t.push(v); }); return t; }   // 다시 풀 때 지난번에 틀린 답
     var editable = items.filter(function(x){ return stage === 0 || (started && !marks[x.n]); });
     var okN = marks.filter(Boolean).length, wrongN = N - okN;
 
@@ -732,16 +788,23 @@ function runStudent(){
         .filter(function(p){ return cnts[p[0]]; }).map(function(p){ return p[1] + " " + cnts[p[0]]; });
       if (parts.length) head.appendChild(el("p", { class: "sub", text: "틀린 문제 " + wrongN + "개 · " + parts.join(" · ") }));
       if (!started){
-        head.appendChild(el("p", { class: "note", text: "틀린 문제를 다시 풀 수 있어요 (" + retry + "번째 / 두 번까지). 시작하면 " + limit + "분 안에 내야 해요. 시간이 끝나면 그때까지 쓴 답이 저절로 제출돼요." }));
-        var sbtn = el("button", { class: "btn", text: retry + "번째 다시 풀기 시작 (" + limit + "분)" });
-        sbtn.addEventListener("click", async function(){
-          sbtn.disabled = true;
-          try { await api.startRetry(SES.token, testId); render(); window.scrollTo(0, 0); }
-          catch(e){ sbtn.disabled = false; toast(e.message, true); }
-        });
-        head.appendChild(sbtn);
+        // 시작 전: 틀린 문제를 정답 없이 먼저 살펴봄. 2번째 다시 풀기는 다음 날부터 (공부하고 오게)
+        var openAt = ST.open_at ? new Date(ST.open_at) : null, locked = !!openAt && Date.now() - skew < openAt.getTime();
+        if (locked){
+          head.appendChild(el("p", { class: "note", text: "2번째 다시 풀기는 " + (openAt.getMonth() + 1) + "월 " + openAt.getDate() + "일부터 할 수 있어요. 오늘은 아래 틀린 문제를 교재에서 찾아 다시 공부하고 오세요." }));
+        } else {
+          head.appendChild(el("p", { class: "note", text: "틀린 문제를 다시 풀 수 있어요 (" + retry + "번째 / 두 번까지). 아래에서 틀린 문제를 먼저 살펴보고, 준비되면 시작하세요. 시작하면 " + limit + "분 안에 내야 하고, 시간이 끝나면 그때까지 쓴 답이 저절로 제출돼요." }));
+          var sbtn = el("button", { class: "btn", text: retry + "번째 다시 풀기 시작 (" + limit + "분)" });
+          sbtn.addEventListener("click", async function(){
+            sbtn.disabled = true;
+            try { await api.startRetry(SES.token, testId); render(); window.scrollTo(0, 0); }
+            catch(e){ sbtn.disabled = false; toast(e.message, true); }
+          });
+          head.appendChild(sbtn);
+        }
         holder.appendChild(head);
-        return;                                   // 시작 전에는 문제를 보여 주지 않음 (시간 안에 스스로 풀게)
+        holder.appendChild(reviewCard());
+        return;
       }
       head.appendChild(el("p", { class: "sub", text: retry + "번째 다시 풀기 · 빨간 문제 " + wrongN + "개를 고쳐 내요." + (retry === 2 ? " 마지막 기회예요." : "") }));
       clock = el("div", { class: "clock", role: "timer", "aria-live": "off" });
@@ -761,24 +824,36 @@ function runStudent(){
         var w = why[x.n];
         var box = el("div", { class: "item" + (stage === 1 && canEdit ? " retry" : "") }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: (x.i + 1) + "." }), x.item.q ]) ]);
         if (stage === 1 && canEdit && w) box.appendChild(el("div", { class: "why", text: WHY_TEXT[w] }));
+        if (stage >= 1){ var tn = teacherNote(x); if (tn) box.appendChild(tn); }
         var tried = stage === 1 && canEdit && x.kind === "mc" ? triedOf(x) : [];
         if (tried.length) box.appendChild(el("div", { class: "tried", text: "지난번 고른 답: " + tried.map(function(v){ return mcText(x.item, v); }).join(" / ") + " ✗" }));
         if (x.kind === "mc"){
           if (canEdit){
+            var lastPick = stage === 1 ? lastPickOf(x) : "", anIn = null;
             var mrow = el("div", { class: "mcrow", role: "radiogroup", "aria-label": (x.i + 1) + "번" }, []);
             (x.item.c || []).forEach(function(txt, ci){
-              var v = String(ci + 1), on = trimStr(cur[x.n]) === v;
+              var v = String(ci + 1), on = mcPick(cur[x.n]) === v;
               var b = el("button", { class: "mcbtn" + (on ? " on" : "") + (tried.indexOf(v) >= 0 ? " tried" : ""), "data-v": v, role: "radio", "aria-checked": on ? "true" : "false" }, [ el("span", { class: "mcno", text: CIRCLED[ci] }), txt ]);
               b.addEventListener("click", function(){
-                cur[x.n] = v;
+                cur[x.n] = anIn ? v + "||" + anIn.value : v;
                 Array.prototype.forEach.call(mrow.children, function(c){ var sel = c.getAttribute("data-v") === v; c.classList.toggle("on", sel); c.setAttribute("aria-checked", sel ? "true" : "false"); });
                 saveDraft(); count();
               });
               mrow.appendChild(b);
             });
+            if (lastPick){
+              // 선지 분석: 지난번 고른 보기가 어디가 틀렸는지 찾아 고쳐 써야 낼 수 있음 (종이에서 틀린 부분을 표시하고 고치는 것과 같게)
+              anIn = el("textarea", { class: "anin", rows: "2", placeholder: "지난번 고른 " + (CIRCLED[parseInt(lastPick, 10) - 1] || "보기") + "는 어디가 틀렸나요? 틀린 부분을 찾아 바르게 고쳐 써요", "aria-label": (x.i + 1) + "번 선지 분석" });
+              anIn.value = mcNote(cur[x.n]);
+              anIn.addEventListener("input", function(){ cur[x.n] = mcPick(cur[x.n]) + "||" + anIn.value; saveDraft(); count(); });
+              box.appendChild(el("div", { class: "anlab", text: "선지 분석 (꼭 써요)" }));
+              box.appendChild(anIn);
+            }
             box.appendChild(mrow);
           } else {
             box.appendChild(el("div", { class: "res " + (marks[x.n] ? "ok" : "no"), text: "내 답: " + mcText(x.item, fin[x.n]) + (marks[x.n] ? " ✓" : " ✗") }));
+            var an = [ST.second, ST.third].map(function(a){ return a ? mcNote(a[x.n]) : ""; }).filter(Boolean);
+            if (an.length) box.appendChild(el("div", { class: "kwline", text: "내 선지 분석: " + an.join(" / ") }));
           }
         } else if (x.kind === "ox"){
           if (canEdit){
@@ -833,7 +908,9 @@ function runStudent(){
 
     var bar = el("div", { class: "card" }, []);
     var cnt = el("p", { class: "sub" });
-    function count(){ cnt.textContent = (stage === 0 ? "" : "다시 풀 문제 ") + editable.length + "문제 중 " + editable.filter(function(x){ return trimStr(splitOX(cur[x.n]).c === "X" && x.kind === "ox" ? splitOX(cur[x.n]).fix : cur[x.n]); }).length + "문제를 풀었어요."; }
+    function filled(x){ return x.kind === "mc" ? !!mcPick(cur[x.n]) : !!trimStr(splitOX(cur[x.n]).c === "X" && x.kind === "ox" ? splitOX(cur[x.n]).fix : cur[x.n]); }
+    function noAnalysis(){ return stage === 1 ? editable.filter(function(x){ return x.kind === "mc" && lastPickOf(x) && !mcNote(cur[x.n]); }) : []; }   // 선지 분석을 안 쓴 객관식
+    function count(){ cnt.textContent = (stage === 0 ? "" : "다시 풀 문제 ") + editable.length + "문제 중 " + editable.filter(filled).length + "문제를 풀었어요." + (noAnalysis().length ? " 선지 분석 안 쓴 문제 " + noAnalysis().length + "개" : ""); }
     count();
     var msg = el("div", { class: "err" });
     var btn = el("button", { class: "btn", text: stage === 0 ? "제출하기" : retry === 2 ? "마지막으로 다시 제출" : "고쳐서 다시 제출" });
@@ -843,7 +920,9 @@ function runStudent(){
       msg.textContent = "";
       var answers = items.map(function(x){ return (stage === 1 && marks[x.n]) ? (fin[x.n] || "") : trimStr(cur[x.n]); });
       if (!auto){
-        var empty = editable.filter(function(x){ return !trimStr(cur[x.n]); }).length;
+        var na = noAnalysis();
+        if (na.length){ msg.textContent = "선지 분석을 써야 낼 수 있어요: " + na.map(function(x){ return (x.i + 1) + "번"; }).join(", "); return; }
+        var empty = editable.filter(function(x){ return !filled(x); }).length;
         var ask = stage === 0 ? (empty ? "안 푼 문제가 " + empty + "개 있어요. 그래도 제출할까요?" : "제출할까요?")
           : retry === 1 ? "고쳐서 낼까요? 그래도 틀린 문제는 한 번 더 다시 풀 수 있어요."
           : "마지막이에요. 다시 내면 더 고칠 수 없고, 정답과 해설이 나와요. 제출할까요?";
@@ -1183,6 +1262,48 @@ function runTeacher(){
       body.appendChild(card);
     }
 
+    // 지금(마지막 답 기준) 틀린 학생 + 선생님 한마디. ‘끝’ = 두 번 다시 풀고도 틀림
+    function wrongNowBox(x){
+      var wrongE = E.filter(function(e){ return !ok(e, x, "final"); });
+      if (!wrongE.length) return null;
+      var endN = wrongE.filter(function(e){ return !!e.data.third; }).length;
+      var wrap = el("div", { class: "nowbox" }, [ el("div", { class: "nowh", text: "지금 틀린 학생 " + wrongE.length + "명" + (endN ? " · 끝까지 틀림 " + endN + "명" : "") }) ]);
+      var mini = el("div", { class: "mini" }, []);
+      wrongE.forEach(function(e){
+        var note = trimStr((e.data.notes || {})[x.n] || "");
+        var st = e.data.third ? " (끝)" : e.data.second ? " (다시 1번)" : "";
+        mini.appendChild(el("span", { style: "padding:0" }, [
+          el("span", { class: e.data.third ? "none" : "chk", text: e.student_name + st + (note ? " · 한마디: " + note : "") }),
+          el("button", { class: "acc", text: note ? "한마디 고치기" : "한마디", onclick: async function(){
+            var v = await askText(e.student_name + " 학생에게 " + (x.i + 1) + "번 힌트나 설명을 적어요. 학생이 다시 풀기 전에 보여요. (비우면 지워요)", note);
+            if (v == null) return;
+            try { await api.setNote(e.id, x.n, trimStr(v)); var o = clone(e.data.notes || {}); if (trimStr(v)) o[x.n] = trimStr(v); else delete o[x.n]; e.data.notes = o; draw(); } catch(err){ toast(err.message, true); }
+          } }) ]));
+      });
+      wrap.appendChild(mini);
+      if (wrongE.length > 1) wrap.appendChild(el("button", { class: "chip", style: "margin-top:.4rem", text: "틀린 학생 모두에게 한마디", onclick: async function(){
+        var v = await askText((x.i + 1) + "번을 지금 틀린 학생 " + wrongE.length + "명에게 같은 힌트를 적어요.", "");
+        if (v == null || !trimStr(v)) return;
+        try {
+          for (var i = 0; i < wrongE.length; i++){ var e = wrongE[i]; await api.setNote(e.id, x.n, trimStr(v)); var o = clone(e.data.notes || {}); o[x.n] = trimStr(v); e.data.notes = o; }
+          toast("한마디를 적었어요"); draw();
+        } catch(err){ toast(err.message, true); }
+      } }));
+      return wrap;
+    }
+    // 객관식 선지 분석: 다시 풀 때 학생이 쓴 ‘지난번 고른 보기가 틀린 까닭’
+    function analysisBox(x){
+      var mini = el("div", { class: "mini" }, []);
+      E.forEach(function(e){
+        var d = e.data, f = (d.first || [])[x.n], s = d.second ? d.second[x.n] : null, s3 = d.third ? d.third[x.n] : null;
+        var kids = [];
+        if (s != null && mcNote(s)) kids.push(el("span", { class: itemOk("mc", x.item, s, null, x.n) ? "ok" : "chk", text: e.student_name + ": " + mcText(x.item, f).split(" ")[0] + " 고름 · 분석 「" + mcNote(s) + "」 → 다시 " + mcText(x.item, s).split(" ")[0] }));
+        if (s3 != null && mcNote(s3)) kids.push(el("span", { class: itemOk("mc", x.item, s3, null, x.n) ? "ok" : "none", text: "· 분석 「" + mcNote(s3) + "」 → 다시 " + mcText(x.item, s3).split(" ")[0] }));
+        if (kids.length) mini.appendChild(el("span", { style: "padding:0" }, kids));
+      });
+      return mini.children.length ? el("div", {}, [ el("div", { class: "kwline", style: "font-weight:700", text: "학생 선지 분석" }), mini ]) : null;
+    }
+
     function drawItems(kind){
       var card = el("div", { class: "card" }, []);
       if (kind === "write") card.appendChild(el("div", { class: "legend" }, [ el("span", {}, [ el("i", { style: "background:var(--correct-soft)" }), "맞음" ]), el("span", {}, [ el("i", { style: "background:var(--warn-soft)" }), "다시 쓰기" ]), el("span", {}, [ el("i", { style: "background:var(--wrong-soft)" }), "안 씀" ]), el("span", { text: "· 이름: 처음 답 → 다시 쓴 답" }) ]));
@@ -1199,6 +1320,7 @@ function runTeacher(){
         if (kind === "mc"){
           var wrongM = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + mcText(x.item, ans(e, "first")[x.n]).split(" ")[0] + ")"; });
           if (wrongM.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrongM.join(", ") }));
+          var anb = analysisBox(x); if (anb) box.appendChild(anb);
         } else if (kind === "ox"){
           var wrong = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + oxText(ans(e, "first")[x.n]).split(" — ")[0] + ")"; });
           if (wrong.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrong.join(", ") }));
@@ -1237,6 +1359,7 @@ function runTeacher(){
           });
           if (E.length) box.appendChild(mini);
         }
+        var nwb = wrongNowBox(x); if (nwb) box.appendChild(nwb);
         card.appendChild(box);
       });
       body.appendChild(card);

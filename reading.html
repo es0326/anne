@@ -1293,7 +1293,7 @@ function runTeacher(){
         el("button", { class: "btn small", text: "+ 새 책", onclick: function(){ create({ title: "새 책", sections: [{ title: "1주차", range: "", boxes: [{ heading: "", text: "", questions: [] }] }] }); } })
       ])
     ]));
-    if (!books.length){ app.appendChild(el("div", { class: "empty", text: "아직 책이 없어요. ‘샘플 책 넣기’에서 몽실언니나 톰 소여의 모험을 골라 시작해 보세요." })); return; }
+    if (!books.length){ app.appendChild(el("div", { class: "empty", text: "아직 책이 없어요. ‘준비된 책 넣기’에서 몽실언니나 톰 소여의 모험을 골라 시작해 보세요." })); return; }
     var groups = {}; KINDS.forEach(function(k){ groups[k[0]] = []; });
     books.forEach(function(b){ groups[bookKind(b)].push(b); });
     var shown = KINDS.filter(function(k){ return k[0] !== "etc" || groups.etc.length; });
@@ -1307,7 +1307,7 @@ function runTeacher(){
     app.appendChild(tabs);
     var list = groups[cur];
     if (cur === "etc") app.appendChild(el("div", { class: "note", html: "학년 칸에 <b>문학</b> · <b>비문학</b> · <b>명작</b> 중 한 낱말을 넣으면 그 칸으로 옮겨져요. 예) 초등 6학년 · 문학 읽기 (문제 편집에서 고쳐요)" }));
-    if (!list.length){ app.appendChild(el("div", { class: "empty", text: "아직 " + KIND_NAME[cur] + " 책이 없어요. ‘샘플 책 넣기’나 ‘+ 새 책’으로 넣어 보세요." })); return; }
+    if (!list.length){ app.appendChild(el("div", { class: "empty", text: "아직 " + KIND_NAME[cur] + " 책이 없어요. ‘준비된 책 넣기’나 ‘+ 새 책’으로 넣어 보세요." })); return; }
     list.forEach(function(b){
       var card = el("div", { class: "card" }, []);
       card.appendChild(el("div", { class: "spread" }, [
@@ -1324,12 +1324,12 @@ function runTeacher(){
     });
   }
   function sampleSelect(){
-    var opts = [ el("option", { value: "", text: "샘플 책 넣기 ▾" }) ];
+    var opts = [ el("option", { value: "", text: "준비된 책 넣기" }) ];
     KINDS.forEach(function(k){
       var items = SAMPLES.map(function(s, i){ return [s, i]; }).filter(function(x){ return bookKind(x[0].data) === k[0]; });
       if (items.length) opts.push(el("optgroup", { label: k[1] }, items.map(function(x){ return el("option", { value: String(x[1]), text: x[0].label }); })));
     });
-    var sel = el("select", { "aria-label": "샘플 책 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" }, opts);
+    var sel = el("select", { "aria-label": "준비된 책 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" }, opts);
     sel.addEventListener("change", function(){ if (sel.value !== "") create(clone(SAMPLES[+sel.value].data)); });
     return sel;
   }

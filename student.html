@@ -110,6 +110,7 @@ var app = document.getElementById("app");
 var pageHeader = document.getElementById("pageHeader");
 // 앱마다: 이름 · 설명 · 숙제 주소
 var APPS = [
+  { app: "naesin", name: "내신 1차 답 맞추기", desc: "종이로 풀고 답만 넣기", href: "test.html" },
   { app: "test", name: "청연 되새김", desc: "고전문학 현대어 풀이 · O·X", href: "test.html" },
   { app: "grammar", name: "청연 문법·화법", desc: "문법·화법 O·X · 쓰기 · 객관식", href: "grammar.html" }
 ];
@@ -162,6 +163,7 @@ function demoApi(){
     logout: async function(){},
     myTests: async function(){
       return { name: "김하늘", class_name: "목요일반", tests: [
+        { id: "demo-key", app: "naesin", title: "중2-2 4단원 1차 문제", work: "중2-2 4단원 1차 문제", series: "내신 1차", stage: 0 },
         { id: "demo-gangho", app: "test", work: "강호사시가", author: "맹사성", series: "고전시가", stage: 1 },
         { id: "demo-g1", app: "grammar", title: "품사 O·X · 중등부", track: "중등부", stage: 0 },
         { id: "demo-g2", app: "grammar", title: "품사 쓰기 · 중등부", track: "중등부", stage: 2 },

@@ -76,6 +76,15 @@ language sql immutable as $$
     from jsonb_array_elements_text(case when jsonb_typeof(p_item->'a') = 'array' then p_item->'a' else '[]'::jsonb end) with ordinality as t(av, ord);
 $$;
 
+-- 쓰기 답 (2026-11-07): 정답과 같거나, 정답 뒤에 끝말만 붙은 답(「거칠고 거센 느낌을 준다」, 「명사이다」)도 맞음
+--   (grammar.html 의 tagMatch 와 같은 규칙)
+create or replace function public.tag_match(k text, a text)
+returns boolean
+language sql immutable as $$
+  select k <> '' and (a = k or (length(a) > length(k) and left(a, length(k)) = k
+         and substr(a, length(k) + 1) ~ '^(느낌)?(이다|입니다|이에요|예요|이요|임|다|요|을준다|를준다|을줌|를줌|을줍니다|를줍니다|을줘요|를줘요|을주어요|를주어요)?$'));
+$$;
+
 -- 한 문항 채점. O·X 는 그대로 비교, 풀이는 핵심어(blank_ok) + 선생님 인정
 create or replace function public.test_item_ok(p_kind text, p_item jsonb, p_answer text, p_accept jsonb, p_n int)
 returns boolean
@@ -90,7 +99,7 @@ language sql immutable as $$
     when p_kind = 'tag' then
       blank_norm(p_answer) <> ''
       and ( coalesce(p_accept ->> p_n::text, '') = blank_norm(p_answer)
-            or exists (select 1 from unnest(string_to_array(coalesce(p_item->>'a', ''), '|')) as x where blank_norm(x) = blank_norm(p_answer)) )
+            or exists (select 1 from unnest(string_to_array(coalesce(p_item->>'a', ''), '|')) as x where tag_match(blank_norm(x), blank_norm(p_answer))) )
     -- 객관식 (2026-10-22): 답은 고른 보기 번호("1"~"5"), 정답 item->>'a' 와 같아야 맞음
     --   2026-11-05: 다시 풀 때는 "번호||선지 분석" (지난번 고른 보기가 왜 틀렸는지) → 번호만 봄
     when p_kind = 'mc' then

@@ -421,10 +421,14 @@ function parseMarks(item, ans){
   var a = Array.isArray(item.a) ? item.a : [], got = String(ans == null ? "" : ans).split(",");
   return a.map(function(av, i){ var g = norm(got[i] || ""); return !!g && String(av).split("|").some(function(k){ return norm(k) === g; }); });
 }
+// 쓰기 답 (2026-11-07): 정답 뒤에 끝말만 붙은 답도 맞음 — 「거칠고 거센 느낌을 준다」, 「명사이다」, 「곤충입니다」
+//   (test.sql 의 tag_match 와 같은 규칙)
+var TAG_TAIL = /^(느낌)?(이다|입니다|이에요|예요|이요|임|다|요|을준다|를준다|을줌|를줌|을줍니다|를줍니다|을줘요|를줘요|을주어요|를주어요)?$/;
+function tagMatch(k, tx){ return !!k && (tx === k || (tx.length > k.length && tx.slice(0, k.length) === k && TAG_TAIL.test(tx.slice(k.length)))); }
 function itemOk(kind, item, ans, accept, n){
   // 선생님이 ‘인정’한 답(accept[문항번호] = norm(답))이면 맞음
   if (kind === "parse"){ var pm = parseMarks(item, ans), ap = norm(ans); if (ap && accept && accept[n] === ap) return true; return pm.length > 0 && pm.every(Boolean); }   // 품사 분석: 모든 낱말의 품사가 맞아야 맞음
-  if (kind === "tag"){ var tx = norm(ans); if (tx && accept && accept[n] === tx) return true; return !!tx && String(item.a || "").split("|").some(function(k){ return norm(k) === tx; }); }   // 품사 쓰기: 정답(|로 여러 개)과 통째로 같아야 맞음
+  if (kind === "tag"){ var tx = norm(ans); if (tx && accept && accept[n] === tx) return true; return !!tx && String(item.a || "").split("|").some(function(k){ return tagMatch(norm(k), tx); }); }   // 품사 쓰기: 정답(|로 여러 개)과 통째로 같아야 맞음 (끝말 「을 준다·이다」 등은 붙어도 됨)
   if (kind === "mc") return !!mcPick(ans) && mcPick(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5" (다시 풀 때는 "2||선지 분석")
   if (kind === "ox"){
     var p = splitOX(ans), a = trimStr(item.a).toUpperCase();

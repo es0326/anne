@@ -417,12 +417,20 @@ function flatItems(parts){
 // 한 문항 채점 (reading.sql / test.sql 의 test_item_ok 와 같은 규칙)
 //   O·X 답은 "O" 또는 "X||고친 문장". X 문항은 X를 고르고 고친 문장의 핵심어(fkw)까지 맞아야 맞음
 function splitOX(ans){ var s = String(ans == null ? "" : ans), i = s.indexOf("||"); return { c: trimStr(i < 0 ? s : s.slice(0, i)).toUpperCase(), fix: i < 0 ? "" : s.slice(i + 2) }; }
+// X 문항 고친 문장 (2026-11-07): 선생님 인정 · 「통째로 맞는 답」(fok, | 로 여러 개: 고친 말만 짧게 쓴 답) · 핵심어(fkw)
+//   (test.sql 의 test_item_ok 와 같은 규칙)
+function fixOk(item, fix, accept, n){
+  var f = norm(fix); if (!f) return false;
+  if (accept && accept[n] === f) return true;
+  if (String(item.fok || "").split("|").some(function(k){ k = norm(k); return !!k && k === f; })) return true;
+  return !!trimStr(item.fkw) && grade(fix, "@" + item.fkw) === "ok";
+}
 function itemOk(kind, item, ans, accept, n){
   if (kind === "mc") return !!mcPick(ans) && mcPick(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5" (다시 풀 때는 "2||선지 분석")
   if (kind === "ox"){
     var p = splitOX(ans), a = trimStr(item.a).toUpperCase();
     if (!p.c || p.c !== a) return false;
-    if (a === "X" && trimStr(item.fkw)) return gradeA(p.fix, "@" + item.fkw, accept, n) === "ok";
+    if (a === "X" && (trimStr(item.fkw) || trimStr(item.fok))) return fixOk(item, p.fix, accept, n);
     return true;
   }
   return gradeA(ans, "@" + (item.kw || ""), accept, n) === "ok";
@@ -1277,6 +1285,7 @@ function runTeacher(){
             box.appendChild(bind(el("textarea", { placeholder: "해설", style: "margin-top:.4rem" }), it, "exp"));
             box.appendChild(bind(el("input", { type: "text", placeholder: "정답이 X일 때: 바르게 고친 예", style: "margin-top:.4rem" }), it, "fix"));
             box.appendChild(bind(el("input", { type: "text", placeholder: "정답이 X일 때: 고친 문장의 핵심어 (틀린 원래 문장의 낱말은 빼기)", style: "margin-top:.4rem" }), it, "fkw"));
+            box.appendChild(bind(el("input", { type: "text", placeholder: "통째로 맞는 답: 고친 말만 짧게 쓴 답 (| 로 여러 개, 예: 공식적인|공식적인 상황)", style: "margin-top:.4rem" }), it, "fok"));
           } else {
             box.appendChild(bind(el("textarea", { placeholder: "모범 풀이", style: "margin-top:.4rem" }), it, "model"));
             box.appendChild(bind(el("input", { type: "text", placeholder: "핵심 포인트", style: "margin-top:.4rem" }), it, "point"));
@@ -1432,7 +1441,7 @@ function runTeacher(){
         var rate = E.length ? Math.round(okN / E.length * 100) : null;
         var box = el("div", { class: "item" }, [ el("div", { class: "q" }, [ el("span", { class: "no", text: itemNo(x, KEY) + "." }), x.item.q ]) ]);
         if (kind === "mc" && !KEY) box.appendChild(el("div", { class: "kwline", text: (x.item.c || []).map(function(c, ci){ return CIRCLED[ci] + " " + c; }).join("   ") }));
-        box.appendChild(el("div", { class: "kwline", text: kind === "mc" ? "정답 " + mcText(x.item, x.item.a) : kind === "ox" ? "정답 " + x.item.a + (x.item.fix ? "  ·  고친 예: " + x.item.fix + "  ·  핵심어: " + (x.item.fkw || "") : "") : KEY ? "정답: " + String(x.item.kw || x.item.model || "").split("·").join(" / ") : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
+        box.appendChild(el("div", { class: "kwline", text: kind === "mc" ? "정답 " + mcText(x.item, x.item.a) : kind === "ox" ? "정답 " + x.item.a + (x.item.fix ? "  ·  고친 예: " + x.item.fix + "  ·  핵심어: " + (x.item.fkw || "") + (x.item.fok ? "  ·  통째로 맞는 답: " + x.item.fok : "") : "") : KEY ? "정답: " + String(x.item.kw || x.item.model || "").split("·").join(" / ") : "풀이: " + x.item.model + "  ·  핵심어: " + (x.item.kw || "") }));
         if (rate != null){
           box.appendChild(el("div", { class: "bar" + (rate < 60 ? " low" : "") }, [ el("span", { style: "width:" + rate + "%" }) ]));
           box.appendChild(el("div", { class: "kwline", text: "처음 " + okN + " / " + E.length + " 맞음" }));
@@ -1444,14 +1453,14 @@ function runTeacher(){
         } else if (kind === "ox"){
           var wrong = E.filter(function(e){ return !ok(e, x, "first"); }).map(function(e){ return e.student_name + "(" + oxText(ans(e, "first")[x.n]).split(" — ")[0] + ")"; });
           if (wrong.length) box.appendChild(el("div", { class: "kwline", text: "처음에 틀린 학생: " + wrong.join(", ") }));
-          if (trimStr(x.item.a).toUpperCase() === "X" && trimStr(x.item.fkw)){
+          if (trimStr(x.item.a).toUpperCase() === "X" && (trimStr(x.item.fkw) || trimStr(x.item.fok))){
             // X를 고른 학생들의 고친 문장 + 인정
             var omini = el("div", { class: "mini" }, []);
             E.forEach(function(e){
               var acc = e.data.accept || {}, fin2 = ans(e, "final")[x.n], p = splitOX(fin2);
               if (p.c !== "X") return;
               var g = itemOk("ox", x.item, fin2, acc, x.n) ? "ok" : (trimStr(p.fix) ? "chk" : "none");
-              var ruleOk = grade(p.fix, "@" + x.item.fkw) === "ok", accepted = !!norm(p.fix) && acc[x.n] === norm(p.fix);
+              var ruleOk = fixOk(x.item, p.fix, {}, x.n), accepted = !!norm(p.fix) && acc[x.n] === norm(p.fix);
               var kids = [ el("span", { class: g, text: e.student_name + ": " + (trimStr(p.fix) || "고친 문장 없음") + (accepted ? " (인정)" : "") }) ];
               if (!ruleOk && norm(p.fix)) kids.push(el("button", { class: "acc", text: accepted ? "인정 취소" : "인정", onclick: async function(){
                 var next = clone(acc); if (accepted) delete next[x.n]; else next[x.n] = norm(p.fix);

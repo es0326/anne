@@ -82,7 +82,7 @@ create or replace function public.tag_match(k text, a text)
 returns boolean
 language sql immutable as $$
   select k <> '' and (a = k or (length(a) > length(k) and left(a, length(k)) = k
-         and substr(a, length(k) + 1) ~ '^(느낌)?(에따라서?|에따른것?|에의해서?|으로|로)?(나눔|나눈다|나누었다|나눴다|나뉜다|나눈것|구분|구분함|구분한다|구분된다|분류|분류함|분류한다)?(이다|입니다|이에요|예요|이요|임|다|요|을준다|를준다|을줌|를줌|을줍니다|를줍니다|을줘요|를줘요|을주어요|를주어요)?$'));
+         and substr(a, length(k) + 1) ~ '^(느낌)?(에따라서?|에따른것?|에의해서?|으로|로)?(나눔|나눈다|나누었다|나눴다|나뉜다|나눈것|구분|구분함|구분한다|구분된다|분류|분류함|분류한다)?(이다|입니다|이에요|예요|이요|임|함|한다|다|요|을준다|를준다|을줌|를줌|을줍니다|를줍니다|을줘요|를줘요|을주어요|를주어요)?$'));
 $$;
 
 -- 한 문항 채점. O·X 는 그대로 비교, 풀이는 핵심어(blank_ok) + 선생님 인정
@@ -109,10 +109,13 @@ language sql immutable as $$
       upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) <> ''
       and upper(trim(split_part(coalesce(p_answer, ''), '||', 1))) = upper(trim(coalesce(p_item->>'a', '')))
       and ( upper(trim(coalesce(p_item->>'a', ''))) <> 'X'
-            or trim(coalesce(p_item->>'fkw', '')) = ''
+            or (trim(coalesce(p_item->>'fkw', '')) = '' and trim(coalesce(p_item->>'fok', '')) = '')
             or (blank_norm(split_part(p_answer, '||', 2)) <> ''
                 and coalesce(p_accept ->> p_n::text, '') = blank_norm(split_part(p_answer, '||', 2)))
-            or blank_ok(split_part(p_answer, '||', 2), '@' || (p_item->>'fkw')) )
+            -- 2026-11-07: 「통째로 맞는 답」(fok, | 로 여러 개) — 고친 말만 짧게 쓴 답(「공식적인」)이 통째로 같으면 맞음
+            or exists (select 1 from unnest(string_to_array(coalesce(p_item->>'fok', ''), '|')) as x
+                        where blank_norm(x) <> '' and blank_norm(x) = blank_norm(split_part(p_answer, '||', 2)))
+            or (trim(coalesce(p_item->>'fkw', '')) <> '' and blank_ok(split_part(p_answer, '||', 2), '@' || (p_item->>'fkw'))) )
     else (blank_norm(p_answer) <> '' and coalesce(p_accept ->> p_n::text, '') = blank_norm(p_answer))
          or blank_ok(p_answer, '@' || coalesce(p_item->>'kw', ''))
   end;

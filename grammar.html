@@ -400,6 +400,7 @@ function grade(ans, key){
 // 선생님이 "인정"한 답(accept: { 빈칸번호: 정규화한 답 })이면 맞음
 function gradeA(ans, key, accept, i){
   var a = norm(ans);
+  if (a && accept && accept[i] === "!" + a) return "chk";   // 2026-11-08: 선생님 ‘틀림 처리’ (accept[번호] = "!" + 답) — 규칙으로 맞아도 틀림
   if (a && accept && accept[i] === a) return "ok";
   return grade(ans, key);
 }
@@ -430,14 +431,15 @@ function tagMatch(k, tx){ return !!k && (tx === k || (tx.length > k.length && tx
 //   (test.sql 의 test_item_ok 와 같은 규칙)
 function fixOk(item, fix, accept, n){
   var f = norm(fix); if (!f) return false;
+  if (accept && accept[n] === "!" + f) return false;   // 선생님 ‘틀림 처리’
   if (accept && accept[n] === f) return true;
   if (String(item.fok || "").split("|").some(function(k){ k = norm(k); return !!k && k === f; })) return true;
   return !!trimStr(item.fkw) && grade(fix, "@" + item.fkw) === "ok";
 }
 function itemOk(kind, item, ans, accept, n){
   // 선생님이 ‘인정’한 답(accept[문항번호] = norm(답))이면 맞음
-  if (kind === "parse"){ var pm = parseMarks(item, ans), ap = norm(ans); if (ap && accept && accept[n] === ap) return true; return pm.length > 0 && pm.every(Boolean); }   // 품사 분석: 모든 낱말의 품사가 맞아야 맞음
-  if (kind === "tag"){ var tx = norm(ans); if (tx && accept && accept[n] === tx) return true; return !!tx && String(item.a || "").split("|").some(function(k){ return tagMatch(norm(k), tx); }); }   // 품사 쓰기: 정답(|로 여러 개)과 통째로 같아야 맞음 (끝말 「을 준다·이다」 등은 붙어도 됨)
+  if (kind === "parse"){ var pm = parseMarks(item, ans), ap = norm(ans); if (ap && accept && accept[n] === "!" + ap) return false; if (ap && accept && accept[n] === ap) return true; return pm.length > 0 && pm.every(Boolean); }   // 품사 분석: 모든 낱말의 품사가 맞아야 맞음
+  if (kind === "tag"){ var tx = norm(ans); if (tx && accept && accept[n] === "!" + tx) return false; if (tx && accept && accept[n] === tx) return true; return !!tx && String(item.a || "").split("|").some(function(k){ return tagMatch(norm(k), tx); }); }   // 품사 쓰기: 정답(|로 여러 개)과 통째로 같아야 맞음 (끝말 「을 준다·이다」 등은 붙어도 됨)
   if (kind === "mc") return !!mcPick(ans) && mcPick(ans) === trimStr(item.a);   // 객관식: 고른 보기 번호 "1"~"5" (다시 풀 때는 "2||선지 분석")
   if (kind === "ox"){
     var p = splitOX(ans), a = trimStr(item.a).toUpperCase();
@@ -1403,6 +1405,14 @@ function runTeacher(){
       return mini.children.length ? el("div", {}, [ el("div", { class: "kwline", style: "font-weight:700", text: "학생 선지 분석" }), mini ]) : null;
     }
 
+    // 2026-11-08: ‘틀림 처리’ — 규칙으로는 맞은 답을 선생님이 틀림으로 (accept[번호] = "!" + 답, 다시 누르면 취소)
+    //   학생이 다시 풀어 답을 바꾸면 새 답은 다시 규칙대로 채점됨
+    function rejectBtn(e, acc, n, normAns, rejected){
+      return el("button", { class: "acc", text: rejected ? "틀림 취소" : "틀림", onclick: async function(){
+        var next = clone(acc); if (rejected) delete next[n]; else next[n] = "!" + normAns;
+        try { await api.setAccept(e.id, next); e.data.accept = next; draw(); } catch(err){ toast(err.message, true); }
+      } });
+    }
     function drawItems(kind){
       var card = el("div", { class: "card" }, []);
       if (kind === "write") card.appendChild(el("div", { class: "legend" }, [ el("span", {}, [ el("i", { style: "background:var(--correct-soft)" }), "맞음" ]), el("span", {}, [ el("i", { style: "background:var(--warn-soft)" }), "다시 쓰기" ]), el("span", {}, [ el("i", { style: "background:var(--wrong-soft)" }), "안 씀" ]), el("span", { text: "· 이름: 처음 답 → 다시 쓴 답" }) ]));
@@ -1461,8 +1471,9 @@ function runTeacher(){
               var acc = e.data.accept || {}, fin2 = ans(e, "final")[x.n], p = splitOX(fin2);
               if (p.c !== "X") return;
               var g = itemOk("ox", x.item, fin2, acc, x.n) ? "ok" : (trimStr(p.fix) ? "chk" : "none");
-              var ruleOk = fixOk(x.item, p.fix, {}, x.n), accepted = !!norm(p.fix) && acc[x.n] === norm(p.fix);
-              var kids = [ el("span", { class: g, text: e.student_name + ": " + (trimStr(p.fix) || "고친 문장 없음") + (accepted ? " (인정)" : "") }) ];
+              var ruleOk = fixOk(x.item, p.fix, {}, x.n), accepted = !!norm(p.fix) && acc[x.n] === norm(p.fix), rejected = !!norm(p.fix) && acc[x.n] === "!" + norm(p.fix);
+              var kids = [ el("span", { class: g, text: e.student_name + ": " + (trimStr(p.fix) || "고친 문장 없음") + (accepted ? " (인정)" : rejected ? " (틀림 처리)" : "") }) ];
+              if (ruleOk && norm(p.fix)) kids.push(rejectBtn(e, acc, x.n, norm(p.fix), rejected));   // 규칙으로 맞았어도 선생님이 틀림으로
               if (!ruleOk && norm(p.fix)) kids.push(el("button", { class: "acc", text: accepted ? "인정 취소" : "인정", onclick: async function(){
                 var next = clone(acc); if (accepted) delete next[x.n]; else next[x.n] = norm(p.fix);
                 try { await api.setAccept(e.id, next); e.data.accept = next; draw(); } catch(err){ toast(err.message, true); }
@@ -1477,10 +1488,12 @@ function runTeacher(){
             var acc = e.data.accept || {}, f = ans(e, "first")[x.n], s = e.data.second ? e.data.second[x.n] : null, s3 = e.data.third ? e.data.third[x.n] : null;
             var g1 = gradeA(f, "@" + x.item.kw, acc, x.n), retried = s != null && g1 !== "ok";
             var g2 = retried ? gradeA(s, "@" + x.item.kw, acc, x.n) : null, retried2 = retried && s3 != null && g2 !== "ok";
-            var latest = retried2 ? s3 : retried ? s : f, ruleOk = grade(latest, "@" + x.item.kw) === "ok", accepted = !!norm(latest) && acc[x.n] === norm(latest);
-            var kids = [ el("span", { class: g1, text: e.student_name + ": " + (trimStr(f) || "안 씀") + (!retried && accepted ? " (인정)" : "") }) ];
-            if (retried) kids.push(el("span", { class: g2, text: "→ " + (trimStr(s) || "안 씀") + (!retried2 && accepted ? " (인정)" : "") }));
-            if (retried2) kids.push(el("span", { class: gradeA(s3, "@" + x.item.kw, acc, x.n), text: "→ " + (trimStr(s3) || "안 씀") + (accepted ? " (인정)" : "") }));
+            var latest = retried2 ? s3 : retried ? s : f, ruleOk = grade(latest, "@" + x.item.kw) === "ok", accepted = !!norm(latest) && acc[x.n] === norm(latest), rejected = !!norm(latest) && acc[x.n] === "!" + norm(latest);
+            var mk = accepted ? " (인정)" : rejected ? " (틀림 처리)" : "";
+            var kids = [ el("span", { class: g1, text: e.student_name + ": " + (trimStr(f) || "안 씀") + (!retried ? mk : "") }) ];
+            if (retried) kids.push(el("span", { class: g2, text: "→ " + (trimStr(s) || "안 씀") + (!retried2 ? mk : "") }));
+            if (retried2) kids.push(el("span", { class: gradeA(s3, "@" + x.item.kw, acc, x.n), text: "→ " + (trimStr(s3) || "안 씀") + mk }));
+            if (ruleOk && norm(latest)) kids.push(rejectBtn(e, acc, x.n, norm(latest), rejected));   // 규칙으로 맞았어도 선생님이 틀림으로
             if (!ruleOk && norm(latest)) kids.push(el("button", { class: "acc", text: accepted ? "인정 취소" : "인정", onclick: async function(){
               var next = clone(acc); if (accepted) delete next[x.n]; else next[x.n] = norm(latest);
               try { await api.setAccept(e.id, next); e.data.accept = next; draw(); } catch(err){ toast(err.message, true); }

@@ -90,6 +90,13 @@ create or replace function public.test_item_ok(p_kind text, p_item jsonb, p_answ
 returns boolean
 language sql immutable as $$
   select case
+    -- 2026-11-08: 선생님 ‘틀림 처리’ — accept[문항번호] = '!' || blank_norm(답)이면 규칙으로 맞아도 틀림
+    --   (O·X 는 고친 문장 부분으로 봄. 학생이 다시 풀어 답이 바뀌면 새 답은 규칙대로)
+    when p_kind <> 'mc'
+         and left(coalesce(p_accept ->> p_n::text, ''), 1) = '!'
+         and blank_norm(case when p_kind = 'ox' then split_part(coalesce(p_answer, ''), '||', 2) else p_answer end) <> ''
+         and p_accept ->> p_n::text = '!' || blank_norm(case when p_kind = 'ox' then split_part(coalesce(p_answer, ''), '||', 2) else p_answer end)
+      then false
     -- 문장 분석: 모든 낱말의 품사가 맞아야 맞음
     --   (선생님이 ‘인정’한 답이면 accept[문항번호] = blank_norm(답) 이라 맞음)
     when p_kind = 'parse' then

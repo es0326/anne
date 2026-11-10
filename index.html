@@ -132,7 +132,7 @@ h1{font-family:"Gowun Batang",serif;font-size:clamp(1.9rem,7vw,2.4rem);line-heig
     </a>
     <a class="tool" href="test.html">
       <span class="for">고등 고전문학 · 내신 1차</span>
-      <h2>청연 되새김</h2>
+      <h2>청연 되새김<span class="badge" id="b-test" hidden></span></h2>
       <p>O·X · 현대어 풀이 · 해설 · 내신 1차 정답표(종이로 풀고 답만 넣기)</p>
       <span class="go" aria-hidden="true">→</span>
     </a>
@@ -185,7 +185,7 @@ document.getElementById("stuCopy").addEventListener("click", function(){
   if (!window.supabase || !email) return;
   var db = supabase.createClient("https://yqwexzzdamcpqmsqkbcg.supabase.co", "sb_publishable_Y2bK2lw2T_Wysf9WWPuDbg_eA1ZX7R0");
   var $ = function(id){ return document.getElementById(id); };
-  var APP = { reading: { name: "독서", page: "reading.html#book=" }, grammar: { name: "문법", page: "grammar.html#test=" } };
+  var APP = { reading: { name: "독서", page: "reading.html#book=" }, test: { name: "되새김", page: "test.html#test=" }, grammar: { name: "문법", page: "grammar.html#test=" } };
   var UID = null, ROWS = [], SET = null;
 
   function when(t){
@@ -202,13 +202,13 @@ document.getElementById("stuCopy").addEventListener("click", function(){
   function draw(){
     var unseen = ROWS.filter(function(r){ return !r.seen; }), list = $("nlist");
     $("ncnt").textContent = unseen.length; $("ncnt").className = "cnt" + (unseen.length ? "" : " zero");
-    ["reading", "grammar"].forEach(function(a){
+    ["reading", "test", "grammar"].forEach(function(a){
       var n = unseen.filter(function(r){ return r.app === a; }).length, b = $("b-" + a);
       b.hidden = !n; b.textContent = "새 " + n;
     });
     try { if (navigator.setAppBadge){ if (unseen.length) navigator.setAppBadge(unseen.length); else navigator.clearAppBadge(); } } catch(e){}
     list.innerHTML = "";
-    if (!ROWS.length){ list.appendChild(mk("li", "nempty", "아직 낸 숙제가 없어요. 학생이 청연 독서·청연 문법에 내면 여기에 떠요.")); return; }
+    if (!ROWS.length){ list.appendChild(mk("li", "nempty", "아직 낸 숙제가 없어요. 학생이 청연 독서·되새김·문법에 내면 여기에 떠요.")); return; }
     ROWS.forEach(function(r){
       var li = mk("li", r.seen ? "old" : ""), a = document.createElement("a");
       a.href = APP[r.app].page + r.ref_id;

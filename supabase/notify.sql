@@ -3,7 +3,7 @@
 --  실행 위치: Supabase 대시보드 → SQL Editor → New query → 붙여넣고 Run
 --  reading.sql · test.sql 을 먼저 실행해 두어야 함. (다시 실행해도 안전함)
 --
---  ① 앱 안 알림: 학생이 청연 독서·청연 문법에 내면 notices 에 한 줄 → 교사 첫 화면 「새로 낸 숙제」
+--  ① 앱 안 알림: 학생이 청연 독서·청연 되새김·청연 문법에 내면 notices 에 한 줄 → 교사 첫 화면 「새로 낸 숙제」
 --  ② 휴대폰 알림: notify_settings 에 ntfy 주제를 저장해 두면 ntfy.sh 로 바로 보냄 (pg_net 사용)
 --     같은 학생·같은 숙제를 10분 안에 또 내면 새 줄을 만들지 않고 시간만 고침 (알림 폭탄 막기)
 --     알림 보내기가 실패해도 학생 제출은 절대 막지 않음
@@ -14,7 +14,7 @@ create extension if not exists pg_net;
 create table if not exists public.notices (
   id           uuid primary key default gen_random_uuid(),
   owner        uuid not null references auth.users (id) on delete cascade,
-  app          text not null,                 -- 'reading' | 'grammar'
+  app          text not null,                 -- 'reading' | 'test'(되새김) | 'grammar'
   ref_id       uuid not null,                 -- 책 id 또는 문제(tests) id
   title        text not null default '',      -- 책·작품 제목
   part         text not null default '',      -- 예: '1주차' (독서만)
@@ -72,8 +72,8 @@ begin
   select * into s from notify_settings where owner = p_owner;
   if s.owner is null or not s.phone_on or length(s.ntfy_topic) < 8 then return; end if;
 
-  v_app  := case p_app when 'reading' then '청연 독서' else '청연 문법' end;
-  v_page := case p_app when 'reading' then 'reading.html#book=' else 'grammar.html#test=' end;
+  v_app  := case p_app when 'reading' then '청연 독서' when 'test' then '청연 되새김' else '청연 문법' end;
+  v_page := case p_app when 'reading' then 'reading.html#book=' when 'test' then 'test.html#test=' else 'grammar.html#test=' end;
   v_msg  := case when s.with_names then p_name || ' · ' else '' end
          || coalesce(p_title, '') || case when coalesce(p_part, '') <> '' then ' ' || p_part else '' end
          || ' · ' || p_what;
@@ -121,7 +121,7 @@ drop trigger if exists entries_notice on public.entries;
 create trigger entries_notice after insert or update on public.entries
   for each row execute function public.notice_on_entry();
 
--- ---------- 청연 문법: test_entries (app = 'grammar' 만) -----------------
+-- ---------- 청연 되새김·청연 문법: test_entries (app = 'test' | 'grammar') -----------------
 create or replace function public.notice_on_test_entry()
 returns trigger
 language plpgsql security definer set search_path = public
@@ -129,7 +129,7 @@ as $$
 declare t tests%rowtype; v_what text;
 begin
   select * into t from tests where id = new.test_id;
-  if t.id is null or t.app <> 'grammar' then return new; end if;
+  if t.id is null or t.app not in ('test', 'grammar') then return new; end if;
   -- 답을 새로 낸 때만 (다시 풀기 '시작' 단추, 선생님 인정·틀림 표시는 알림 아님)
   if tg_op = 'UPDATE' and (new.data->'first')  is not distinct from (old.data->'first')
                       and (new.data->'second') is not distinct from (old.data->'second')
@@ -139,7 +139,7 @@ begin
                  when new.data ? 'second' then '다시 풀기 1'
                  else '처음 제출' end;
   begin
-    perform add_notice(t.owner, 'grammar', t.id, coalesce(nullif(t.title, ''), t.work), '', new.student_name, v_what);
+    perform add_notice(t.owner, t.app, t.id, coalesce(nullif(t.title, ''), t.work), '', new.student_name, v_what);
   exception when others then null;
   end;
   return new;

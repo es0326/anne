@@ -184,6 +184,7 @@ mark.tg{background:var(--accent-soft);color:var(--accent);font-weight:700;border
 .pcell .res{margin-top:0;text-align:center;font-size:.9rem}
 .item.retry .tagin{border-color:var(--wrong);background:var(--wrong-soft)}
 .trk{font-family:"Gowun Batang",serif;font-size:1.15rem;margin:1.4rem 0 .3rem;color:var(--accent)}
+.trk-tabs{margin:.2rem 0 .4rem}
 .mcrow{display:flex;flex-direction:column;gap:.4rem;margin-top:.55rem}
 .mcbtn{font-family:inherit;font-size:.98rem;text-align:left;padding:.5rem .8rem;border:1.5px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;line-height:1.5}
 .mcbtn .mcno{font-weight:700;margin-right:.45rem}
@@ -1091,7 +1092,11 @@ function runTeacher(){
     var tools = el("div", { class: "row" }, []);
     if (SAMPLES.length){
       var sel = el("select", { "aria-label": "작품 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" },
-        [ el("option", { value: "", text: "작품 넣기 ▾" }) ].concat(SAMPLES.map(function(s, i){ return el("option", { value: String(i), text: s.work }); })));
+        [ el("option", { value: "", text: "작품 넣기 ▾" }) ].concat(["중등부", "고등부", ""].map(function(tk){   // 중등부·고등부로 묶어 보이기
+          var opts = SAMPLES.map(function(s, i){ return { s: s, i: i }; }).filter(function(o){ return tk ? o.s.track === tk : (o.s.track !== "중등부" && o.s.track !== "고등부"); })
+                            .map(function(o){ return el("option", { value: String(o.i), text: o.s.work }); });
+          return opts.length ? el("optgroup", { label: tk || "그 밖" }, opts) : null;
+        }).filter(Boolean)));
       sel.addEventListener("change", function(){ if (sel.value !== "") create(clone(SAMPLES[+sel.value])); });
       tools.appendChild(sel);
     }
@@ -1106,18 +1111,41 @@ function runTeacher(){
     tools.appendChild(el("button", { class: "btn ghost small", text: "작품 파일 불러오기", onclick: function(){ file.click(); } }));
     app.appendChild(el("div", { class: "spread" }, [ el("h2", { text: "내 문법 문제" }), tools ]));
     if (!tests.length){ app.appendChild(el("div", { class: "empty", text: "아직 만든 문제가 없어요. ‘작품 파일 불러오기’로 문제를 넣어 보세요." })); return; }
-    tests.forEach(function(t){
+    // 2026-11-10: 중등부·고등부를 탭으로 나누고, 탭 안에서는 묶음(series)별로 (마지막에 고른 탭을 기억)
+    var TRK = ["중등부", "고등부"], groups = {};
+    tests.forEach(function(t){ var k = TRK.indexOf(t.track) >= 0 ? t.track : "기타"; (groups[k] = groups[k] || []).push(t); });
+    var keys = TRK.concat(["기타"]).filter(function(k){ return groups[k]; });
+    var curTrk = ""; try { curTrk = localStorage.getItem("grammar-track") || ""; } catch(e){}
+    if (keys.indexOf(curTrk) < 0) curTrk = keys[0];
+    var tabs = el("div", { class: "row trk-tabs" }, []), panes = {};
+    keys.forEach(function(k){
+      var pane = el("div", {}, []), seen = {};
+      groups[k].forEach(function(t){
+        var sk = t.series || "그 밖의 문제";
+        if (!seen[sk]){ seen[sk] = el("div", {}, [ el("h3", { class: "trk", text: sk.replace(/^청연 문법(·화법)? · /, "") }) ]); pane.appendChild(seen[sk]); }
+        seen[sk].appendChild(card(t));
+      });
+      panes[k] = pane;
+      tabs.appendChild(el("button", { class: "btn small" + (k === curTrk ? "" : " ghost"), "data-trk": k, text: k + " " + groups[k].length, onclick: function(){
+        curTrk = k; try { localStorage.setItem("grammar-track", k); } catch(e){}
+        keys.forEach(function(x){ panes[x].style.display = x === k ? "" : "none"; });
+        [].forEach.call(tabs.children, function(b){ b.className = "btn small" + (b.getAttribute("data-trk") === k ? "" : " ghost"); });
+      } }));
+    });
+    if (keys.length > 1) app.appendChild(tabs);
+    keys.forEach(function(k){ panes[k].style.display = k === curTrk ? "" : "none"; app.appendChild(panes[k]); });
+    function card(t){
       var n = flatItems(t.parts).length;
       var open = (t.class_ids || []).map(function(id){ return cname[id]; }).filter(Boolean);
-      app.appendChild(el("div", { class: "card" }, [
+      return el("div", { class: "card" }, [
         el("div", { class: "spread" }, [ el("div", {}, [ el("h3", { text: t.work || t.title }), el("div", { class: "sub small", text: [t.track, t.series, t.author].filter(Boolean).join(" · ") }) ]),
           el("span", { class: "pill " + (open.length ? "ok" : "no"), text: open.length ? open.join(" · ") + "에 열림" : "닫힘" }) ]),
         el("div", { class: "sub small", style: "margin-top:.3rem", text: (t.parts || []).map(function(p){ return partLabel(p.type, p) + " " + (p.items || []).length; }).join(" · ") + " · 모두 " + n + "문제" }),
         el("div", { class: "row", style: "margin-top:.8rem" }, [
           el("button", { class: "btn small", text: "결과 보기", onclick: function(){ go("test=" + t.id); } }),
           el("button", { class: "btn ghost small", text: open.length ? "문제 편집 · 반 고르기" : "반 골라 열기", onclick: function(){ go("edit=" + t.id); } }) ])
-      ]));
-    });
+      ]);
+    }
   }
   async function create(t){ try { var n = await api.createTest(USER, t); go("edit=" + n.id); toast((t.work || "문법") + " 문제를 만들었어요. 열어 줄 반을 골라 주세요."); } catch(e){ toast(e.message, true); } }
   // 작품 파일 안의 작품 고르기

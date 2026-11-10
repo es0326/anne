@@ -62,6 +62,30 @@ h1{font-family:"Gowun Batang",serif;font-size:clamp(1.9rem,7vw,2.4rem);line-heig
 .tool .for{font-size:.75rem;font-weight:700;color:var(--green);letter-spacing:.06em}
 .who{margin:1.6rem 0 0;font-size:.85rem;color:var(--muted)}
 .note{background:var(--beige);border-radius:12px;padding:.8rem 1rem;font-size:.88rem;color:var(--muted);margin-top:1.2rem}
+/* 새로 낸 숙제 (supabase/notify.sql) */
+.news{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.2rem;margin-bottom:1.2rem}
+.news-head{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.news-head h2{font-family:"Gowun Batang",serif;font-size:1.15rem;margin:0;color:var(--accent);flex:1}
+.cnt{display:inline-block;min-width:1.6rem;text-align:center;background:var(--accent);color:var(--paper);border-radius:999px;font-size:.8rem;font-weight:700;padding:0 .45rem}
+.cnt.zero{background:var(--beige);color:var(--muted)}
+.sbtn{font:inherit;font-size:.8rem;font-weight:700;color:var(--accent);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.15rem .6rem;cursor:pointer}
+.sbtn:hover{border-color:var(--accent)}
+.nlist{list-style:none;margin:.6rem 0 0;padding:0;max-height:22rem;overflow:auto}
+.nlist li a{display:grid;grid-template-columns:auto 1fr auto;gap:.1rem .6rem;align-items:baseline;padding:.45rem .2rem;border-top:1px solid var(--line);color:inherit;text-decoration:none;font-size:.9rem}
+.nlist li a:hover{background:var(--accent-soft)}
+.nlist .dot{width:.5rem;height:.5rem;border-radius:50%;background:var(--accent);align-self:center}
+.nlist .old .dot{background:transparent}
+.nlist .old{color:var(--muted)}
+.nlist .t{font-size:.78rem;color:var(--muted);white-space:nowrap}
+.nempty{color:var(--muted);font-size:.9rem;padding:.4rem 0}
+.phone{margin-top:.8rem;border-top:1px dashed var(--line);padding-top:.7rem;font-size:.88rem}
+.phone summary{cursor:pointer;font-weight:700;color:var(--green)}
+.phone ol{padding-left:1.2rem;margin:.5rem 0}
+.phone code{background:var(--beige);border-radius:6px;padding:.05rem .4rem;font-size:.95em;word-break:break-all}
+.phone label{display:flex;gap:.5rem;align-items:center;margin:.3rem 0}
+.phone .small{margin:.2rem 0 .5rem;color:var(--muted);font-size:.8rem}
+.phone .msg{color:var(--green);font-size:.85rem;min-height:1.2em;margin-top:.3rem}
+.badge{display:inline-block;margin-left:.45rem;vertical-align:middle;background:var(--accent);color:var(--paper);border-radius:999px;font-family:"Gowun Dodum",sans-serif;font-size:.72rem;font-weight:700;padding:0 .5rem}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -76,10 +100,33 @@ h1{font-family:"Gowun Batang",serif;font-size:clamp(1.9rem,7vw,2.4rem);line-heig
     </div>
   </header>
 
+  <section class="news" id="news" hidden aria-live="polite">
+    <div class="news-head">
+      <h2>새로 낸 숙제</h2><span class="cnt zero" id="ncnt">0</span>
+      <button type="button" class="sbtn" id="nall">모두 읽음</button>
+      <button type="button" class="sbtn" id="nreload">새로 고침</button>
+    </div>
+    <ul class="nlist" id="nlist"></ul>
+    <details class="phone" id="phone">
+      <summary>휴대폰으로도 알림 받기</summary>
+      <ol>
+        <li>휴대폰에 무료 앱 <b>ntfy</b>를 깔아요. (플레이스토어·앱스토어에서 「ntfy」 찾기)</li>
+        <li>ntfy 앱에서 <b>＋</b>를 누르고 아래 <b>알림 이름</b>을 그대로 넣은 뒤 「구독」을 눌러요.<br>알림 이름 <code id="ptopic">…</code> <button type="button" class="sbtn" id="pcopy">복사</button></li>
+        <li>「휴대폰 알림 켜기」에 체크하고 「시험 알림 보내기」를 눌러 휴대폰이 울리는지 봐요.</li>
+      </ol>
+      <label><input type="checkbox" id="pon"> 휴대폰 알림 켜기</label>
+      <label><input type="checkbox" id="pnames"> 알림에 학생 이름 넣기</label>
+      <p class="small">알림은 ntfy 서버를 거쳐 가요. 알림 이름을 아는 사람만 받을 수 있으니 다른 사람에게 알려 주지 마세요. 이름을 빼면 「몽실 언니 1주차 · 빈칸 처음 제출」처럼만 와요.</p>
+      <button type="button" class="sbtn" id="ptest">시험 알림 보내기</button>
+      <button type="button" class="sbtn" id="pnew">알림 이름 새로 만들기</button>
+      <div class="msg" id="pmsg"></div>
+    </details>
+  </section>
+
   <nav class="menu" aria-label="도구">
     <a class="tool" href="reading.html">
       <span class="for">독서논술 숙제</span>
-      <h2>청연 독서</h2>
+      <h2>청연 독서<span class="badge" id="b-reading" hidden></span></h2>
       <p>책갈피 · 내용 이해 · 생각하기(결석 보강) · 반별 제출 마감</p>
       <span class="go" aria-hidden="true">→</span>
     </a>
@@ -91,7 +138,7 @@ h1{font-family:"Gowun Batang",serif;font-size:clamp(1.9rem,7vw,2.4rem);line-heig
     </a>
     <a class="tool" href="grammar.html">
       <span class="for">중등부 · 고등부 문법 · 고2 화법</span>
-      <h2>청연 문법·화법</h2>
+      <h2>청연 문법·화법<span class="badge" id="b-grammar" hidden></span></h2>
       <p>문법·화법 O·X · 쓰기 · 객관식 · 틀린 문제 다시 풀기</p>
       <span class="go" aria-hidden="true">→</span>
     </a>
@@ -114,6 +161,7 @@ h1{font-family:"Gowun Batang",serif;font-size:clamp(1.9rem,7vw,2.4rem);line-heig
     <b>학생 입구 주소</b> <span id="stu"></span> <button type="button" id="stuCopy" style="font:inherit;font-size:.8rem;font-weight:700;color:var(--accent);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.1rem .55rem;cursor:pointer">복사</button>
     <br>청연 독서는 아직 책마다 보낸 학생 링크로 들어가요. 로그인은 한 도구에서 한 번 하면 다른 도구에도 이어져요.</div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // 로그인했는지 보여 주기 (세 도구가 같은 Supabase 로그인을 씀). 없어도 첫 화면은 그대로 동작
 try {
@@ -131,6 +179,104 @@ document.getElementById("stuCopy").addEventListener("click", function(){
   if (navigator.clipboard) navigator.clipboard.writeText(STU).then(ok, function(){ prompt("주소를 복사하세요", STU); });
   else prompt("주소를 복사하세요", STU);
 });
+
+/* ===== 새로 낸 숙제 (supabase/notify.sql) — 로그인되어 있을 때만 보임 ===== */
+(function(){
+  if (!window.supabase || !email) return;
+  var db = supabase.createClient("https://yqwexzzdamcpqmsqkbcg.supabase.co", "sb_publishable_Y2bK2lw2T_Wysf9WWPuDbg_eA1ZX7R0");
+  var $ = function(id){ return document.getElementById(id); };
+  var APP = { reading: { name: "독서", page: "reading.html#book=" }, grammar: { name: "문법", page: "grammar.html#test=" } };
+  var UID = null, ROWS = [], SET = null;
+
+  function when(t){
+    var d = new Date(t), now = new Date(), m = Math.round((now - d) / 60000);
+    if (m < 1) return "방금"; if (m < 60) return m + "분 전";
+    var hm = d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0");
+    if (d.toDateString() === now.toDateString()) return "오늘 " + hm;
+    var y = new Date(now); y.setDate(now.getDate() - 1);
+    if (d.toDateString() === y.toDateString()) return "어제 " + hm;
+    return (d.getMonth() + 1) + "/" + d.getDate() + " " + hm;
+  }
+  function mk(tag, cls, t){ var e = document.createElement(tag); if (cls) e.className = cls; if (t != null) e.textContent = t; return e; }
+
+  function draw(){
+    var unseen = ROWS.filter(function(r){ return !r.seen; }), list = $("nlist");
+    $("ncnt").textContent = unseen.length; $("ncnt").className = "cnt" + (unseen.length ? "" : " zero");
+    ["reading", "grammar"].forEach(function(a){
+      var n = unseen.filter(function(r){ return r.app === a; }).length, b = $("b-" + a);
+      b.hidden = !n; b.textContent = "새 " + n;
+    });
+    try { if (navigator.setAppBadge){ if (unseen.length) navigator.setAppBadge(unseen.length); else navigator.clearAppBadge(); } } catch(e){}
+    list.innerHTML = "";
+    if (!ROWS.length){ list.appendChild(mk("li", "nempty", "아직 낸 숙제가 없어요. 학생이 청연 독서·청연 문법에 내면 여기에 떠요.")); return; }
+    ROWS.forEach(function(r){
+      var li = mk("li", r.seen ? "old" : ""), a = document.createElement("a");
+      a.href = APP[r.app].page + r.ref_id;
+      a.appendChild(mk("span", "dot"));
+      var main = mk("span"); main.appendChild(mk("b", "", r.student_name));
+      main.appendChild(document.createTextNode(" · [" + APP[r.app].name + "] " + r.title + (r.part ? " " + r.part : "") + " · " + r.what));
+      a.appendChild(main); a.appendChild(mk("span", "t", when(r.created_at)));
+      a.addEventListener("click", function(){ if (!r.seen) db.from("notices").update({ seen: true }).eq("id", r.id).then(function(){}); });
+      li.appendChild(a); list.appendChild(li);
+    });
+  }
+
+  async function load(){
+    var q = await db.from("notices").select("*").order("created_at", { ascending: false }).limit(40);
+    if (q.error) return;                          // notify.sql 을 아직 안 돌렸으면 조용히 숨김
+    ROWS = q.data || []; $("news").hidden = false; draw();
+  }
+  $("nreload").addEventListener("click", load);
+  $("nall").addEventListener("click", async function(){
+    var ids = ROWS.filter(function(r){ return !r.seen; }).map(function(r){ return r.id; });
+    if (!ids.length) return;
+    await db.from("notices").update({ seen: true }).in("id", ids); load();
+  });
+
+  /* 휴대폰 알림 (ntfy) */
+  function newTopic(){
+    var a = new Uint8Array(10); crypto.getRandomValues(a);
+    return "cheongyeon-" + Array.prototype.map.call(a, function(x){ return (x % 36).toString(36); }).join("");
+  }
+  function pmsg(t){ $("pmsg").textContent = t; }
+  async function save(patch){
+    SET = Object.assign(SET, patch, { updated_at: new Date().toISOString() });
+    var q = await db.from("notify_settings").upsert(SET);
+    pmsg(q.error ? "저장하지 못했어요: " + q.error.message : "저장했어요.");
+  }
+  async function loadSet(){
+    var q = await db.from("notify_settings").select("*").maybeSingle();
+    if (q.error) return;
+    SET = q.data || { owner: UID, ntfy_topic: newTopic(), phone_on: false, with_names: true };
+    if (!q.data) await db.from("notify_settings").upsert(SET);
+    $("ptopic").textContent = SET.ntfy_topic; $("pon").checked = SET.phone_on; $("pnames").checked = SET.with_names;
+  }
+  $("pon").addEventListener("change", function(){ if (SET) save({ phone_on: this.checked }); });
+  $("pnames").addEventListener("change", function(){ if (SET) save({ with_names: this.checked }); });
+  $("pcopy").addEventListener("click", function(){
+    var t = SET && SET.ntfy_topic; if (!t) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(function(){ pmsg("알림 이름을 복사했어요."); }, function(){ prompt("알림 이름", t); });
+    else prompt("알림 이름", t);
+  });
+  $("pnew").addEventListener("click", async function(){
+    if (!SET || !confirm("알림 이름을 새로 만들면 휴대폰 ntfy 앱에서도 새 이름으로 다시 구독해야 해요. 바꿀까요?")) return;
+    await save({ ntfy_topic: newTopic() }); $("ptopic").textContent = SET.ntfy_topic;
+  });
+  $("ptest").addEventListener("click", async function(){
+    if (!SET) return;
+    try {
+      var r = await fetch("https://ntfy.sh/", { method: "POST", body: JSON.stringify({ topic: SET.ntfy_topic, title: "청연국어 시험 알림", message: "이 알림이 보이면 연결 성공이에요." }) });
+      pmsg(r.ok ? "보냈어요. 휴대폰이 울리는지 보세요." : "보내지 못했어요 (" + r.status + ").");
+    } catch(e){ pmsg("보내지 못했어요: " + e.message); }
+  });
+
+  db.auth.getUser().then(function(u){
+    UID = u.data && u.data.user && u.data.user.id; if (!UID) return;
+    load(); loadSet();
+    setInterval(function(){ if (document.visibilityState === "visible") load(); }, 60000);
+    document.addEventListener("visibilitychange", function(){ if (document.visibilityState === "visible") load(); });
+  });
+})();
 </script>
 </body>
 </html>

@@ -91,6 +91,11 @@ input:focus,textarea:focus,select:focus{outline:2.5px solid var(--accent);outlin
 .tab.on{color:var(--accent);border-bottom-color:var(--accent)}
 .tab-n{display:inline-block;min-width:1.4em;font-size:.72rem;font-weight:700;padding:.05rem .4rem;border-radius:999px;background:var(--beige);color:var(--muted);font-variant-numeric:tabular-nums}
 .tab.on .tab-n{background:var(--accent-soft);color:var(--accent)}
+.lv{display:flex;gap:.4rem;margin:1rem 0 0}
+.lv button{font-family:inherit;font-size:1rem;font-weight:700;cursor:pointer;border-radius:999px;padding:.4rem 1.1rem;border:1.5px solid var(--accent);background:none;color:var(--accent)}
+.lv button.on{background:var(--accent);color:var(--card,#fff)}
+.lv button:focus-visible{outline:2.5px solid var(--accent);outline-offset:3px}
+.lv .tab-n{margin-left:.2rem}
 .range{background:var(--accent-soft);border-radius:12px;padding:.75rem 1rem;font-size:.95rem;margin:.6rem 0 0}
 .range b{color:var(--accent)}
 .bm-item{border-top:1px dashed var(--line);padding-top:.9rem;margin-top:.9rem}
@@ -882,6 +887,11 @@ function bookKind(b){
 }
 function loadListTab(){ try { return localStorage.getItem("cy-reading-list-tab") || ""; } catch(e){ return ""; } }
 function saveListTab(k){ try { localStorage.setItem("cy-reading-list-tab", k); } catch(e){} }
+/* 학교급: 학년 칸에 '초'가 있으면 초등, 아니면 중등 (2026-11-26 원장님: 중등과 초등 구별) */
+var LEVELS = [ ["mid", "중등"], ["ele", "초등"] ];
+function bookLevel(b){ var g = (b && b.grade) || ""; return /초/.test(g) ? "ele" : "mid"; }
+function loadListLevel(){ try { return localStorage.getItem("cy-reading-list-level") || ""; } catch(e){ return ""; } }
+function saveListLevel(k){ try { localStorage.setItem("cy-reading-list-level", k); } catch(e){} }
 /* ECON-BEGIN ===== 샘플: 국제거래와 환율 쫌 아는 10대 (중2 비문학 · 장마다 1회, 8회차) — 2026-11-08 청연 비문학 교재(교재틀/books/…/data.js)에서
    교재틀\scripts\bimun-to-app.ps1 + app-keys.txt 로 만듦(고칠 땐 app-keys.txt 를 고치고 다시 돌려 이 사이를 바꿈). 숙제 = 책갈피(새로 알게 된 개념) + 내용 이해.
    [도전]·그림 문항은 종이로, 어휘·생각해 볼 문제·정리하기는 학원에서 (생각해 볼 문제는 결석 보강으로 생각하기 탭에) */
@@ -1656,8 +1666,18 @@ function runTeacher(){
       ])
     ]));
     if (!books.length){ app.appendChild(el("div", { class: "empty", text: "아직 책이 없어요. ‘준비된 책 넣기’에서 몽실언니나 톰 소여의 모험을 골라 시작해 보세요." })); return; }
+    var byLv = { mid: [], ele: [] };
+    books.forEach(function(b){ byLv[bookLevel(b)].push(b); });
+    var lv = loadListLevel();
+    if (!byLv[lv] || !byLv[lv].length) lv = byLv.mid.length ? "mid" : "ele";
+    var lvRow = el("div", { class: "lv", role: "group", "aria-label": "중등 초등" }, []);
+    LEVELS.forEach(function(L){
+      lvRow.appendChild(el("button", { class: lv === L[0] ? "on" : "", "aria-pressed": lv === L[0] ? "true" : "false",
+        onclick: function(){ saveListLevel(L[0]); renderList(); } }, [ document.createTextNode(L[1] + " "), el("span", { class: "tab-n", text: String(byLv[L[0]].length) }) ]));
+    });
+    app.appendChild(lvRow);
     var groups = {}; KINDS.forEach(function(k){ groups[k[0]] = []; });
-    books.forEach(function(b){ groups[bookKind(b)].push(b); });
+    byLv[lv].forEach(function(b){ groups[bookKind(b)].push(b); });
     var shown = KINDS.filter(function(k){ return k[0] !== "etc" || groups.etc.length; });
     var cur = loadListTab();
     if (!groups[cur] || (cur === "etc" && !groups.etc.length)) cur = (shown.filter(function(k){ return groups[k[0]].length; })[0] || shown[0])[0];
@@ -1668,8 +1688,8 @@ function runTeacher(){
     });
     app.appendChild(tabs);
     var list = groups[cur];
-    if (cur === "etc") app.appendChild(el("div", { class: "note", html: "학년 칸에 <b>문학</b> · <b>비문학</b> · <b>명작</b> 중 한 낱말을 넣으면 그 칸으로 옮겨져요. 예) 초등 6학년 · 문학 읽기 (문제 편집에서 고쳐요)" }));
-    if (!list.length){ app.appendChild(el("div", { class: "empty", text: "아직 " + KIND_NAME[cur] + " 책이 없어요. ‘준비된 책 넣기’나 ‘+ 새 책’으로 넣어 보세요." })); return; }
+    if (cur === "etc") app.appendChild(el("div", { class: "note", html: "학년 칸에 <b>문학</b> · <b>비문학</b> · <b>명작</b> 중 한 낱말을 넣으면 그 칸으로 옮겨져요. <b>초등</b>을 넣으면 초등으로 가요. 예) 중등 3학년 · 문학 읽기 (문제 편집에서 고쳐요)" }));
+    if (!list.length){ app.appendChild(el("div", { class: "empty", text: "아직 " + (lv === "ele" ? "초등 " : "중등 ") + KIND_NAME[cur] + " 책이 없어요. ‘준비된 책 넣기’나 ‘+ 새 책’으로 넣어 보세요." })); return; }
     list.forEach(function(b){
       var card = el("div", { class: "card" }, []);
       card.appendChild(el("div", { class: "spread" }, [
@@ -1687,10 +1707,10 @@ function runTeacher(){
   }
   function sampleSelect(){
     var opts = [ el("option", { value: "", text: "준비된 책 넣기" }) ];
-    KINDS.forEach(function(k){
-      var items = SAMPLES.map(function(s, i){ return [s, i]; }).filter(function(x){ return bookKind(x[0].data) === k[0]; });
-      if (items.length) opts.push(el("optgroup", { label: k[1] }, items.map(function(x){ return el("option", { value: String(x[1]), text: x[0].label }); })));
-    });
+    LEVELS.forEach(function(L){ KINDS.forEach(function(k){
+      var items = SAMPLES.map(function(s, i){ return [s, i]; }).filter(function(x){ return bookLevel(x[0].data) === L[0] && bookKind(x[0].data) === k[0]; });
+      if (items.length) opts.push(el("optgroup", { label: L[1] + " " + k[1] }, items.map(function(x){ return el("option", { value: String(x[1]), text: x[0].label }); })));
+    }); });
     var sel = el("select", { "aria-label": "준비된 책 넣기", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" }, opts);
     sel.addEventListener("change", function(){ if (sel.value !== "") create(clone(SAMPLES[+sel.value].data)); });
     return sel;

@@ -53,7 +53,12 @@ alter table public.entries add column if not exists class_id text  not null defa
 
 -- 종류 제약 (이전 버전에서 넘어와도 맞도록 다시 만듦)
 alter table public.entries drop constraint if exists entries_kind_check;
-alter table public.entries add constraint entries_kind_check check (kind in ('bookmark', 'blanks', 'answers'));
+alter table public.entries add constraint entries_kind_check check (kind in ('bookmark', 'blanks', 'answers', 'quiz'));
+
+-- 독서 퀴즈 (2026-11-26): 회차(sections[])마다 quiz 목록. 객관식은 보기를 고르고, 단답은 짧게 씀
+--   sections[].quiz: [{ "q": "복서가 되풀이한 말은?", "choices": ["…", "…"], "key": "5" },     ← 객관식: key = 정답 보기 번호(1부터)
+--                     { "q": "『동물농장』을 쓴 작가는?", "key": "조지 오웰@오웰" }]           ← 단답: key = 빈칸과 같은 규칙
+--   entries kind = 'quiz' → data: { answers: ["5", "조지 오웰", …] }  한 번만 냄. 내면 바로 점수와 틀린 문제의 정답을 봄
 
 -- 이전 시험판의 "나도 궁금해" 기능은 없앰 (친구 질문은 수업 시간에 처음 듣기)
 drop function if exists public.get_topics(uuid, int, text);
@@ -121,7 +126,11 @@ begin
                             select coalesce(jsonb_agg(jsonb_build_object('prompt', q->>'prompt') order by qn), '[]'::jsonb)
                               from jsonb_array_elements(coalesce(x->'questions', '[]'::jsonb)) with ordinality as qq(q, qn))
                         ) order by xn), '[]'::jsonb)
-                 from jsonb_array_elements(coalesce(s->'boxes', '[]'::jsonb)) with ordinality as xx(x, xn))
+                 from jsonb_array_elements(coalesce(s->'boxes', '[]'::jsonb)) with ordinality as xx(x, xn)),
+             -- 독서 퀴즈: 문제와 보기만 (정답 key 는 학생에게 가지 않음)
+             'quiz', (
+               select coalesce(jsonb_agg(jsonb_build_object('q', coalesce(z->>'q', ''), 'choices', coalesce(z->'choices', '[]'::jsonb)) order by zn), '[]'::jsonb)
+                 from jsonb_array_elements(coalesce(s->'quiz', '[]'::jsonb)) with ordinality as zz(z, zn))
            ) order by sn), '[]'::jsonb)
     into v_sections
     from jsonb_array_elements(b.sections) with ordinality as ss(s, sn);
@@ -345,6 +354,77 @@ end;
 $$;
 revoke all on function public.set_blank_accept(uuid, jsonb) from public;
 grant execute on function public.set_blank_accept(uuid, jsonb) to authenticated;
+
+-- ---------- 독서 퀴즈 (2026-11-26) -----------------------------------
+--   한 문제 채점: 보기가 있으면 고른 번호가 key 와 같아야 맞음, 없으면 빈칸과 같은 규칙(blank_ok) — reading.html quizOk 와 같음
+create or replace function public.quiz_ok(p_answer text, p_item jsonb) returns boolean
+language sql immutable as $$
+  select case
+    when jsonb_typeof(p_item->'choices') = 'array' and jsonb_array_length(p_item->'choices') > 0
+      then trim(coalesce(p_answer, '')) <> '' and trim(coalesce(p_answer, '')) = trim(coalesce(p_item->>'key', ''))
+    else blank_ok(p_answer, coalesce(p_item->>'key', ''))
+  end;
+$$;
+
+-- 학생용: 냈는지, 냈으면 내 답 · 맞고 틀림 · 틀린 문제의 정답
+create or replace function public.get_quiz_status(p_book_id uuid, p_section int, p_name text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_quiz  jsonb;
+  v_data  jsonb;
+  v_marks jsonb := '[]'::jsonb;
+  v_show  jsonb := '[]'::jsonb;
+  v_ok    boolean;
+  i       int;
+begin
+  select coalesce(sections -> p_section -> 'quiz', '[]'::jsonb) into v_quiz from books where id = p_book_id and is_open;
+  if v_quiz is null then raise exception '책을 열 수 없습니다.'; end if;
+  select data into v_data from entries
+   where book_id = p_book_id and section = p_section and kind = 'quiz' and student_name = trim(p_name);
+  if v_data is null then return jsonb_build_object('done', false); end if;
+  for i in 0 .. jsonb_array_length(v_quiz) - 1 loop
+    v_ok := quiz_ok(v_data->'answers'->>i, v_quiz->i);
+    v_marks := v_marks || to_jsonb(v_ok);
+    v_show  := v_show  || case when v_ok then 'null'::jsonb else to_jsonb(split_part(split_part(coalesce(v_quiz->i->>'key', ''), '@', 1), '|', 1)) end;
+  end loop;
+  return jsonb_build_object('done', true, 'answers', coalesce(v_data->'answers', '[]'::jsonb), 'marks', v_marks, 'keys', v_show);
+end;
+$$;
+
+-- 학생용: 퀴즈 내기 (한 번만. 다시 풀게 하려면 선생님이 수업 보기에서 지움)
+create or replace function public.submit_quiz(p_book_id uuid, p_section int, p_name text, p_answers jsonb, p_class text default '')
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_sections jsonb;
+begin
+  select sections into v_sections from books where id = p_book_id and is_open;
+  if v_sections is null then raise exception '선생님이 닫은 책입니다.'; end if;
+  if p_section is null or p_section < 0 or p_section >= jsonb_array_length(v_sections) then raise exception '주차가 올바르지 않습니다.'; end if;
+  if jsonb_array_length(coalesce(v_sections -> p_section -> 'quiz', '[]'::jsonb)) = 0 then raise exception '이 회차에는 독서 퀴즈가 없어요.'; end if;
+  if coalesce(length(trim(p_name)), 0) = 0 then raise exception '이름을 입력하세요.'; end if;
+  if length(trim(p_name)) > 40 then raise exception '이름이 너무 깁니다.'; end if;
+  if jsonb_typeof(p_answers) is distinct from 'array' then raise exception '답이 올바르지 않습니다.'; end if;
+  if length(p_answers::text) > 20000 then raise exception '글이 너무 깁니다.'; end if;
+  if exists (select 1 from entries where book_id = p_book_id and section = p_section and kind = 'quiz' and student_name = trim(p_name)) then
+    raise exception '이미 냈어요. 다시 풀려면 선생님께 말씀드리세요.';
+  end if;
+  insert into entries (book_id, section, kind, student_name, data, class_id)
+  values (p_book_id, p_section, 'quiz', trim(p_name), jsonb_build_object('answers', p_answers), left(coalesce(trim(p_class), ''), 40));
+  return get_quiz_status(p_book_id, p_section, p_name);
+end;
+$$;
+revoke all on function public.get_quiz_status(uuid, int, text)              from public;
+revoke all on function public.submit_quiz(uuid, int, text, jsonb, text)     from public;
+grant execute on function public.get_quiz_status(uuid, int, text)           to anon, authenticated;
+grant execute on function public.submit_quiz(uuid, int, text, jsonb, text)  to anon, authenticated;
 
 revoke all on function public.get_book(uuid)                        from public;
 revoke all on function public.submit_entry(uuid, int, text, text, jsonb, text) from public;

@@ -118,6 +118,20 @@ textarea.blank.long.retry{border-bottom-color:var(--wrong);background:var(--wron
 input[type=text].blank.retry{border-bottom-color:var(--wrong);background:var(--wrong-soft);color:var(--ink)}
 .filled.none{background:var(--wrong-soft);color:var(--wrong)}
 .key{font-size:.8rem;color:var(--muted);font-weight:500;margin-left:.15rem}
+/* 독서 퀴즈 */
+.qz{border-top:1px dashed var(--line);padding:.9rem 0 .2rem}
+.qz:first-of-type{border-top:none;padding-top:.2rem}
+.qz-choices{display:flex;flex-direction:column;gap:.35rem;margin:.1rem 0 .3rem}
+.qz-choice{font-family:inherit;font-size:.98rem;text-align:left;border:1.5px solid var(--line);border-radius:10px;padding:.5rem .8rem;
+  background:var(--card);color:var(--ink);cursor:pointer;line-height:1.45}
+.qz-choice:hover{border-color:var(--accent)}
+.qz-choice.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
+.qz-choice:disabled{cursor:default}
+.qz-choice.right{background:var(--correct-soft);border-color:var(--correct);color:var(--correct);font-weight:700}
+.qz-choice.wrong{background:var(--wrong-soft);border-color:var(--wrong);color:var(--wrong);font-weight:700}
+input[type=text].qz-in{max-width:22rem}
+.qz-res{font-size:.95rem;margin:.2rem 0 .3rem}
+.qz-res .filled{margin-left:0}
 .qnum{font-size:.78rem;font-weight:700;letter-spacing:.08em;color:var(--muted)}
 .qtext{font-family:"Gowun Batang",serif;font-size:1.05rem;font-weight:700;line-height:1.55;margin:.15rem 0 .55rem}
 .model{background:var(--beige);border-left:3px solid var(--green);border-radius:0 10px 10px 0;padding:.55rem .85rem;font-size:.9rem;margin:.4rem 0 .7rem}
@@ -334,6 +348,21 @@ function gradeA(ans, key, accept, i){
   return grade(ans, key);
 }
 function displayKey(k){ return String(k).split("@")[0].split("|")[0]; }
+
+/* ----- 독서 퀴즈 (2026-11-26) — 회차마다 sec.quiz: [{ q, choices:[…], key }] -----
+   객관식(보기가 있음): key = 정답 보기 번호(1부터), 학생은 보기를 눌러 고름 → 번호가 같으면 맞음
+   단답(보기 없음): key = 빈칸과 같은 규칙 "정답@핵심어" → grade() 로 채점
+   한 번만 내고, 내면 바로 점수와 틀린 문제의 정답을 봄 — reading.sql 의 quiz_ok 와 같은 규칙 */
+var CIRCLED = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"];
+function quizItems(sec){ return (sec && sec.quiz) || []; }
+function isChoice(item){ return !!(item && item.choices && item.choices.length); }
+function quizOk(ans, item){
+  if (isChoice(item)) return trimStr(ans) !== "" && trimStr(ans) === trimStr(item.key);
+  return grade(ans, item.key) === "ok";
+}
+// 학생 답이나 정답을 보기 좋게: 객관식 "5" → "⑤ 내가 더 열심히 한다."
+function choiceText(item, n){ n = parseInt(n, 10); return n >= 1 && item.choices && item.choices[n - 1] != null ? (CIRCLED[n - 1] || n + ".") + " " + item.choices[n - 1] : ""; }
+function quizKeyText(item, key){ return isChoice(item) ? choiceText(item, key) : displayKey(key); }
 
 /* ===== 샘플: 몽실언니 (초6 · 4주) — 선생님 교재 「즐거운 문학 읽기」 학생용·교사용에서 옮김 ===== */
 var MONGSIL = {
@@ -569,6 +598,120 @@ var GIVER = {
           { prompt: "4. 13장에서 조너스는 “모든 게 똑같으니까 선택할 게 아무것도 없잖아요!”라며 선택을 원하다가, 대화 끝에는 “사람들이 잘못 선택하지 않도록 우리가 보호해야 해요.”라고 말합니다. 그리고 22장에서는 마을에 남았다면 감정·색깔·사랑에 굶주리며 살았을 것이라고 결론 내립니다. 선택할 자유와 안전 중 무엇이 더 중요할까요? 오늘날 누군가(알고리즘, 어른, 학교 등)가 대신 정해 주는 것의 예를 들어 함께 생각해 보세요. (근거: 내용 이해 19번)", model: "예: 영상·쇼핑 앱이 추천해 주는 콘텐츠, 정해진 진로, 부모님이 정해 주는 학원 등. 대신 정해 주면 편하고 실수가 적지만, 스스로 생각하고 책임지는 힘을 잃는다." },
           { prompt: "5. 마을은 고통·전쟁·굶주림이 없는 대신 많은 것을 잃었습니다. ‘늘 같음 상태’로 마을이 얻은 것과 잃은 것을 정리하고, 여러분이라면 이 마을에서 살고 싶은지 근거를 들어 써 보세요. (근거: 내용 이해 10번)", model: "얻은 것: 안전, 질서, 굶주림·전쟁·가난이 없음, 갈등과 차별이 없음, 잘못 선택할 걱정이 없음.\n잃은 것: 색깔·음악·눈과 햇볕·언덕, 사랑·슬픔 같은 깊은 감정, 선택의 자유, 기억과 역사, 개성, 생명을 존중하는 마음.\n(‘살고 싶다/아니다’ 모두 가능. 얻은 것과 잃은 것의 무게를 비교하는 근거가 있는지 확인)" }
         ] }
+    ]}
+  ]
+};
+/* ===== 샘플: 동물농장 (중3 문학 · 1회 1권) — 2026-11-26 청연 교재(교재틀/books/동물농장, 기억 전달자 틀)에서 옮김
+   숙제 = 책갈피 + 내용 이해 22문항 + 독서 퀴즈 20문항(교재에서 빼고 앱으로, 객관식 10 + 단답 10).
+   어휘·등장인물·깊이 생각하기는 학원에서 (깊이 생각하기는 결석 보강으로 생각하기 탭에) ===== */
+var ANIMAL_MY = " (내 생각 · 선생님이 읽어요)";
+// 메이저가 금지한 아홉 가지 (2번·21번 ④): 교재 기준 "일곱 가지 이상이면 정답" → 칸 일곱 개, 칸마다 아홉 가지 중 하나면 맞음 (원장님 11-26 결정)
+function ANIMAL_NINE(label){
+  var ex = ["집 안에 살기", "침대에서 자기", "옷 입기", "술 마시기", "담배 피우기", "돈 만지기", "장사하기"];
+  var kw = "@집·침대·옷·술·담배·돈·장사·거래·사고팔·폭압·괴롭·억압·부려·부리·학대·죽이·죽여·죽인·죽일·처형·살생";
+  return "(칸마다 하나씩, 일곱 가지 이상 써요)\n" + ex.map(function(x, i){ return label + " " + (i + 1) + " [" + x + kw + "]"; }).join("\n");
+}
+var ANIMAL = {
+  title: "동물농장", author: "조지 오웰 글 · 도정일 옮김 · 민음사", grade: "중등 3학년 · 문학 읽기",
+  sections: [
+    { title: "1회", range: "처음부터 끝까지 (1~10장) · 질문에 답하며 동물농장의 변화를 따라가 보자. — 1부 1~5번, 2부 6~9번, 3부 10~17번, 4부 18~22번 · 독서 퀴즈 20문제는 수업이 끝난 뒤에", boxes: [
+      { heading: "1부 · 1번 · 1장 (11~13쪽)",
+        text: "메이저 영감은 동물들의 삶을 “비참과 노예 상태”라고 했습니다. 메이저 영감이 든 예를 바탕으로, 인간이 동물들에게서 빼앗아 간 것을 정리하여 표를 채워 보세요.\n\n(예) 암소 — 빼앗긴 것: 해마다 짜낸 몇천 리터의 우유 / 그 결과: 새끼를 기르는 데 쓰이지 못하고 인간의 목구멍으로 넘어감\n\n① 암탉 — 빼앗긴 것 [낳은 알@알·달걀·계란]\n    그 결과 [+병아리로 부화하지 못하고 시장에 팔려 존스와 일꾼들의 돈주머니를 불림@병아리·부화·시장·팔려·팔아·팔았·팔린·돈]\n② 클로버 — 빼앗긴 것 [낳은 새끼 네 마리@새끼·망아지·자식]\n    그 결과 [+한 살에 팔려 가 다시는 만날 수 없음@팔려·팔아·팔았·팔린·만날 수 없·못 만·헤어·떨어]\n③ 식용 돼지 — 빼앗긴 것 [목숨@목숨·생명·삶]\n    그 결과 [+일 년 안에 도살장에 끌려감@도살·도축·죽·잡아먹·잡혀]\n④ 복서 — 빼앗긴 것 [힘이 빠진 뒤의 삶@삶·목숨·생명·노후·늙·힘]\n    그 결과 [+폐마 도축업자에게 팔려 가 여우 사냥개 먹이가 됨@도축·도살·폐마·사냥개·먹이·팔려·팔아·팔린]\n⑤ 개 — 빼앗긴 것 [늙은 뒤의 삶@삶·목숨·생명·노후·늙]\n    그 결과 [+목에 벽돌을 달아 연못에 빠뜨려짐@벽돌·연못·빠뜨·빠져·물에·익사]",
+        questions: [] },
+      { heading: "1부 · 2번 · 1장 (15쪽)",
+        text: "메이저 영감은 인간을 정복하더라도 “인간의 악한 짓거리를 모방해서는 안 된다”며, 해서는 안 될 일들을 말했습니다. 그것을 모두 찾아 써 보세요.\n\n" + ANIMAL_NINE("해서는 안 될 일"),
+        questions: [] },
+      { heading: "1부 · 3번 · 2장 (24~25쪽)",
+        text: "반란에 성공한 동물들은 “삽시간에 존스 씨를 생각나게 하는 것들을 하나도 남기지 않고 모조리 파괴했다.” 동물들이 없앤 물건들과 그 까닭을 쓰고, 스노볼이 말의 댕기까지 불에 던진 까닭도 써 보세요.\n\n① 동물들이 없앤 물건들 [+재갈, 코뚜레, 개 사슬, 거세할 때 쓰던 칼은 우물에 던져 넣고, 고삐, 굴레, 가죽 눈가리개, 꼴 주머니, 채찍은 쓰레기 불 속에 넣었다.@재갈·코뚜레·사슬·칼,고삐·굴레·눈가리개·꼴 주머니·채찍]\n② 그 까닭 [+존스 시대의 가증스러운 통치의 흔적, 곧 인간이 동물을 억누르던 도구였기 때문이다.@흔적·도구·억누·억압·괴롭·부리·통치·지배·노예·때리·묶]\n③ 스노볼이 댕기까지 불에 던진 까닭 [+댕기는 옷의 일종으로 보아야 하며, 인간의 표식이기 때문이다.@옷·표식·표시·인간]",
+        questions: [] },
+      { heading: "1부 · 4번 · 2장 (27~28쪽)",
+        text: "돼지들은 동물주의 원리를 ‘일곱 계명’으로 줄였고, 이 계명들은 동물들이 지켜야 할 ‘불가변의 법률’이 된다고 했습니다. ‘불가변’의 뜻을 쓰고, 동물들이 헛간 벽에 써 붙인 일곱 계명을 모두 써 보세요.\n\n① ‘불가변’의 뜻 [바꿀 수 없음@바꿀 수 없·바뀔 수 없·변하지 않·변할 수 없·고칠 수 없·못 바꾸·안 바뀌·변하지 못·바꾸지 못·바꿀수 없·변경할 수 없]\n② 일곱 계명 [+1. 무엇이건 두 발로 걷는 것은 적이다. 2. 무엇이건 네 발로 걷거나 날개를 가진 것은 친구다. 3. 어떤 동물도 옷을 입어서는 안 된다. 4. 어떤 동물도 침대에서 자서는 안 된다. 5. 어떤 동물도 술을 마시면 안 된다. 6. 어떤 동물도 다른 동물을 죽여선 안 된다. 7. 모든 동물은 평등하다.@두 발,네 발·날개,옷,침대,술,죽,평등]",
+        questions: [] },
+      { heading: "1부 · 5번 · 2장 (29쪽)",
+        text: "돼지들이 짠 우유가 다섯 양동이나 되자 동물들은 우유를 어떻게 할지 궁금해했습니다. 이때 나폴레옹이 한 말과 행동을 쓰고, 저녁때 우유가 어디로 갔을지 짐작하여 써 보세요.\n\n① 나폴레옹이 한 말 [+“우유에 신경 쓸 거 없소, 동무들! 우유 걱정은 하지 말아요. 건초 수확이 더 중요합니다.”@건초·수확·신경 쓸·신경 쓰지·걱정]\n② 나폴레옹의 행동 [+동물들을 먼저 일하러 보내고 자기는 뒤에 남았다.@남았·남아·남고·남겠·뒤에·뒤로·안 갔·가지 않·혼자]\n③ 저녁때 우유는 어디로 갔을까요? (내 짐작 · 선생님이 읽어요) [+뒤에 남은 나폴레옹과 돼지들이 차지했을 것이다. (7번에서 맞춰 봐요)@]",
+        questions: [] },
+      { heading: "2부 · 6번 · 3장 (30쪽)",
+        text: "반란 뒤 첫 건초 수확 때 일이 퍽 고될 때도 있었습니다. 일이 고되었던 까닭을 두 가지 쓰고, 이때 돼지들은 무엇을 했는지, 돼지들의 이런 모습은 누구를 닮았는지 써 보세요.\n\n① 일이 고되었던 까닭 두 가지 [+도구들은 인간을 위해 만들어진 것이지 동물을 위해 만들어진 것이 아니었고, 동물들은 선 자세로 도구를 쓸 수 없었다.@도구·연장·농기구,인간·사람,서서·선 자세·서는·설 수·두 발·뒷발]\n② 돼지들은 무엇을 했나요? [+직접 일을 하지 않는 대신 다른 동물들을 감독하고 지휘했다.@감독·지휘·시키·시켰·명령·부리·지시]\n③ 누구를 닮았나요? [+직접 일하지 않고 동물들을 부리기만 하던 인간(존스)@인간·사람·존스·주인]",
+        questions: [] },
+      { heading: "2부 · 7번 · 3장 (37~39쪽)",
+        text: "2장 끝에서 사라진 우유는 어디로 갔고, 바람에 떨어진 사과는 누구의 몫이 되었나요? 스퀼러가 이를 어떻게 설명했는지 두 가지로 써 보세요.\n\n① 사라진 우유는 어디로 갔나요? [+매일 돼지들이 먹는 사료에 들어가고 있었다.@돼지·나폴레옹]\n② 떨어진 사과는 누구의 몫이 되었나요? [+모두 돼지들에게 갖다 바치라는 명령이 떨어졌다.@돼지·나폴레옹]\n③ 스퀼러의 설명 두 가지 [+첫째, 우유와 사과에는 돼지 건강에 꼭 필요한 물질이 들어 있다는 것이 과학적으로 밝혀졌고, 머리 쓰는 노동을 하는 돼지들이 먹는 것은 ‘여러분의’ 이익을 위해서다. 둘째, 돼지들이 의무를 다하지 못하면 존스가 다시 온다.@건강·과학·머리·두뇌·물질·영양·이익,존스]",
+        questions: [] },
+      { heading: "2부 · 8번 · 5장 (50~56쪽)",
+        text: "나폴레옹이 스노볼을 몰아낸 과정을 정리해 보세요. 스노볼의 연설이 결정적인 대목에 이를 때마다 양들은 무엇을 외쳤고, 표가 스노볼 쪽으로 기울자 나폴레옹이 소리를 내질러 불러들인 것은 무엇이었나요?\n\n① 양들이 외친 말 [네 발은 좋고 두 발은 나쁘다@네 발,두 발]\n② 나폴레옹이 불러들인 것 [+목걸이에 놋쇠 장식을 붙인 커다란 개 아홉 마리. 개들이 스노볼을 쫓아냈다.@개]",
+        questions: [] },
+      { heading: "2부 · 9번 · 5장 (59~61쪽)",
+        text: "나폴레옹은 반대하던 풍차를 갑자기 짓겠다고 했습니다. 스퀼러는 이를 어떻게 설명했는지 쓰고, 그 설명이 이상한 까닭을 써 보세요.\n\n① 스퀼러의 설명 [+나폴레옹은 사실 풍차에 반대한 것이 아니며, 풍차 계획은 나폴레옹이 처음 낸 것을 스노볼이 훔쳐 간 것이다. 반대하는 척한 것은 위험한 스노볼을 없애기 위한 전술이었다.@훔쳐·훔친·훔쳤·빼앗·도둑·전술·작전·척·원래 나폴레옹·나폴레옹 것·나폴레옹의 것·나폴레옹이 먼저·처음]\n② 그 설명이 이상한 까닭 [+동물들은 나폴레옹이 풍차에 반대하고 스노볼의 설계도 위에 오줌까지 누는 것을 직접 보았다. 스퀼러의 설명은 동물들이 본 사실과 맞지 않는다.@반대·오줌·봤·보았·직접·사실·거짓]",
+        questions: [] },
+      { heading: "3부 · 10번 · 6장 (64~65쪽)",
+        text: "동물들이 일하는 방식은 인간보다 효율적이었습니다. 그 예를 두 가지 쓰고, 그런데도 여름 동안 드러난 약점은 무엇이었는지 써 보세요.\n\n① 효율적이었던 예 두 가지 [+잡초 뽑기 같은 일을 인간이라면 불가능할 정도로 꼼꼼하게 했다. 또 어느 동물도 도둑질을 하지 않아서 담이나 울타리가 필요 없었다.@잡초·꼼꼼,도둑·훔치·울타리·담]\n② 여름 동안 드러난 약점 [+파라핀 기름, 못, 끈, 개 먹이 비스킷, 편자로 쓸 쇠처럼 농장에서 만들 수 없는 물건들이 필요했다.@만들 수 없·못 만들·만들지 못·파라핀·기름·끈·비스킷·쇠·편자·부족·모자라·모자랐·없는 물건]",
+        questions: [] },
+      { heading: "3부 · 11번 · 6장 (65쪽)",
+        text: "나폴레옹은 이웃 농장들과 거래를 트겠다고 발표했습니다. 거래하는 목적을 무엇이라고 했는지, 무엇을 팔기로 했는지 쓰고, 2번에서 메이저 영감이 금지한 것 가운데 무엇을 어긴 것인지 써 보세요.\n\n① 거래하는 목적 [+상업적 목적이 아니라 긴급한 물자들을 사기 위해서@긴급·물자·필요한 물건·필요한 것]\n② 팔기로 한 것 [+건초 한 더미와 그해 수확한 밀 약간, 돈이 더 필요하면 달걀@건초·밀·달걀]\n③ 어긴 것 [장사하기와 돈 만지기@장사·거래·돈]",
+        questions: [] },
+      { heading: "3부 · 12번 · 6장 (66~67쪽)",
+        text: "몇몇 동물이 인간과 거래하지 않기로 한 결의를 기억한다고 하자, 스퀼러는 어떻게 추궁했는지 쓰고, 동물들이 결국 어떻게 생각하게 되었는지 써 보세요.\n\n① 스퀼러의 추궁 [+그런 결의는 통과된 적도 없으며 스노볼이 퍼뜨린 거짓말 때문에 생긴 상상이라고 했다. “잠결에 꾼 꿈 같은 거 아니오? 그 결의에 관한 기록을 가지고 있소?”라고 추궁했다.@기록·꿈·상상·거짓]\n② 동물들이 결국 한 생각 [+그런 기록이 없는 것은 사실이었으므로, 자기들이 잘못 알고 있었다고 생각하며 안도했다.@잘못·틀렸·틀린·착각·헛·기록이 없·안도]",
+        questions: [] },
+      { heading: "3부 · 13번 · 6장 (67~68쪽)",
+        text: "“이제 동물들과 인간의 관계는 예전 같지 않았다.” 무엇이 달라졌는지, 휨퍼 씨를 대하는 동물들의 마음과 인간들의 마음으로 나누어 써 보세요.\n\n① 동물들의 마음 [+휨퍼가 드나드는 것을 두려워하며 피했지만, 네 발 짐승 나폴레옹이 두 발의 인간 휨퍼에게 명령하는 모습이 몹시 자랑스러워서 새 조치에 호감을 갖게 되었다.@두려·무서·피했·피하·겁,자랑·뿌듯·호감·좋아·좋게]\n② 인간들의 마음 [+동물농장에 대한 증오가 더 강해졌고 곧 파산하고 풍차는 실패할 것이라 믿었다. 그러면서도 농장을 잘 꾸려 가는 데에 마지못해 존경 같은 것을 갖게 되어 ‘동물농장’이라고 부르기 시작했다.@증오·미워·미움·싫어·망할·망하·파산·실패,존경·인정·동물농장이라]",
+        questions: [] },
+      { heading: "3부 · 14번 · 6장 (68~70쪽)",
+        text: "돼지들이 본채 침대에서 잔다는 얘기가 들리자 복서와 클로버는 어떻게 반응했나요? 뮤리얼이 읽어 준 4계명을 쓰고, 스퀼러가 이를 어떻게 설명했는지 써 보세요.\n\n① 복서의 반응 [+“나폴레옹은 언제나 옳다.”라는 말로 넘어가려 했다.@옳]\n② 클로버의 반응 [+침대를 금지한 규칙이 있었다고 기억하고 계명을 읽어 보려 했지만, 글을 다 읽지 못해 염소 뮤리얼을 데려왔다.@계명·규칙·읽어·읽으·읽을·읽지·뮤리얼·벽]\n③ 뮤리얼이 읽어 준 4계명 [어떤 동물도 시트를 깔고 침대에서 자면 안 된다@시트]\n④ 스퀼러의 설명 [+규칙이 금지한 것은 침대가 아니라 인간이 만든 시트이며, 돼지들은 시트를 걷어 내고 담요를 쓴다. 두뇌 노동을 하는 돼지들에게 그 정도 편안함은 필요하다며 “존스가 돌아오길 바라는 것도 아닐 테고요?”라고 했다.@시트·담요·두뇌·머리·편안·편히·휴식·존스]",
+        questions: [] },
+      { heading: "3부 · 15번 · 7장 (80~82쪽)",
+        text: "스퀼러는 외양간 전투에서 스노볼이 한 일을 어떻게 바꾸어 말했는지 쓰고, 처음에 복서가 보인 반응과 결국 받아들인 까닭을 써 보세요.\n\n① 스퀼러가 바꾸어 말한 것 [+스노볼이 처음부터 존스의 밀정이었고, 외양간 전투 때 일부러 후퇴 신호를 보내 동물들을 지게 하려 했다. 오히려 나폴레옹이 용감하게 싸웠다고 했다.@밀정·첩자·스파이·간첩·존스 편·존스의 편·존스와 한편·존스 쪽·후퇴·배신·지게]\n② 처음에 복서가 보인 반응 [+“스노볼은 외양간 전투 때 용감하게 싸웠어요. 내 눈으로 보았소.”라며 믿지 않았다.@용감·봤·보았·믿지·안 믿·못 믿·의심]\n③ 결국 받아들인 까닭 [+나폴레옹 동무가 ‘단언적으로’ 그렇게 말씀하셨다고 하자 “나폴레옹 동무가 그렇다고 하면 그건 틀림없는 일이야.”라며 받아들였다.@나폴레옹]",
+        questions: [] },
+      { heading: "3부 · 16번 · 7장 (83~88쪽)",
+        text: "동물들이 자백하고 처형당한 뒤, 언덕에 모인 클로버는 눈물을 흘리며 생각에 잠깁니다. 클로버가 꿈꾸었던 사회와 지금 찾아온 사회를 나누어 쓰고, 그 뒤 「영국의 짐승들」을 부르지 못하게 한 까닭을 스퀼러가 내세운 까닭과 진짜 까닭으로 나누어 써 보세요.\n\n① 클로버가 꿈꾸었던 사회 [+굶주림과 회초리가 없고, 모든 동물이 평등하며 자기 능력에 따라 일하고, 강한 동물이 약한 동물을 보호해 주는 사회@평등·굶주림·굶지·배고프지·회초리·보호·지켜·능력]\n② 지금 찾아온 사회 [+아무도 자기 생각을 말하지 못하고, 사나운 개들이 돌아다니며, 동무들이 죄를 자백하고 죽는 것을 보아야 하는 사회@말하지 못·말 못·말을 못·말할 수 없·개·자백·죽·처형·공포·무서·두려]\n③ 스퀼러가 내세운 까닭 [+반란이 이미 완수되었고 노래가 바라던 사회도 이루어졌으니 이 노래는 더 이상 필요 없다.@완수·이루어·이뤄·이뤘·끝났·끝나·필요 없·필요가 없·완성]\n④ 진짜 까닭 [+이 노래가 처음에 꿈꾼 세상을 떠올리게 해서, 지금의 농장이 그 꿈과 얼마나 다른지 깨닫게 하기 때문이다.@꿈·떠올·기억나·기억하·기억시·깨닫·깨달·다르·다른·달라·반란·반항·저항·불만]",
+        questions: [] },
+      { heading: "3부 · 17번 · 8장 (103~105쪽)",
+        text: "돼지들이 술에 취한 다음 날, 5계명은 어떻게 바뀌어 있었나요? 그 전날 밤에 있었던 일과 벤저민의 반응도 써 보세요.\n\n① 바뀐 5계명 [어떤 동물도 너무 지나치게 술을 마시면 안 된다@지나치·너무]\n② 그 전날 밤에 있었던 일 [+자정께 큰 소리가 나서 나가 보니, 일곱 계명이 쓰인 헛간 벽 아래 사다리가 부러져 있고 스퀼러가 쓰러져 있었으며 곁에 등불, 페인트 붓, 넘어진 흰색 페인트 통이 나뒹굴었다.@사다리·페인트·붓,스퀼러]\n③ 벤저민의 반응 [+알겠다는 듯 콧등을 끄덕였지만 아무 말도 하지 않았다.@끄덕·말하지 않·말을 안·말 안·아무 말·아무말·침묵·입을 다물]",
+        questions: [] },
+      { heading: "4부 · 18번 · 9장 (107~108쪽)",
+        text: "스퀼러는 식량이 줄어든 것을 ‘감축’이 아니라 ‘재조정’이라고 부르고, 숫자를 들어 지금이 존스 시절보다 나아졌다고 조목조목 입증해 보였습니다. 동물들이 알고 있었던 지금의 삶은 어떠했는지 쓰고, 그런데도 지금이 더 낫다고 믿은 까닭을 두 가지 써 보세요.\n\n① 동물들이 알고 있었던 지금의 삶 [+고단하고 힘들며, 자주 춥고 배고프고, 잠자는 시간을 빼면 하루 종일 일해야 했다.@배고·굶·춥·추위·힘들·고단·하루 종일·일만]\n② 지금이 더 낫다고 믿은 까닭 두 가지 [+첫째, 존스 시절을 거의 다 잊어서 그때는 더 나빴을 것이 틀림없다고 생각했다. 둘째, 존스 시절에는 모두가 노예였지만 지금은 누구나 자유롭다고 스퀼러가 늘 말했다.@잊·기억,자유·노예]",
+        questions: [] },
+      { heading: "4부 · 19번 · 9장 (115~116쪽)",
+        text: "복서가 실려 간 마차에 쓰여 있던 글자는 무엇이었는지 쓰고, 이것을 알아본 동물과 그 동물이 보인 행동을 써 보세요.\n\n① 마차에 쓰여 있던 글자 [+“앨프리드 시먼즈, 말 도살업 및 아교 제조업, 윌링던 소재. 가죽과 골분도 취급함. 개집도 공급.”@도살·도축·아교]\n② 이것을 알아본 동물 [벤저민]\n③ 그 동물이 보인 행동 [+처음으로 흥분해서 달려오며 “빨리 와! 복서를 끌어가고 있어!”라고 외쳤고, 글자를 읽어 준 뒤 “복서가 폐마 도축업자한테 끌려가는 거야!”라고 소리쳤다.@외치·외쳤·소리·알리·알렸·읽어·달려·흥분]",
+        questions: [] },
+      { heading: "4부 · 20번 · 10장 (126~128쪽)",
+        text: "동물들은 “누구도 두 발로 걷지 않고, 모든 동물은 평등하다”는 것을 위안으로 삼았습니다. 그런데 초여름 어느 날 스퀼러가 양들을 데리고 한 일을 쓰고, 그 뒤 클로버를 놀라게 한 광경을 써 보세요.\n\n① 스퀼러가 양들을 데리고 한 일 [+양들을 일주일 동안 다른 동물들에게서 떼어 놓고 비밀리에 새 노래를 가르쳤다.@노래·구호·말,가르·연습·훈련·외우·외웠]\n② 클로버를 놀라게 한 광경 [+돼지 하나가 두 발로 서서 걷고 있었다. 이어서 돼지들이 뒷발로 서서 걸어 나왔고, 나폴레옹은 회초리를 들고 나왔다.@두 발·뒷발·서서]",
+        questions: [] },
+      { heading: "4부 · 21번 · 10장 (128~129쪽)",
+        text: "두 발로 걷기 말고도 돼지들이 인간처럼 변해 간 모습을 세 가지 이상 쓰고, 2번에서 메이저 영감이 금지한 것 가운데 돼지들이 어긴 것을 모두 찾아 써 보세요.\n\n① 인간처럼 변해 간 모습 1 [+회초리를 들고 일을 감독했다.@회초리·채찍·라디오·전화·신문·잡지·파이프·담배·옷·산책]\n② 인간처럼 변해 간 모습 2 [+라디오를 사고 전화를 놓을 계획을 세웠으며, 신문과 잡지를 구독했다.@회초리·채찍·라디오·전화·신문·잡지·파이프·담배·옷·산책]\n③ 인간처럼 변해 간 모습 3 [+나폴레옹은 파이프를 물고 정원을 산책했고, 돼지들은 존스의 옷을 꺼내 입었다.@회초리·채찍·라디오·전화·신문·잡지·파이프·담배·옷·산책]\n④ 돼지들이 어긴 것 모두\n" + ANIMAL_NINE("어긴 것"),
+        questions: [] },
+      { heading: "4부 · 22번 · 10장 (134~135쪽)",
+        text: "마지막 장면에서 나폴레옹과 필킹턴은 카드놀이를 하다 싸웁니다. 이 싸움은 외양간 전투와 어떻게 다른지 쓰고, 창밖의 동물들이 돼지와 인간을 구별하지 못한 까닭을 써 보세요.\n\n① 외양간 전투와 어떻게 다른가요? [+외양간 전투는 동물들의 자유를 지키기 위해 동물과 인간이 맞서 싸운 것이다. 카드놀이 싸움은 서로 속임수를 쓴 것 때문에 벌어진, 지배자들끼리의 다툼이다.@자유·지키·맞서·동물과 인간·인간과 동물·인간에 맞,속임수·속였·속여·스페이드·에이스·지배자·끼리·욕심·카드]\n② 돼지와 인간을 구별하지 못한 까닭 [+돼지들이 두 발로 걷고 옷을 입고 술을 마시며 인간과 똑같이 행동하게 되었고, 화난 목소리까지 똑같았기 때문이다.@똑같·같아·같았·같은·비슷·닮·구별·분간]",
+        questions: [] },
+      { heading: "깊이 생각하기 (학원에서 해요)",
+        text: "",
+        questions: [
+          { prompt: "1. 『동물농장』은 러시아 혁명과 소련의 역사를 동물 이야기로 빗대어 비꼰 우화 소설입니다. 소설 속 인물·사건(존스, 메이저, 나폴레옹, 스노볼, 외양간 전투, 프레더릭)이 역사에서 무엇을 빗댄 것인지 보기에서 골라 쓰고, 그렇게 짝 지은 근거를 써 보세요. 그리고 오웰은 왜 이 역사를 사람이 아닌 동물 이야기로 썼을지 풍자의 효과를 생각하며 써 보세요.\n보기: 니콜라이 2세 · 마르크스와 레닌 · 스탈린 · 트로츠키 · 러시아 내전 · 독일(히틀러)\n(근거: 내용 이해 8·15·22번과 ‘『동물농장』 들여다보기’)", model: "존스 – 니콜라이 2세: 술에 빠져 농장을 돌보지 않다가 동물들에게 쫓겨난 옛 주인.\n메이저 – 마르크스와 레닌: 혁명의 사상을 남기고 죽음. 그 두개골 앞에서 동물들이 행진함.\n나폴레옹 – 스탈린: 경쟁자를 쫓아내고 처형과 선전으로 혼자 권력을 쥠.\n스노볼 – 트로츠키: 권력 다툼에서 져 쫓겨나고, 그 뒤 모든 잘못을 뒤집어씀.\n외양간 전투 – 러시아 내전: 옛 주인이 이웃 인간들과 함께 농장을 되찾으려다 진 싸움.\n프레더릭 – 독일(히틀러): 목재 거래를 하고는 배신하여 쳐들어와 풍차를 폭파함.\n동물 이야기로 쓴 까닭: 실제 인물의 이름을 대지 않고도 권력자를 비판할 수 있다. 독자는 처음에는 웃으며 거리를 두고 읽다가 그 모습이 사람과 똑같다는 것을 깨닫고 더 크게 놀란다. 특정 나라를 넘어 권력이 어떻게 타락하는지에 대한 이야기로 읽힌다.\n(지도: 메이저는 마르크스로도 레닌으로도 빗대므로 두 사람을 합친 인물로 본다. 동물 이야기라는 ‘겉’과 권력 비판이라는 ‘속’을 나누어 말하게 한다.)" },
+          { prompt: "2. 스퀼러는 ‘존스가 돌아온다’, ‘상업적 목적이 아니라 긴급 물자’, ‘감축이 아니라 재조정’ 같은 말로 동물들을 설득합니다. 작가는 “스퀼러가 그 문제를 옳게 정리해 주었다.”(69쪽)처럼 일부러 반대로 말하며 비꼬기도 합니다. 스퀼러의 말하기 방법과 작가의 비꼬는 말을 정리하고, 오늘날 우리 주변에서 비슷한 말하기를 찾아 써 보세요. (조건: 스퀼러의 말하기 방법 두 가지를 책 속 말과 함께 · ‘옳게’가 왜 비꼬는 말인지 · 오늘날의 예 하나 / 근거: 내용 이해 7·9·11·14·18번)", model: "예) 스퀼러는 첫째, “존스가 돌아오기를 바라는 건 아니겠지요?”처럼 모두가 두려워하는 일을 끌어들여 반대하는 동물을 나쁜 편으로 만든다. 둘째, ‘감축’을 ‘재조정’으로, 장사를 ‘긴급 물자 구입’으로 부르듯 듣기 좋은 말로 사실을 덮는다. 작가가 스퀼러가 문제를 ‘옳게’ 정리해 주었다고 쓴 것은, 실제로는 계명을 몰래 고친 거짓말이기 때문에 반대로 말하여 비꼰 것이다. 오늘날에도 과자 양을 줄이면서 ‘리뉴얼’이라고 부르는 광고처럼, 말을 바꾸어 사실을 가리는 일이 있다.\n(채점 요소: ① 말하기 방법 두 가지와 책 속 말 ② ‘옳게’ = 반어 ③ 오늘날의 예. 실제 정당·정치인을 예로 들면 ‘어떤 방식’에 초점을 맞추게 한다.)" },
+          { prompt: "3. 동물들은 “어디 그런 기록이 있소?”라는 말에 자기 기억을 믿지 못했고, 벽의 계명이 몰래 바뀌어도 자기들이 잊었다고 여겼습니다. 기억과 기록 가운데 무엇을 더 믿어야 할까요? 그리고 기록을 가진 쪽이 거짓말을 할 때는 어떻게 해야 할지 자신의 생각을 써 보세요. (조건: 기억과 기록에 대한 판단과 까닭 · 기록을 가진 쪽이 거짓말을 할 때의 대처 · 세 문장 이상 / 근거: 내용 이해 12·14·17번)", model: "예) 기억은 시간이 지나면 흐려지고 서로 다르게 기억할 수 있어서, 중요한 일일수록 기록을 남기고 기록을 믿어야 한다. 그러나 이 소설처럼 기록을 가진 쪽이 기록을 몰래 고치면 기록도 믿을 수 없다. 그럴 때는 여러 사람이 같은 기억을 함께 확인하고, 기록을 한 사람이 아니라 여러 사람이 나누어 보관하며 누구나 볼 수 있게 해야 한다.\n(지도: “벽의 계명도 기록이었는데 왜 소용없었나?”를 물어 기록을 지키는 사람이 누구인지가 중요하다는 데까지 이끈다.)" },
+          { prompt: "4. 복서는 “나폴레옹은 언제나 옳다”고 믿으며 스스로 생각을 멈추었고, 벤저민은 모든 것을 알면서도 복서가 실려 갈 때까지 침묵했습니다. 돼지들이 독재를 할 수 있었던 데에는 이 동물들에게도 책임이 있을까요? 복서와 벤저민 가운데 한 동물을 골라 자신의 생각을 써 보세요. (근거: 내용 이해 14·15·16·17·19번)", model: "예) 벤저민에게도 책임이 있다. 벤저민은 글을 읽을 줄 알았고 계명이 바뀌는 것도 알았다. 스퀼러가 사다리에서 떨어졌을 때도 알겠다는 듯 고개만 끄덕였다. 벤저민이 그때 말했다면 동물들이 더 일찍 깨달았을지도 모른다. 알면서 말하지 않으면 잘못된 일을 돕는 것과 같다. / 예) 책임이 크지 않다. 진짜 책임은 거짓말하고 동물들을 죽인 돼지들에게 있다. 반대한 동물들이 처형당하는 것을 본 뒤에 혼자 말하기는 두려웠을 것이다.\n(두 입장 모두 정답. 입장이 분명하고 책 속 장면을 근거로 들었는지 본다.)" },
+          { prompt: "5. 마지막 연회에서 나폴레옹은 ‘동무’라는 말과 메이저의 두개골 앞 행진을 없애고, 농장 이름을 다시 ‘메너 농장’으로 바꾸었습니다. 그리고 창밖의 동물들은 누가 돼지고 누가 인간인지 분간할 수 없었습니다. 메이저가 금지한 것과 돼지들이 한 일을 맞춰 보고, 작가가 이 결말로 비꼬고 싶었던 것은 무엇일지 써 보세요. 우리 주변에서도 싫어하던 모습을 어느새 닮아 가는 일이 있는지 함께 생각해 보세요. (근거: 내용 이해 2·3·20·21·22번)", model: "돼지들이 한 일: 본채에서 시트 깐 침대에 잠, 존스의 옷을 입음, 위스키·맥주를 마심, 파이프를 묾, 인간과 거래하고 돈을 받음, 반대하는 동물을 처형하고 복서를 팖.\n(지도: 나폴레옹이 없앤 것은 모두 반란과 평등을 떠올리게 하는 것이다. 2장에서 존스의 흔적을 지운 동물들처럼 10장에서는 돼지들이 반란의 흔적을 지운다. 주인이 존스에서 돼지로 바뀌었을 뿐 농장은 처음으로 돌아갔다. 작가가 비꼰 것은 ‘평등을 내세운 혁명도 감시받지 않는 권력 앞에서는 처음의 적을 닮아 간다’는 점이다. 학생 경험을 쓸 때는 특정 친구의 이름이 드러나지 않게 한다.)" }
+        ] }
+    ],
+    quiz: [
+      { q: "복서가 되풀이한 말은?", choices: ["일이 너무 힘들어.", "나는 리본이 좋아.", "「영국의 짐승들」을 부르자.", "동물들은 하나로 뭉쳐야 해.", "내가 더 열심히 한다."], key: "5" },
+      { q: "마지막 장면에서 동물들이 깨달은 것은?", choices: ["메이저의 사상이 옳았다.", "나폴레옹은 훌륭한 지도자이다.", "돼지와 인간을 구별할 수 없다.", "동물들은 진정한 자유를 얻었다.", "돼지들도 함께 굶주리고 있다."], key: "3" },
+      { q: "나폴레옹과 스노볼이 크게 부딪친 까닭이 된 일은?", choices: ["술 반입", "풍차 건설", "인간과의 거래", "인간과의 전쟁", "글 가르치기"], key: "2" },
+      { q: "늙고 병든 복서의 결말은?", choices: ["농장의 지도자가 되었다.", "은퇴하여 편히 쉬었다.", "도살업자에게 팔려 갔다.", "동물들을 모아 반란을 일으켰다.", "병원에서 극진한 간호를 받았다."], key: "3" },
+      { q: "혁명 이전의 삶을 그리워하며 농장을 떠난 동물은?", choices: ["몰리", "클로버", "벤저민", "모지스", "제시"], key: "1" },
+      { q: "혁명 뒤 우유와 사과는 누구의 몫이 되었나?", choices: ["말", "닭", "돼지", "모든 동물", "늙고 약한 동물"], key: "3" },
+      { q: "외양간 전투에서 ‘동물 영웅 일등 훈장’을 받은 동물은?", choices: ["벤저민, 복서", "스노볼, 복서", "나폴레옹, 스노볼", "나폴레옹, 스퀼러", "복서, 나폴레옹"], key: "2" },
+      { q: "풍차를 짓느라 열심히 일한 동물들이 받은 것은?", choices: ["높은 보수", "성대한 잔치", "많은 맥주", "줄어든 식량 배급", "풍족한 식량과 휴식"], key: "4" },
+      { q: "나폴레옹의 ‘입’ 노릇을 한 동물은?", choices: ["몰리", "클로버", "스퀼러", "벤저민", "스노볼"], key: "3" },
+      { q: "『동물농장』처럼 인물과 사회의 잘못을 비꼬아 비판하는 소설은?", choices: ["영웅 소설", "풍자 소설", "성장 소설", "추리 소설", "심리 소설"], key: "2" },
+      { q: "『동물농장』을 쓴 작가는?", key: "조지 오웰@오웰" },
+      { q: "나폴레옹에게 쫓겨난 이상주의자 돼지는?", key: "스노볼@스노볼" },
+      { q: "『동물농장』이 빗대어 쓴 역사적 사건은?", key: "러시아 혁명@러시아,혁명" },
+      { q: "동물들이 말을 하는 설정으로 교훈이나 풍자를 담은 이야기는?", key: "우화@우화" },
+      { q: "동물들이 쫓아낸 농장 주인은?", key: "존스@존스" },
+      { q: "반란 뒤 동물들이 헛간 벽에 쓴 계명의 개수는?", key: "일곱 개@일곱·7" },
+      { q: "나폴레옹이 반대하는 동물을 없애려고 부린 동물은?", key: "개@개" },
+      { q: "메이저의 가르침을 돼지들이 정리한 사상의 이름은?", key: "동물주의@동물주의" },
+      { q: "혁명 전 농장 이름이자, 마지막에 나폴레옹이 다시 붙인 이름은?", key: "메너 농장@메너" },
+      { q: "나폴레옹이 부르지 못하게 한 혁명의 노래는?", key: "「영국의 짐승들」@영국의 짐승" }
     ]}
   ]
 };
@@ -836,7 +979,7 @@ var ECON = {
   ]
 };
 /* ECON-END */
-var SAMPLES = [ { label: "몽실언니", data: MONGSIL }, { label: "톰 소여의 모험", data: TOM }, { label: "기억 전달자 (중2)", data: GIVER }, { label: "왕자와 거지", data: PRINCE }, { label: "국제거래와 환율 쫌 아는 10대 (중2)", data: ECON } ];
+var SAMPLES = [ { label: "몽실언니", data: MONGSIL }, { label: "톰 소여의 모험", data: TOM }, { label: "기억 전달자 (중2)", data: GIVER }, { label: "동물농장 (중3)", data: ANIMAL }, { label: "왕자와 거지", data: PRINCE }, { label: "국제거래와 환율 쫌 아는 10대 (중2)", data: ECON } ];
 
 /* ===== 데이터 계층 =====
    같은 함수 이름으로 Supabase(실제) / 체험(이 기기 저장) 두 가지를 제공합니다. */
@@ -871,6 +1014,11 @@ function supabaseApi(){
     submitBlanks: async function(bookId, section, name, answers, cls){
       var p = { p_book_id: bookId, p_section: section, p_name: name, p_answers: answers }; if (cls) p.p_class = cls;
       return unwrap(await db.rpc("submit_blanks", p));
+    },
+    quizStatus: async function(bookId, section, name){ return unwrap(await db.rpc("get_quiz_status", { p_book_id: bookId, p_section: section, p_name: name })); },
+    submitQuiz: async function(bookId, section, name, answers, cls){
+      var p = { p_book_id: bookId, p_section: section, p_name: name, p_answers: answers }; if (cls) p.p_class = cls;
+      return unwrap(await db.rpc("submit_quiz", p));
     },
     subscribe: function(bookId, cb){
       var ch = db.channel("entries-" + bookId)
@@ -916,7 +1064,7 @@ function demoApi(){
       sections: (b.sections || []).map(function(s){
       return { title: s.title, range: s.range, due: s.due || "", dues: s.dues || {}, boxes: (s.boxes || []).map(function(x){
         return { heading: x.heading, text: stripKeys(x.text), questions: (x.questions || []).map(function(q){ return { prompt: q.prompt }; }) };
-      }) };
+      }), quiz: quizItems(s).map(function(z){ return { q: z.q || "", choices: z.choices || [] }; }) };
     }) };
   }
   function find(bookId, section, kind, name){ return S.entries.find(function(x){ return x.book_id === bookId && x.section === section && x.kind === kind && x.student_name === name; }); }
@@ -930,6 +1078,13 @@ function demoApi(){
     return { stage: stage, first: e.data.first || [], second: e.data.second || null, third: e.data.third || null,
       retry: e.data.second ? 2 : 1, marks: marks,
       keys: stage === 2 ? keys.map(function(k, i){ return marks[i] ? null : displayKey(k); }) : null };
+  }
+  function qstatus(bookId, section, name){ // reading.sql 의 get_quiz_status 와 같은 모양
+    var e = find(bookId, section, "quiz", name);
+    if (!e) return { done: false };
+    var items = quizItems(book(bookId).sections[section]), ans = e.data.answers || [];
+    var marks = items.map(function(z, i){ return quizOk(ans[i], z); });
+    return { done: true, answers: ans, marks: marks, keys: items.map(function(z, i){ return marks[i] ? null : displayKey(z.key); }) };
   }
   var listeners = [];
   function notify(){ listeners.forEach(function(f){ f(); }); }
@@ -975,6 +1130,16 @@ function demoApi(){
       }
       save(); notify();
       return status(bookId, section, name);
+    },
+    quizStatus: async function(bookId, section, name){ return qstatus(bookId, section, trimStr(name)); },
+    submitQuiz: async function(bookId, section, name, answers, cls){
+      var b = book(bookId); if (!b.is_open) throw new Error("선생님이 닫은 책입니다.");
+      name = trimStr(name); if (!name) throw new Error("이름을 입력하세요.");
+      if (!quizItems(b.sections[section]).length) throw new Error("이 회차에는 독서 퀴즈가 없어요.");
+      if (find(bookId, section, "quiz", name)) throw new Error("이미 냈어요. 다시 풀려면 선생님께 말씀드리세요.");
+      S.entries.push({ id: uid(), book_id: bookId, section: section, kind: "quiz", student_name: name, class_id: cls || "", data: { answers: answers.slice() }, feedback: "", checked: false, created_at: now(), updated_at: now() });
+      save(); notify();
+      return qstatus(bookId, section, name);
     },
     subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; }
   };
@@ -1054,13 +1219,17 @@ function runStudent(bookId){
     app.appendChild(top);
 
     var tabs = el("div", { class: "tabs", role: "tablist" }, []);
-    [["bookmark", "나의 책갈피"], ["blanks", "내용 이해"], ["answers", "생각하기 (결석했을 때)"]].forEach(function(t){
+    var hasQuiz = quizItems(sec).length > 0;
+    if (TAB === "quiz" && !hasQuiz) TAB = "bookmark";
+    [["bookmark", "나의 책갈피"], ["blanks", "내용 이해"], hasQuiz ? ["quiz", "독서 퀴즈 (수업 후)" + (MY[SEC + ":quiz"] ? " ✓" : "")] : null, ["answers", "생각하기 (결석했을 때)"]].forEach(function(t){
+      if (!t) return;
       tabs.appendChild(el("button", { class: "tab" + (TAB === t[0] ? " on" : ""), role: "tab", text: t[1], onclick: function(){ TAB = t[0]; render(); } }));
     });
     app.appendChild(tabs);
 
     if (TAB === "blanks") renderBlanks();
     else if (TAB === "bookmark") renderBookmark();
+    else if (TAB === "quiz") renderQuiz();
     else renderAnswers();
   }
 
@@ -1287,6 +1456,91 @@ function runStudent(bookId){
     app.appendChild(card);
   }
 
+  /* ----- 독서 퀴즈: 객관식은 보기를 눌러 고르고, 단답은 짧게 씀. 한 번 내면 점수와 정답 ----- */
+  async function renderQuiz(){
+    var items = quizItems(BOOK.sections[SEC]);
+    var holder = el("div", {}, [ el("div", { class: "empty", text: "불러오는 중…" }) ]);
+    app.appendChild(holder);
+    var ST;
+    try { ST = await api.quizStatus(bookId, SEC, NAME); }
+    catch(e){ holder.innerHTML = ""; holder.appendChild(el("div", { class: "err", text: e.message })); return; }
+    holder.innerHTML = "";
+    var saved = MY[SEC + ":quiz"];
+    var done = !!ST.done, marks = ST.marks || [], ans = done ? (ST.answers || []) : ((lsGet(draftKey("quiz")) || {}).answers || []);
+    ans = items.map(function(_z, i){ return ans[i] == null ? "" : String(ans[i]); });
+    var head = el("div", { class: "card" }, []);
+    if (!done){
+      head.appendChild(el("p", { class: "note", style: "margin:0", text: "독서 퀴즈는 숙제가 아니에요. 수업이 끝난 뒤에 풀어요. 보기가 있는 문제는 알맞은 것을 하나 누르고, 없는 문제는 짧게 써요. 한 번만 낼 수 있고, 내면 바로 점수와 정답을 알려 줘요." }));
+    } else {
+      var okN = marks.filter(Boolean).length;
+      head.appendChild(el("h3", { text: okN === items.length ? "모두 맞았어요! " + items.length + "문제 중 " + okN + "개" : items.length + "문제 중 " + okN + "개 맞았어요" }));
+      head.appendChild(el("p", { class: "sub", text: okN === items.length ? "책을 정확하게 읽었어요." : "틀린 문제는 정답을 보고, 그 부분을 책에서 다시 찾아 읽어 보세요." }));
+      head.appendChild(el("div", { class: "legend" }, [ legend("var(--correct-soft)", "맞음"), legend("var(--wrong-soft)", "틀림 → 정답") ]));
+    }
+    var note = teacherNote(saved); if (note) head.appendChild(note);
+    holder.appendChild(head);
+
+    var card = el("div", { class: "card" }, []);
+    var inputs = [];
+    function saveDraft(){ lsSet(draftKey("quiz"), { answers: ans }); count(); }
+    items.forEach(function(z, i){
+      var box = el("div", { class: "qz" }, [ el("div", { class: "qtext", text: (i + 1) + ". " + z.q }) ]);
+      if (isChoice(z)){
+        var wrap = el("div", { class: "qz-choices", role: "radiogroup", "aria-label": (i + 1) + "번 보기" }, []);
+        var right = done && !marks[i] ? parseInt(ST.keys && ST.keys[i], 10) : null;
+        var btns = [];
+        z.choices.forEach(function(c, ci){
+          var v = String(ci + 1), picked = ans[i] === v;
+          var cls = "qz-choice" + (done ? (picked ? (marks[i] ? " right" : " wrong") : (right === ci + 1 ? " right" : "")) : (picked ? " on" : ""));
+          var b = el("button", { class: cls, type: "button", role: "radio", "aria-checked": picked ? "true" : "false",
+            text: (CIRCLED[ci] || (ci + 1) + ".") + " " + c + (done && !marks[i] && right === ci + 1 ? "  ← 정답" : "") });
+          if (done) b.disabled = true;
+          else b.addEventListener("click", function(){
+            ans[i] = ans[i] === v ? "" : v; saveDraft();
+            btns.forEach(function(x, xi){ var on = ans[i] === String(xi + 1); x.classList.toggle("on", on); x.setAttribute("aria-checked", on ? "true" : "false"); });
+          });
+          btns.push(b);
+          wrap.appendChild(b);
+        });
+        box.appendChild(wrap);
+        if (done && !ans[i]) box.appendChild(el("div", { class: "qz-res" }, [ el("span", { class: "filled none", text: "(안 고름)" }) ]));
+      } else if (!done){
+        var inp = el("input", { type: "text", class: "qz-in", "aria-label": (i + 1) + "번 답", autocomplete: "off", placeholder: "짧게 써요" });
+        inp.value = ans[i];
+        inp.addEventListener("input", function(){ ans[i] = inp.value; saveDraft(); });
+        inputs.push(inp);
+        box.appendChild(inp);
+      } else {
+        var res = el("div", { class: "qz-res" }, [ el("span", { class: "filled " + (marks[i] ? "ok" : "none"), text: trimStr(ans[i]) || "(안 씀)" }) ]);
+        if (!marks[i] && ST.keys && ST.keys[i]) res.appendChild(el("span", { class: "key", text: "→ " + ST.keys[i] }));
+        box.appendChild(res);
+      }
+      card.appendChild(box);
+    });
+    holder.appendChild(card);
+    if (done) return;
+
+    var bar = el("div", { class: "card" }, []);
+    var cnt = el("p", { class: "sub" });
+    function count(){ cnt.textContent = items.length + "문제 중 " + ans.filter(function(a){ return trimStr(a); }).length + "개를 풀었어요."; }
+    count();
+    var msg = el("div", { class: "err" });
+    var btn = el("button", { class: "btn", text: "퀴즈 내기" });
+    btn.addEventListener("click", async function(){
+      msg.textContent = "";
+      var empty = ans.filter(function(a){ return !trimStr(a); }).length;
+      if (!(await askBox((empty ? "아직 " + empty + "문제를 안 풀었어요. " : "") + "한 번만 낼 수 있어요. 낼까요?", "퀴즈 내기"))) return;
+      btn.disabled = true;
+      try {
+        await api.submitQuiz(bookId, SEC, NAME, ans.map(trimStr), CLASS);
+        lsDel(draftKey("quiz")); await loadMine();
+        toast("냈어요"); render();
+      } catch(e){ btn.disabled = false; msg.textContent = e.message; }
+    });
+    bar.appendChild(cnt); bar.appendChild(btn); bar.appendChild(msg);
+    holder.appendChild(bar);
+  }
+
   /* ----- 생각하기 (결석 보강) ----- */
   function renderAnswers(){
     var sec = BOOK.sections[SEC];
@@ -1337,7 +1591,7 @@ function runTeacher(){
     '<div class="topline"><div>' +
     '<div class="eyebrow gold"><a href="./" style="color:inherit;text-decoration:none">← 청연국어</a> · 교사용</div>' +
     '<h1>독서 기록</h1>' +
-    '<p class="sub">내용 이해 빈칸 · 책갈피 · 생각하기 보강</p></div>' +
+    '<p class="sub">내용 이해 빈칸 · 책갈피 · 독서 퀴즈 · 생각하기 보강</p></div>' +
     '<div class="row" id="whoami"></div></div>';
   pageFoot.innerHTML = "학생에게는 책마다 <b>학생 링크</b>만 보내 주세요. 빈칸 정답과 예시 답안은 학생에게 미리 보이지 않아요.";
   var whoami = document.getElementById("whoami");
@@ -1549,6 +1803,25 @@ function runTeacher(){
           sb.appendChild(bx);
         });
         sb.appendChild(el("button", { class: "chip", text: "+ 박스 추가", onclick: function(){ s.boxes.push({ heading: "", text: "", questions: [] }); draw(); } }));
+        // 독서 퀴즈: 보기를 줄마다 하나씩 쓰면 객관식(정답 = 보기 번호), 보기를 비우면 단답(정답 = 빈칸처럼 정답@핵심어)
+        s.quiz = s.quiz || [];
+        var qzb = el("div", { class: "box-edit" }, [ el("div", { class: "qnum", text: "독서 퀴즈 · " + s.quiz.length + "문제" }),
+          el("p", { class: "sub small", text: "보기를 한 줄에 하나씩 쓰면 객관식이에요(정답 칸에 보기 번호 1~5). 보기를 비우면 짧게 쓰는 단답이에요(정답 칸은 빈칸처럼 정답@핵심어). 독서 퀴즈는 숙제(내용 이해)와 따로, 수업이 끝난 뒤 푸는 문제예요. 학생은 한 번만 내고 바로 점수와 정답을 봐요." }) ]);
+        s.quiz.forEach(function(z, zi){
+          var zb = el("div", { class: "q-edit" }, []);
+          zb.appendChild(el("div", { class: "spread" }, [ el("span", { class: "sub small", text: "퀴즈 " + (zi + 1) + (z.choices && z.choices.length ? " · 객관식" : " · 단답") }), upDown(s.quiz, zi, "이 퀴즈") ]));
+          zb.appendChild(bind(el("input", { type: "text", placeholder: "문제 예) 복서가 되풀이한 말은?" }), z, "q"));
+          var ch = el("textarea", { placeholder: "보기 (한 줄에 하나 · 단답이면 비워요)", style: "margin-top:.4rem;min-height:4rem" });
+          ch.value = (z.choices || []).join("\n");
+          ch.addEventListener("input", function(){ z.choices = ch.value.split("\n").map(trimStr).filter(Boolean); });
+          ch.addEventListener("change", draw);
+          zb.appendChild(ch);
+          zb.appendChild(el("div", { class: "row", style: "margin-top:.4rem" }, [ el("span", { class: "sub small", text: "정답" }),
+            bind(el("input", { type: "text", placeholder: "객관식은 번호(예: 5) · 단답은 정답@핵심어", style: "flex:1" }), z, "key") ]));
+          qzb.appendChild(zb);
+        });
+        qzb.appendChild(el("button", { class: "chip", text: "+ 퀴즈 문제", onclick: function(){ s.quiz.push({ q: "", choices: [], key: "" }); draw(); } }));
+        sb.appendChild(qzb);
         list.appendChild(sb);
       });
     }
@@ -1561,8 +1834,17 @@ function runTeacher(){
         return { title: trimStr(s.title) || "주차", range: trimStr(s.range), due: trimStr(s.due), dues: dues,
           boxes: (s.boxes || []).filter(function(b){ return trimStr(b.heading) || trimStr(b.text) || (b.questions || []).some(function(q){ return trimStr(q.prompt); }); })
             .map(function(b){ return { heading: trimStr(b.heading), text: trimStr(b.text),
-              questions: (b.questions || []).filter(function(q){ return trimStr(q.prompt); }).map(function(q){ return { prompt: trimStr(q.prompt), model: trimStr(q.model) }; }) }; }) };
+              questions: (b.questions || []).filter(function(q){ return trimStr(q.prompt); }).map(function(q){ return { prompt: trimStr(q.prompt), model: trimStr(q.model) }; }) }; }),
+          quiz: (s.quiz || []).filter(function(z){ return trimStr(z.q); }).map(function(z){
+            var c = (z.choices || []).map(trimStr).filter(Boolean);
+            return c.length ? { q: trimStr(z.q), choices: c, key: trimStr(z.key) } : { q: trimStr(z.q), key: trimStr(z.key) }; }) };
       });
+      var badQ = [];
+      clean.forEach(function(s){ s.quiz.forEach(function(z, zi){
+        var n = parseInt(z.key, 10);
+        if (!z.key || (z.choices && !(String(n) === z.key && n >= 1 && n <= z.choices.length))) badQ.push((s.title || "") + " 퀴즈 " + (zi + 1));
+      }); });
+      if (badQ.length){ saveErr.textContent = "정답을 확인해 주세요: " + badQ.join(", ") + " (객관식은 보기 번호, 단답은 정답)"; return; }
       if (!clean.length){ saveErr.textContent = "주차를 하나 이상 만들어 주세요."; return; }
       saveBtn.disabled = true; saveBtn.textContent = "저장 중…";
       try {
@@ -1659,7 +1941,10 @@ function runTeacher(){
         stat(avg == null ? "–" : avg + "%", "처음 낸 답 정답률"), stat(bm.length, "책갈피 낸 학생")
       ]));
       var tabs = el("div", { class: "tabs", style: "margin-bottom:0" }, []);
-      [["status", "제출 현황"], ["bookmark", "책갈피"], ["blanks", "내용 이해"], ["answers", "생각하기 (보강)"]].forEach(function(x){
+      var hasQuiz = quizItems(sec()).length > 0;
+      if (TAB === "quiz" && !hasQuiz) TAB = "status";
+      [["status", "제출 현황"], ["bookmark", "책갈피"], ["blanks", "내용 이해"], hasQuiz ? ["quiz", "독서 퀴즈"] : null, ["answers", "생각하기 (보강)"]].forEach(function(x){
+        if (!x) return;
         tabs.appendChild(el("button", { class: "tab" + (TAB === x[0] ? " on" : ""), text: x[1], onclick: function(){ TAB = x[0]; draw(); } }));
       });
       headCard.appendChild(tabs);
@@ -1668,16 +1953,18 @@ function runTeacher(){
       if (TAB === "status") drawStatus(keys);
       else if (TAB === "blanks") drawBlanks(keys);
       else if (TAB === "bookmark") drawBookmarks();
+      else if (TAB === "quiz") drawQuiz();
       else drawAnswers();
     }
     function stat(n, l){ return el("div", { class: "stat" }, [ el("div", { class: "n", text: String(n) }), el("div", { class: "l", text: l }) ]); }
 
     function drawStatus(keys){
       var names = students(), showCls = book.classes.length && !TCLS;
+      var qitems = quizItems(sec());
       var card = el("div", { class: "card" }, []);
       if (!names.length){ card.appendChild(el("div", { class: "empty", text: "아직 아무도 기록하지 않았어요. 학생 링크를 보내 주세요." })); body.appendChild(card); return; }
       var tbl = el("table", {}, [ el("thead", {}, [ el("tr", {}, [
-        el("th", { text: "이름" }), showCls ? el("th", { text: "반" }) : null, el("th", { text: "내용 이해" }), el("th", { text: "책갈피" }), el("th", { text: "생각하기(보강)" }), el("th", { text: "마지막 기록" })
+        el("th", { text: "이름" }), showCls ? el("th", { text: "반" }) : null, el("th", { text: "내용 이해" }), el("th", { text: "책갈피" }), qitems.length ? el("th", { text: "독서 퀴즈" }) : null, el("th", { text: "생각하기(보강)" }), el("th", { text: "마지막 기록" })
       ]) ]) ]);
       var tb = el("tbody", {}, []);
       names.forEach(function(n){
@@ -1685,6 +1972,7 @@ function runTeacher(){
         var bl = mine.find(function(e){ return e.kind === "blanks"; });
         var bm = mine.find(function(e){ return e.kind === "bookmark"; });
         var an = mine.find(function(e){ return e.kind === "answers"; });
+        var qz = mine.find(function(e){ return e.kind === "quiz"; }), qsc = qz ? quizScore(qz, qitems) : 0;
         var last = mine.map(function(e){ return e.updated_at; }).sort().pop();
         var sc = bl ? scoreOf(bl, keys, "first") : 0, sc2 = bl && bl.data.second ? scoreOf(bl, keys, "second") : null, sc3 = bl && bl.data.third ? scoreOf(bl, keys, "final") : null;
         var cid = (mine.find(function(e){ return e.class_id; }) || {}).class_id;
@@ -1693,6 +1981,7 @@ function runTeacher(){
           showCls ? el("td", { class: "sub small", text: className(book, cid) || "–" }) : null,
           el("td", {}, [ bl ? el("span", { class: "mark " + (sc === keys.length ? "ok" : ""), text: "처음 " + sc + "/" + keys.length + (sc2 != null ? " → 다시 " + sc2 + "/" + keys.length + (sc3 != null ? " → " + sc3 + "/" + keys.length : "") : (sc < keys.length ? " (다시 쓰기 전)" : "")) }) : el("span", { class: "mark no", text: "아직" }), sentAt(bl) ]),
           el("td", {}, [ el("span", { class: "mark " + (bm && bmItems(bm.data).length >= BM_MIN ? "ok" : "no"), text: bm ? "냄 · " + bmCfg(book).unit + " " + bmItems(bm.data).length + "개" : "아직" }), sentAt(bm) ]),
+          qitems.length ? el("td", {}, [ el("span", { class: "mark " + (qz ? (qsc === qitems.length ? "ok" : "") : "no"), text: qz ? qsc + "/" + qitems.length : "아직" }), sentAt(qz) ]) : null,
           el("td", { class: "sub small", text: an ? "냄" : "–" }),
           el("td", { class: "sub small", text: last ? fmtTime(last) : "" })
         ]));
@@ -1760,6 +2049,38 @@ function runTeacher(){
     }
     function legend(color, label){ return el("span", {}, [ el("i", { style: "background:" + color }), label ]); }
 
+    /* 독서 퀴즈: 문제마다 정답률과 학생 답 */
+    function quizScore(e, items){ var a = (e.data && e.data.answers) || []; return items.filter(function(z, i){ return quizOk(a[i], z); }).length; }
+    function drawQuiz(){
+      var items = quizItems(sec()), qz = inSec("quiz");
+      var avg = qz.length ? Math.round(qz.reduce(function(s, e){ return s + quizScore(e, items); }, 0) / qz.length / items.length * 100) : null;
+      body.appendChild(el("div", { class: "legend", style: "margin:.2rem 0 .8rem" }, [
+        legend("var(--correct-soft)", "맞음"), legend("var(--wrong-soft)", "틀림"),
+        el("span", { text: "· 낸 학생 " + qz.length + "명" + (avg == null ? "" : " · 평균 정답률 " + avg + "%") + " · 정답률이 낮은 문제 = 많이 놓친 부분" })
+      ]));
+      var card = el("div", { class: "card" }, []);
+      items.forEach(function(z, i){
+        var gs = qz.map(function(e){ var a = ((e.data && e.data.answers) || [])[i]; return { name: e.student_name, a: a, ok: quizOk(a, z) }; });
+        var okN = gs.filter(function(x){ return x.ok; }).length, rate = qz.length ? Math.round(okN / qz.length * 100) : null;
+        var row = el("div", { class: "blank-stat" }, [ el("div", { class: "head" }, [
+          el("span", { class: "no", text: (i + 1) + "번" + (isChoice(z) ? " · 객관식" : " · 단답") }),
+          el("span", { text: z.q + "  → " + quizKeyText(z, z.key) }),
+          el("span", { class: "rate" + (rate != null && rate < 60 ? " low" : ""), text: rate == null ? "" : okN + " / " + qz.length + " 맞음" })
+        ]) ]);
+        if (gs.length){
+          var mini = el("div", { class: "mini" }, []);
+          gs.forEach(function(x){
+            var shown = isChoice(z) ? (choiceText(z, x.a) || "안 고름") : (trimStr(x.a) || "안 씀");
+            mini.appendChild(el("span", { class: x.ok ? "ok" : "none", text: x.name + ": " + shown }));
+          });
+          row.appendChild(mini);
+        }
+        card.appendChild(row);
+      });
+      body.appendChild(card);
+      body.appendChild(feedbackCard(qz, "독서 퀴즈 한마디 · 다시 풀게 하기", true, "퀴즈 답"));
+    }
+
     function drawBookmarks(){
       var bm = inSec("bookmark");
       var card = el("div", { class: "card" }, []);
@@ -1815,9 +2136,10 @@ function runTeacher(){
       body.appendChild(feedbackCard(an, "생각하기 한마디 · 확인", false));
     }
 
-    function feedbackCard(list, title, allowRetry){
+    function feedbackCard(list, title, allowRetry, what){
+      what = what || "빈칸 답";
       var fc = el("div", { class: "card" }, [ el("h3", { text: title }),
-        el("p", { class: "sub small", text: "여기 쓴 한마디는 학생 화면에 보여요." + (allowRetry ? " ‘다시 풀게 하기’를 누르면 그 학생의 빈칸 답(처음·다시 모두)이 지워지고 처음부터 다시 풀어요." : "") }) ]);
+        el("p", { class: "sub small", text: "여기 쓴 한마디는 학생 화면에 보여요." + (allowRetry ? " ‘다시 풀게 하기’를 누르면 그 학생의 " + (what === "빈칸 답" ? "빈칸 답(처음·다시 모두)" : what) + "이 지워지고 처음부터 다시 풀어요." : "") }) ]);
       if (!list.length) fc.appendChild(el("div", { class: "empty", text: "아직 낸 학생이 없어요." }));
       list.forEach(function(e){
         var ta = el("textarea", { placeholder: "칭찬이나 보충할 점" }); ta.value = e.feedback || "";
@@ -1831,7 +2153,7 @@ function runTeacher(){
         });
         var ctr = [ el("label", { class: "row", for: "ck-" + e.id, style: "font-weight:600;gap:.35rem" }, [ ck, "확인 완료" ]), sv ];
         if (allowRetry) ctr.push(el("button", { class: "btn danger small", text: "다시 풀게 하기", onclick: async function(){
-          if (!(await askBox(e.student_name + " 학생의 빈칸 답을 지우고 다시 풀게 할까요?", "다시 풀게 하기"))) return;
+          if (!(await askBox(e.student_name + " 학생의 " + what + "을 지우고 다시 풀게 할까요?", "다시 풀게 하기"))) return;
           try { await api.deleteEntry(e.id); toast("지웠어요"); load(); } catch(err){ toast(err.message, true); }
         }}));
         fc.appendChild(el("div", { style: "border-top:1px solid var(--line);padding-top:.8rem;margin-top:.8rem" }, [

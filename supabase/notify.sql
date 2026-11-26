@@ -108,6 +108,7 @@ begin
                                       else '빈칸 처음 제출' end
               when 'bookmark' then case when tg_op = 'INSERT' then '책갈피 제출' else '책갈피 고침' end
               when 'answers'  then case when tg_op = 'INSERT' then '생각하기 제출' else '생각하기 고침' end
+              when 'quiz'     then '독서 퀴즈 제출'
               else new.kind end;
   begin
     perform add_notice(b.owner, 'reading', b.id, b.title, coalesce(b.sections -> new.section ->> 'title', (new.section + 1) || '주차'),

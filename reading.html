@@ -298,8 +298,11 @@ function studentLink(id, cls){ return location.href.split(/[?#]/)[0] + "?book=" 
 function className(book, id){ var c = ((book && book.classes) || []).find(function(x){ return x.id === id; }); return c ? c.name : ""; }
 function dueOf(sec, cls){ return (sec && ((cls && sec.dues && sec.dues[cls]) || sec.due)) || ""; }
 // 학생 링크 복사: 반이 없으면 버튼 하나, 있으면 반을 고르는 목록
+// 명단 반: 청연국어 학생 명단(classes 표)의 반. id가 uuid. 그 반 학생은 「내 숙제」에서 입장 코드로 열고, 링크로는 안 열림 (2026-11-26)
+function isRoster(id){ return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || "")); }
 function linkCopier(book){
-  var classes = (book.classes || []).filter(function(c){ return trimStr(c.name); });
+  var classes = (book.classes || []).filter(function(c){ return trimStr(c.name) && !isRoster(c.id); });
+  if (!classes.length && (book.classes || []).some(function(c){ return isRoster(c.id); })) return el("span", { class: "pill ok", text: "학생 「내 숙제」에 떠요" });
   if (!classes.length) return el("button", { class: "btn ghost small", text: "학생 링크 복사", onclick: function(){ copyText(studentLink(book.id), "학생 링크를 복사했어요"); } });
   var sel = el("select", { "aria-label": "반별 학생 링크 복사", style: "width:auto;padding:.4rem .7rem;font-size:.85rem" },
     [ el("option", { value: "", text: "학생 링크 복사 (반 고르기) ▾" }) ].concat(classes.map(function(c){ return el("option", { value: c.id, text: c.name + " 링크" }); })));
@@ -1030,6 +1033,20 @@ function supabaseApi(){
       var p = { p_book_id: bookId, p_section: section, p_name: name, p_answers: answers }; if (cls) p.p_class = cls;
       return unwrap(await db.rpc("submit_quiz", p));
     },
+    // 학생 명단의 반 (students.sql)
+    rosterClasses: async function(){ return unwrap(await db.from("classes").select("id,name").order("created_at")); },
+    // 청연국어 앱 「내 숙제」로 들어온 학생: 이름 대신 열쇠(token)로 (2026-11-26)
+    stApi: function(tok){
+      return {
+        publicBook: async function(id){ return unwrap(await db.rpc("st_r_book", { p_token: tok, p_book_id: id })); },
+        myEntries: async function(bookId){ return unwrap(await db.rpc("st_r_entries", { p_token: tok, p_book_id: bookId })); },
+        submitEntry: async function(bookId, section, kind, _n, data){ return unwrap(await db.rpc("st_r_submit_entry", { p_token: tok, p_book_id: bookId, p_section: section, p_kind: kind, p_data: data })); },
+        blankStatus: async function(bookId, section){ return unwrap(await db.rpc("st_r_blank_status", { p_token: tok, p_book_id: bookId, p_section: section })); },
+        submitBlanks: async function(bookId, section, _n, answers){ return unwrap(await db.rpc("st_r_submit_blanks", { p_token: tok, p_book_id: bookId, p_section: section, p_answers: answers })); },
+        quizStatus: async function(bookId, section){ return unwrap(await db.rpc("st_r_quiz_status", { p_token: tok, p_book_id: bookId, p_section: section })); },
+        submitQuiz: async function(bookId, section, _n, answers){ return unwrap(await db.rpc("st_r_submit_quiz", { p_token: tok, p_book_id: bookId, p_section: section, p_answers: answers })); }
+      };
+    },
     subscribe: function(bookId, cb){
       var ch = db.channel("entries-" + bookId)
         .on("postgres_changes", { event: "*", schema: "public", table: "entries", filter: "book_id=eq." + bookId }, function(){ cb(); })
@@ -1151,7 +1168,24 @@ function demoApi(){
       save(); notify();
       return qstatus(bookId, section, name);
     },
-    subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; }
+    subscribe: function(_id, cb){ listeners.push(cb); return function(){ listeners = listeners.filter(function(f){ return f !== cb; }); }; },
+    // 체험용 학생 명단 반 (청연국어 앱 체험 학생 김하늘 = 목요일반)
+    rosterClasses: async function(){ return [ { id: "0d0d0d0d-0000-4000-8000-000000000001", name: "목요일반" }, { id: "0d0d0d0d-0000-4000-8000-000000000002", name: "성사중3-수요일 7시" } ]; },
+    stApi: function(_tok, ses){
+      var me = Object.assign({}, this), name = (ses && ses.name) || "김하늘";   // 덮어쓰기 전 함수들
+      function myCls(b){ var r = (b.classes || []).filter(function(c){ return isRoster(c.id); });
+        var hit = r.find(function(c){ return c.name === (ses && ses.class_name); }) || r[0];
+        if (!hit) throw new Error("선생님이 아직 열지 않은 책입니다."); return hit.id; }
+      return {
+        publicBook: async function(id){ var b = await me.publicBook(id); b.my_class = myCls(b); b.me = name; return b; },
+        myEntries: function(bookId){ return me.myEntries(bookId, name); },
+        submitEntry: async function(bookId, section, kind, _n, data){ return me.submitEntry(bookId, section, kind, name, data, myCls(await me.publicBook(bookId))); },
+        blankStatus: function(bookId, section){ return me.blankStatus(bookId, section, name); },
+        submitBlanks: async function(bookId, section, _n, answers){ return me.submitBlanks(bookId, section, name, answers, myCls(await me.publicBook(bookId))); },
+        quizStatus: function(bookId, section){ return me.quizStatus(bookId, section, name); },
+        submitQuiz: async function(bookId, section, _n, answers){ return me.submitQuiz(bookId, section, name, answers, myCls(await me.publicBook(bookId))); }
+      };
+    }
   };
 }
 
@@ -1165,8 +1199,11 @@ if (DEMO){
 }
 
 /* ===== 라우팅 ===== */
-var bookParam = PARAMS.get("book");
-if (bookParam) runStudent(bookParam);
+// 청연국어 앱 「내 숙제」에서 오면 reading.html?s=1#t=책ID (열쇠로 들어옴)
+var ST_MODE = PARAMS.has("s");
+var bookParam = PARAMS.get("book") || (ST_MODE ? decodeURIComponent((location.hash.match(/[#&]t=([^&]+)/) || [])[1] || "") : "");
+if (ST_MODE && !bookParam) location.replace("student.html" + (DEMO ? "?demo=1" : ""));
+else if (bookParam) runStudent(bookParam);
 else runTeacher();
 
 /* ================= 학생 ================= */
@@ -1177,16 +1214,30 @@ function runStudent(bookId){
   var BOOK = null, NAME = lsGet("reading-name") || "", MY = {};
   var SEC = lsGet("reading-sec:" + bookId) || 0, TAB = "bookmark";
   var CLASS = PARAMS.get("class") || lsGet("reading-class:" + bookId) || "";   // 반 링크(?class=)로 들어오면 그 반
+  var HUB = "student.html" + (DEMO ? "?demo=1" : "");
+  var SKEY = DEMO ? "cy-student-demo-hub" : "cy-student";   // 청연국어 앱(되새김 · 문법)과 같은 열쇠
+  if (ST_MODE){
+    var SES = lsGet(SKEY);
+    if (!SES){ location.replace(HUB); return; }
+    Object.assign(api, api.stApi(SES.token, SES));
+    NAME = SES.name || ""; CLASS = "";
+  }
 
   init();
 
   async function init(){
     try { BOOK = await api.publicBook(bookId); }
-    catch(e){ app.innerHTML = ""; app.appendChild(el("div", { class: "empty", text: e.message || "책을 열 수 없습니다." })); return; }
+    catch(e){
+      if (ST_MODE && /다시 들어와/.test(e.message)){ lsDel(SKEY); location.replace(HUB); return; }
+      app.innerHTML = ""; app.appendChild(el("div", { class: "empty", text: e.message || "책을 열 수 없습니다." }));
+      if (/내 숙제/.test(e.message) || ST_MODE) app.appendChild(el("div", { style: "text-align:center" }, [ el("a", { class: "btn", href: HUB, text: "청연국어 앱 「내 숙제」로", style: "text-decoration:none" }) ]));
+      return;
+    }
     if (SEC >= BOOK.sections.length) SEC = 0;
     BOOK.classes = BOOK.classes || [];
+    if (ST_MODE){ NAME = BOOK.me || NAME; CLASS = BOOK.my_class || ""; }
     if (!className(BOOK, CLASS)) CLASS = "";
-    if (CLASS) lsSet("reading-class:" + bookId, CLASS);
+    if (CLASS && !ST_MODE) lsSet("reading-class:" + bookId, CLASS);
     pageHeader.innerHTML = "";
     pageHeader.appendChild(el("div", { class: "eyebrow", text: (BOOK.grade ? BOOK.grade + " · " : "") + "독서 기록" }));
     pageHeader.appendChild(el("h1", { text: BOOK.title }));
@@ -1209,7 +1260,8 @@ function runStudent(bookId){
     var top = el("div", { class: "card" }, []);
     top.appendChild(el("div", { class: "spread" }, [
       el("div", {}, [ el("h2", { text: NAME + " 학생" }), CLASS ? el("div", { class: "sub small", text: className(BOOK, CLASS) }) : null ]),
-      el("button", { class: "btn ghost small", text: "이름 바꾸기", onclick: function(){ NAME = ""; lsDel("reading-name"); render(); } })
+      ST_MODE ? el("a", { class: "btn ghost small", href: HUB, text: "← 내 숙제", style: "text-decoration:none" })
+              : el("button", { class: "btn ghost small", text: "이름 바꾸기", onclick: function(){ NAME = ""; lsDel("reading-name"); render(); } })
     ]));
     var chips = el("div", { class: "chips", "aria-label": "주차" }, []);
     BOOK.sections.forEach(function(s, i){
@@ -1746,17 +1798,34 @@ function runTeacher(){
     var classes = clone(book.classes || []);
     var clsCard = el("div", { class: "card" }, []);
     app.appendChild(clsCard);
+    var ROSTER = null;
+    api.rosterClasses().then(function(r){ ROSTER = r || []; drawClasses(); }, function(){ ROSTER = []; drawClasses(); });
     function drawClasses(){
       clsCard.innerHTML = "";
-      clsCard.appendChild(el("h3", { text: "반" }));
-      clsCard.appendChild(el("p", { class: "sub small", text: "이 책을 여러 반에 내주면 반을 추가하세요. 반마다 학생 링크와 제출 마감이 따로 생기고, 수업 보기에서 반별로 볼 수 있어요. 한 반만 하면 비워 두세요." }));
+      clsCard.appendChild(el("h3", { text: "반 고르기 (청연국어 앱)" }));
+      clsCard.appendChild(el("p", { class: "sub small", text: "고른 반 학생의 청연국어 앱 「내 숙제」에 이 책이 떠요. 학생은 이름과 입장 코드로 들어와요. 반마다 제출 마감을 따로 정하고, 수업 보기에서 반별로 볼 수 있어요." }));
+      var rChips = el("div", { class: "chips", "aria-label": "명단 반" }, []);
+      if (ROSTER === null) rChips.appendChild(el("span", { class: "sub small", text: "반 목록을 불러오는 중…" }));
+      else if (!ROSTER.length) rChips.appendChild(el("span", { class: "sub small", text: "학생 명단에 반이 없어요. 청연 되새김의 「학생 명단」에서 반을 먼저 만들어요." }));
+      else ROSTER.forEach(function(R){
+        var on = classes.some(function(c){ return c.id === R.id; });
+        rChips.appendChild(el("button", { class: "chip" + (on ? " on" : ""), "aria-pressed": on ? "true" : "false", text: (on ? "✓ " : "") + R.name, onclick: function(){
+          var i = classes.findIndex(function(c){ return c.id === R.id; });
+          if (i >= 0) classes.splice(i, 1); else classes.push({ id: R.id, name: R.name });
+          drawClasses(); draw();
+        } }));
+      });
+      clsCard.appendChild(rChips);
+      var legacy = classes.filter(function(c){ return !isRoster(c.id); });
+      clsCard.appendChild(el("p", { class: "sub small", style: "margin-top:1rem", text: legacy.length ? "링크로 내주는 반 (예전 방식 · 이름만 쓰고 들어와요)" : "" }));
       classes.forEach(function(c, ci){
+        if (isRoster(c.id)) return;
         var inp = bind(el("input", { type: "text", placeholder: "예) 목요일반", "aria-label": "반 이름", style: "flex:1" }), c, "name");
         inp.addEventListener("change", draw);
         clsCard.appendChild(el("div", { class: "row", style: "margin-bottom:.5rem" }, [ inp,
           el("button", { class: "chip", text: "삭제", onclick: async function(){ if (await askBox((c.name || "이 반") + "을(를) 지울까요? 이미 낸 학생 기록은 남아요.", "지우기")){ classes.splice(ci, 1); drawClasses(); draw(); } } }) ]));
       });
-      clsCard.appendChild(el("button", { class: "chip", text: "+ 반 추가", onclick: function(){ classes.push({ id: "c" + Math.random().toString(36).slice(2, 7), name: "" }); drawClasses(); draw(); } }));
+      if (legacy.length) clsCard.appendChild(el("button", { class: "chip", text: "+ 링크 반 추가", onclick: function(){ classes.push({ id: "c" + Math.random().toString(36).slice(2, 7), name: "" }); drawClasses(); draw(); } }));
     }
     drawClasses();
     app.appendChild(el("div", { class: "note", html:

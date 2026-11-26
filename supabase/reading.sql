@@ -92,6 +92,28 @@ create policy "owner deletes entries" on public.entries
   for delete to authenticated
   using (exists (select 1 from public.books b where b.id = entries.book_id and b.owner = auth.uid()));
 
+-- ---------- 2026-11-26 · 청연국어 학생 명단으로 열기 (students.sql 먼저) ----------
+--   books.classes 에 학생 명단의 반(classes.id)을 넣으면 '명단 반'. 그 반 학생만 청연국어 앱 「내 숙제」에서 열림(입장 코드).
+--   명단 반이 하나라도 있는 책은 예전 이름 링크(?book=)로는 안 열림. 명단 반이 없는 예전 책은 지금처럼 링크로 열림.
+--   아래 st_r_* 함수가 열쇠(token)로 학생을 확인하고 cy.rst = '1' 을 켠 뒤 예전 함수를 부름.
+create or replace function public.reading_link_ok(p_book_id uuid)
+returns boolean
+language plpgsql stable security definer set search_path = public
+as $$
+declare v_owner uuid; v_cls jsonb;
+begin
+  if coalesce(current_setting('cy.rst', true), '') = '1' then return true; end if;
+  select owner, classes into v_owner, v_cls from books where id = p_book_id;
+  if v_owner is null or v_owner = auth.uid() then return true; end if;
+  if to_regclass('public.classes') is not null and exists (
+       select 1 from jsonb_array_elements(coalesce(v_cls, '[]'::jsonb)) c
+         join public.classes k on k.id::text = c->>'id' and k.owner = v_owner) then
+    raise exception '이 책은 청연국어 앱 「내 숙제」에서 열어요. 이름과 입장 코드로 들어와 주세요.';
+  end if;
+  return true;
+end; $$;
+revoke all on function public.reading_link_ok(uuid) from public, anon, authenticated;
+
 -- ---------- 학생용 RPC: 책 정보 (빈칸 정답 · 예시 답안 제외) ----------
 --   줄거리의 [정답] 은 [] 로 바뀌어 전달됨
 create or replace function public.get_book(p_book_id uuid)
@@ -107,6 +129,7 @@ begin
   select * into b from books where id = p_book_id;
   if b.id is null then raise exception '책을 찾을 수 없습니다.'; end if;
   if not b.is_open then raise exception '선생님이 아직 열지 않은 책입니다.'; end if;
+  perform reading_link_ok(p_book_id);
 
   select coalesce(jsonb_agg(
            jsonb_build_object(
@@ -156,6 +179,7 @@ declare
   v_n    int;
   v_id   uuid;
 begin
+  perform reading_link_ok(p_book_id);
   select is_open, jsonb_array_length(sections) into v_open, v_n from books where id = p_book_id;
   if v_open is null then raise exception '책을 찾을 수 없습니다.'; end if;
   if not v_open then raise exception '선생님이 닫은 책입니다.'; end if;
@@ -188,7 +212,8 @@ as $$
            'feedback', feedback, 'checked', checked, 'updated_at', updated_at)), '[]'::jsonb)
     from entries
    where book_id = p_book_id and student_name = trim(p_name)
-     and exists (select 1 from books b where b.id = p_book_id and b.is_open);
+     and exists (select 1 from books b where b.id = p_book_id and b.is_open)
+     and reading_link_ok(p_book_id);
 $$;
 
 -- ---------- 빈칸 채점 도우미 (앱의 grade() 와 같은 규칙) -------------
@@ -258,6 +283,7 @@ declare
   v_stage    int;
   i          int;
 begin
+  perform reading_link_ok(p_book_id);
   select sections into v_sections from books where id = p_book_id and is_open;
   if v_sections is null then raise exception '책을 열 수 없습니다.'; end if;
   select data into v_data from entries
@@ -302,6 +328,7 @@ declare
   v_next     jsonb := '[]'::jsonb;
   i          int;
 begin
+  perform reading_link_ok(p_book_id);
   select sections into v_sections from books where id = p_book_id and is_open;
   if v_sections is null then raise exception '선생님이 닫은 책입니다.'; end if;
   if p_section is null or p_section < 0 or p_section >= jsonb_array_length(v_sections) then raise exception '주차가 올바르지 않습니다.'; end if;
@@ -381,6 +408,7 @@ declare
   v_ok    boolean;
   i       int;
 begin
+  perform reading_link_ok(p_book_id);
   select coalesce(sections -> p_section -> 'quiz', '[]'::jsonb) into v_quiz from books where id = p_book_id and is_open;
   if v_quiz is null then raise exception '책을 열 수 없습니다.'; end if;
   select data into v_data from entries
@@ -405,6 +433,7 @@ as $$
 declare
   v_sections jsonb;
 begin
+  perform reading_link_ok(p_book_id);
   select sections into v_sections from books where id = p_book_id and is_open;
   if v_sections is null then raise exception '선생님이 닫은 책입니다.'; end if;
   if p_section is null or p_section < 0 or p_section >= jsonb_array_length(v_sections) then raise exception '주차가 올바르지 않습니다.'; end if;
@@ -452,3 +481,97 @@ begin
     execute 'alter publication supabase_realtime add table public.entries';
   end if;
 end $$;
+
+-- ============================================================
+--  2026-11-26 · 청연국어 앱 「내 숙제」에서 독서 열기 (입장 코드 · students.sql 먼저)
+--   선생님이 책의 반에 학생 명단의 반을 고르면, 그 반 학생 「내 숙제」에 책이 뜸.
+--   이름은 명단 이름, 반은 학생의 반으로 저장 (반별 마감 · 수업 보기 그대로).
+-- ============================================================
+create or replace function public.rst_student(p_token uuid, p_book_id uuid)
+returns public.students
+language plpgsql security definer set search_path = public
+as $$
+declare s students%rowtype;
+begin
+  s := student_from_token(p_token);
+  if not exists (select 1 from books b where b.id = p_book_id and b.owner = s.owner and b.is_open and s.class_id is not null
+                    and exists (select 1 from jsonb_array_elements(coalesce(b.classes, '[]'::jsonb)) c where c->>'id' = s.class_id::text)) then
+    raise exception '선생님이 아직 열지 않은 책입니다.';
+  end if;
+  perform set_config('cy.rst', '1', true);
+  return s;
+end; $$;
+
+-- 내 숙제 목록: 내 반에 열린 책 + 어디까지 했는지 (stage 0 안 함 · 1 하는 중 · 2 책갈피·내용 이해 모두 냄)
+create or replace function public.st_books(p_token uuid)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare s students%rowtype; v_list jsonb := '[]'::jsonb; r record; v_n int; v_done int; v_any int;
+begin
+  s := student_from_token(p_token);
+  for r in select b.id, b.title, b.author, b.grade, b.sections from books b
+            where b.owner = s.owner and b.is_open and s.class_id is not null
+              and exists (select 1 from jsonb_array_elements(coalesce(b.classes, '[]'::jsonb)) c where c->>'id' = s.class_id::text)
+            order by b.created_at desc loop
+    v_n := jsonb_array_length(coalesce(r.sections, '[]'::jsonb));
+    select count(*) into v_any from entries e where e.book_id = r.id and e.student_name = s.name;
+    select count(*) into v_done from generate_series(0, greatest(v_n - 1, 0)) g(i)
+     where v_n > 0
+       and exists (select 1 from entries e where e.book_id = r.id and e.student_name = s.name and e.section = g.i and e.kind = 'bookmark')
+       and exists (select 1 from entries e where e.book_id = r.id and e.student_name = s.name and e.section = g.i and e.kind = 'blanks');
+    v_list := v_list || jsonb_build_object('id', r.id, 'title', r.title, 'author', r.author, 'grade', r.grade, 'app', 'reading',
+                                           'stage', case when v_n > 0 and v_done = v_n then 2 when v_any > 0 then 1 else 0 end);
+  end loop;
+  return jsonb_build_object('name', s.name, 'books', v_list);
+end; $$;
+
+create or replace function public.st_r_book(p_token uuid, p_book_id uuid)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ declare s students%rowtype; begin s := rst_student(p_token, p_book_id);
+  return get_book(p_book_id) || jsonb_build_object('me', s.name, 'my_class', s.class_id::text); end; $$;
+
+create or replace function public.st_r_entries(p_token uuid, p_book_id uuid)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ declare s students%rowtype; begin s := rst_student(p_token, p_book_id); return get_my_entries(p_book_id, s.name); end; $$;
+
+create or replace function public.st_r_submit_entry(p_token uuid, p_book_id uuid, p_section int, p_kind text, p_data jsonb)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ declare s students%rowtype; begin s := rst_student(p_token, p_book_id);
+  return submit_entry(p_book_id, p_section, p_kind, s.name, p_data, s.class_id::text); end; $$;
+
+create or replace function public.st_r_blank_status(p_token uuid, p_book_id uuid, p_section int)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ declare s students%rowtype; begin s := rst_student(p_token, p_book_id); return get_blank_status(p_book_id, p_section, s.name); end; $$;
+
+create or replace function public.st_r_submit_blanks(p_token uuid, p_book_id uuid, p_section int, p_answers jsonb)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ declare s students%rowtype; begin s := rst_student(p_token, p_book_id);
+  return submit_blanks(p_book_id, p_section, s.name, p_answers, s.class_id::text); end; $$;
+
+create or replace function public.st_r_quiz_status(p_token uuid, p_book_id uuid, p_section int)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ declare s students%rowtype; begin s := rst_student(p_token, p_book_id); return get_quiz_status(p_book_id, p_section, s.name); end; $$;
+
+create or replace function public.st_r_submit_quiz(p_token uuid, p_book_id uuid, p_section int, p_answers jsonb)
+returns jsonb language plpgsql security definer set search_path = public
+as $$ declare s students%rowtype; begin s := rst_student(p_token, p_book_id);
+  return submit_quiz(p_book_id, p_section, s.name, p_answers, s.class_id::text); end; $$;
+
+revoke all on function public.rst_student(uuid, uuid)                          from public, anon, authenticated;
+revoke all on function public.st_books(uuid)                                   from public;
+revoke all on function public.st_r_book(uuid, uuid)                            from public;
+revoke all on function public.st_r_entries(uuid, uuid)                         from public;
+revoke all on function public.st_r_submit_entry(uuid, uuid, int, text, jsonb)  from public;
+revoke all on function public.st_r_blank_status(uuid, uuid, int)               from public;
+revoke all on function public.st_r_submit_blanks(uuid, uuid, int, jsonb)       from public;
+revoke all on function public.st_r_quiz_status(uuid, uuid, int)                from public;
+revoke all on function public.st_r_submit_quiz(uuid, uuid, int, jsonb)         from public;
+grant execute on function public.st_books(uuid)                                to anon, authenticated;
+grant execute on function public.st_r_book(uuid, uuid)                         to anon, authenticated;
+grant execute on function public.st_r_entries(uuid, uuid)                      to anon, authenticated;
+grant execute on function public.st_r_submit_entry(uuid, uuid, int, text, jsonb) to anon, authenticated;
+grant execute on function public.st_r_blank_status(uuid, uuid, int)            to anon, authenticated;
+grant execute on function public.st_r_submit_blanks(uuid, uuid, int, jsonb)    to anon, authenticated;
+grant execute on function public.st_r_quiz_status(uuid, uuid, int)             to anon, authenticated;
+grant execute on function public.st_r_submit_quiz(uuid, uuid, int, jsonb)      to anon, authenticated;

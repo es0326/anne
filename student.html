@@ -112,7 +112,9 @@ var pageHeader = document.getElementById("pageHeader");
 var APPS = [
   { app: "naesin", name: "내신 1차 답 맞추기", desc: "종이로 풀고 답만 넣기", href: "test.html" },
   { app: "test", name: "청연 되새김", desc: "고전문학 현대어 풀이 · O·X", href: "test.html" },
-  { app: "grammar", name: "청연 문법·화법", desc: "문법·화법 O·X · 쓰기 · 객관식", href: "grammar.html" }
+  { app: "grammar", name: "청연 문법·화법", desc: "문법·화법 O·X · 쓰기 · 객관식", href: "grammar.html" },
+  { app: "reading", name: "청연 독서", desc: "책갈피 · 내용 이해 · 독서 퀴즈", href: "reading.html",
+    lab: [ ["no", "아직 안 함", "시작하기"], ["mid", "하는 중", "이어서 하기"], ["ok", "냈어요", "다시 보기 · 독서 퀴즈"] ] }
 ];
 
 function el(tag, attrs, kids){
@@ -148,7 +150,9 @@ function supabaseApi(){
   return {
     login: async function(name, code){ return unwrap(await db.rpc("student_login", { p_name: name, p_code: code })); },
     logout: async function(tok){ try { await db.rpc("student_logout", { p_token: tok }); } catch(e){} },
-    myTests: async function(tok){ return unwrap(await db.rpc("st_tests", { p_token: tok })); }
+    myTests: async function(tok){ return unwrap(await db.rpc("st_tests", { p_token: tok })); },
+    // 청연 독서 (reading.sql st_books). 서버 설정 전이면 빈 목록
+    myBooks: async function(tok){ try { return (unwrap(await db.rpc("st_books", { p_token: tok })) || {}).books || []; } catch(e){ if (/다시 들어와/.test(e.message)) throw e; return []; } }
   };
 }
 // 체험: 화면 모양만 보기 (숙제를 누르면 각 앱의 체험 화면으로)
@@ -168,6 +172,12 @@ function demoApi(){
         { id: "demo-g1", app: "grammar", title: "품사 O·X · 중등부", track: "중등부", stage: 0 },
         { id: "demo-g2", app: "grammar", title: "품사 쓰기 · 중등부", track: "중등부", stage: 2 },
         { id: "demo-sami", app: "test", work: "사미인곡", author: "정철", series: "고전시가", stage: 2 } ] };
+    },
+    // 체험: 같은 기기의 청연 독서 체험 책 중 명단 반(목요일반)을 고른 책
+    myBooks: async function(){
+      var S = lsGet("reading-demo-v4") || { books: [] };
+      return (S.books || []).filter(function(b){ return b.is_open && (b.classes || []).some(function(c){ return /^[0-9a-f]{8}-/.test(c.id) && c.name === "목요일반"; }); })
+        .map(function(b){ return { id: b.id, app: "reading", title: b.title, author: b.author, grade: b.grade, stage: 0 }; });
     }
   };
 }
@@ -216,7 +226,11 @@ async function renderHome(){
   setHeader("내 숙제");
   app.innerHTML = '<div class="empty">불러오는 중…</div>';
   var R;
-  try { R = await api.myTests(SES.token); }
+  try {
+    var both = await Promise.all([ api.myTests(SES.token), api.myBooks(SES.token) ]);
+    R = both[0];
+    R.tests = (R.tests || []).concat((both[1] || []).map(function(b){ return { id: b.id, app: "reading", work: b.title, author: b.author, series: b.grade, stage: b.stage }; }));
+  }
   catch(e){
     if (/다시 들어와/.test(e.message)){ lsDel(SKEY); SES = null; return route(); }   // 선생님이 새 코드를 줌 등
     app.innerHTML = ""; app.appendChild(el("div", { class: "err", text: e.message }));
@@ -241,7 +255,7 @@ async function renderHome(){
     if (!mine.length) return;
     app.appendChild(el("div", { class: "app-h" }, [ A.name, el("small", { text: A.desc }) ]));
     mine.forEach(function(t){
-      var L = LAB[t.stage] || LAB[0];
+      var L = (A.lab || LAB)[t.stage] || (A.lab || LAB)[0];
       var href = A.href + "?s=1" + (DEMO ? "&demo=1" : "") + "#t=" + encodeURIComponent(t.id);
       app.appendChild(el("a", { class: "card hw" + (t.stage === 2 ? " done" : ""), href: href }, [
         el("div", { class: "spread" }, [ el("h3", { text: t.work || t.title }), el("span", { class: "pill " + L[0], text: L[1] }) ]),
